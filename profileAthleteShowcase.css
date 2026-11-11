@@ -43,3 +43,32 @@
 .bk-profile-showcase-stats dt svg{width:19px;height:19px;color:#f2c55f}
 .bk-profile-showcase-stats dd{margin:0;color:#fff5df;font:900 italic clamp(19px,5vw,29px)/1 var(--bk-font-display,Impact,sans-serif);overflow-wrap:anywhere}
 @media(max-width:360px){.bk-profile-athlete-tabs svg{display:none}}
+
+/* Continue the showcase palette through the entire Profile destination. */
+.bk-profile-page.bk-screen.bk-profile-page {
+  background:radial-gradient(ellipse at 88% 15%,#332513 0%,transparent 35%),linear-gradient(165deg,#101014,#06080a 58%);
+}
+.bk-profile-page.bk-screen .bk-locker-masthead {border-bottom:1px solid #8c682e66;padding-block:5px}
+.bk-profile-page.bk-screen .bk-locker-masthead h1 {color:#fff3dc;text-shadow:0 2px #8c682e,0 5px 14px #000}
+.bk-profile-page.bk-screen .bk-profile-help {border-color:#ae8449;background:linear-gradient(#2b2116,#101014);box-shadow:inset 0 1px #ffe4aa22}
+.bk-profile-page.bk-screen .bk-profile-hero {background:linear-gradient(120deg,#0d0e12,#06080a 60%,#1c150d)}
+.bk-profile-page.bk-screen .bk-profile-hero:has(.bk-athlete-profile-showcase) .bk-profile-hero-art {opacity:.9;filter:contrast(1.18) saturate(.9)}
+.bk-profile-page.bk-screen .bk-profile-hero:has(.bk-athlete-profile-showcase) .bk-profile-hero-title h2 {text-shadow:0 3px 14px #000}
+.bk-profile-page.bk-screen .bk-profile-hero:has(.bk-athlete-profile-showcase) .bk-profile-hero-title em {
+  color:#f0c35b;background:linear-gradient(#ffe6a6,#e8aa3f 76%,#bc7524);
+  background-clip:text;-webkit-text-fill-color:transparent;filter:drop-shadow(0 3px 6px #000);text-shadow:none;
+}
+.bk-profile-page.bk-screen .bk-profile-identity>section>button {
+  box-shadow:0 0 0 3px #e3c67122,0 0 14px #e9bd655c;
+}
+.bk-profile-page.bk-screen .bk-profile-identity-actions>button:first-child {
+  border-color:#bc9256;background:linear-gradient(#251d14,#0f1014);color:#fff1d5;
+}
+.bk-profile-hero:has(.bk-athlete-profile-showcase) .bk-profile-showcase-stats {
+  border-color:#aa854961;box-shadow:inset 0 1px #e4be6c27,0 5px 15px #0006;
+}
+.bk-profile-page.bk-screen :is(.bk-locker-overview,.bk-locker-trophies,.bk-profile-extras) {
+  border-color:#a780416b;box-shadow:inset 0 1px #f1c46a18,0 6px 16px #0006;
+  background:linear-gradient(145deg,#211b14,#0c1016 51%);
+}
+.bk-profile-page.bk-screen .bk-locker-receipts {border-color:#a780416b;box-shadow:inset 0 1px #f1c46a18,0 6px 16px #0006}

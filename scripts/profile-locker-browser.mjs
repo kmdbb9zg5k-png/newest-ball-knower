@@ -111,6 +111,8 @@ try {
       for (const button of await page.getByRole('button', { name: 'Profile', exact: true }).all()) { if (await button.isVisible()) { await button.click(); break; } }
       const profile = page.getByTestId('locker-profile');
       await profile.waitFor();
+      assert.equal(await page.locator('header[data-profile-chrome="true"]').count(), 1);
+      assert.equal(await page.locator('nav[aria-label="Primary navigation"]').getAttribute('data-profile-chrome'), 'true');
       const guide = page.getByRole('dialog', { name: 'Make every game count.', exact: true });
       await guide.waitFor();
       assert.equal(await guide.getByRole('navigation', { name: 'Profile guide topics' }).getByRole('button').count(), 9);
@@ -268,6 +270,7 @@ try {
       assert.equal(await page.getByRole('button', { name: 'Ball Knower home', exact: true }).locator('h1').evaluate(element => getComputedStyle(element).fontSize), homeBrandSize, 'Profile cosmetics must not leak into Home');
       assert.equal(await page.getByRole('button',{name:'Ball Knower home',exact:true}).locator('h1').evaluate(el=>getComputedStyle(el).backgroundImage),'none','Profile atlas must not leak into Home');
       console.log('PASS restored Home header',engine,width,homeBrandSize);
+      assert.equal(await page.locator('header[data-profile-chrome="true"]').count(), 0);
       if (engine === 'chromium' && width === 430) {
         await page.evaluate(() => localStorage.setItem('ballknower_solo_my_player_v2', JSON.stringify({
           version: 1, stage: 'creator', position: 'WR', name: 'Showcase Fixture', number: 7,
