@@ -41,11 +41,21 @@ const automaticTrackIndexes = (tracks: MediaTrack[]) => tracks
   .filter(({ track }) => !track.manualOnly)
   .map(({ index }) => index);
 
-const randomTrackIndex = (tracks: MediaTrack[], excludedIndex = -1) => {
-  const eligible = automaticTrackIndexes(tracks).filter(index => index !== excludedIndex);
-  const fallback = automaticTrackIndexes(tracks);
-  const choices = eligible.length ? eligible : fallback;
-  return choices.length ? choices[Math.floor(Math.random() * choices.length)] : 0;
+// Randomize every eligible song once per cycle, instead of replaying the same
+// handful while other songs never get heard. The first song also avoids the
+// last one played on the previous app launch when alternatives are available.
+const shuffledTrackOrder = (tracks: MediaTrack[], excludedIndex = -1) => {
+  const remaining = automaticTrackIndexes(tracks);
+  const order: number[] = [];
+  while (remaining.length) {
+    const pick = Math.floor(Math.random() * remaining.length);
+    order.push(remaining.splice(pick, 1)[0]);
+  }
+  if (order.length > 1 && order[0] === excludedIndex) {
+    const replacement = 1 + Math.floor(Math.random() * (order.length - 1));
+    [order[0], order[replacement]] = [order[replacement], order[0]];
+  }
+  return order;
 };
 
 const adjacentTrackIndex = (tracks: MediaTrack[], currentIndex: number, direction: 1 | -1) => {
@@ -67,6 +77,15 @@ export const SoundtrackProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const appActiveRef = useRef(document.visibilityState==='visible');
   const nativeActiveRef = useRef(true);
   const currentTrackIndexRef = useRef(0);
+  const shuffleQueueRef = useRef<number[]>([]);
+  const takeShuffledTrackIndex = (loaded: MediaTrack[], excludedIndex = -1) => {
+    const allowed = new Set(automaticTrackIndexes(loaded));
+    let queue = shuffleQueueRef.current.filter(index => allowed.has(index) && index !== excludedIndex);
+    if (!queue.length) queue = shuffledTrackOrder(loaded, excludedIndex);
+    const next = queue.shift() ?? 0;
+    shuffleQueueRef.current = queue;
+    return next;
+  };
   const recoveredTrackUrlsRef = useRef<Map<string,string>>(new Map());
   const recoveryInFlightRef = useRef(false);
   const playbackVersionRef = useRef(0);
@@ -102,7 +121,9 @@ export const SoundtrackProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         let lastTrackId = '';
         try { lastTrackId = localStorage.getItem(STORAGE_KEY_LAST_TRACK) || ''; } catch {}
         const lastIndex = loaded.findIndex(track => track.id === lastTrackId);
-        const nextIndex = randomTrackIndex(loaded, lastIndex);
+        const order = shuffledTrackOrder(loaded, lastIndex);
+        const nextIndex = order.shift() ?? 0;
+        shuffleQueueRef.current = order;
         currentTrackIndexRef.current = nextIndex;
         setCurrentTrackIndex(nextIndex);
       }
@@ -120,7 +141,7 @@ export const SoundtrackProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       const handlePlay = () => setIsPlaying(true);
       const handlePause = () => setIsPlaying(false);
       const advance = () => {
-        const loaded=tracksRef.current,nextIndex=randomTrackIndex(loaded,currentTrackIndexRef.current),track=loaded[nextIndex];
+        const loaded=tracksRef.current,nextIndex=takeShuffledTrackIndex(loaded,currentTrackIndexRef.current),track=loaded[nextIndex];
         currentTrackIndexRef.current=nextIndex;setCurrentTrackIndex(nextIndex);playbackVersionRef.current+=1;
         // Browsers may emit pause before ended. Start the next track from the
         // user's playback intent instead of the transient isPlaying state.
@@ -246,8 +267,12 @@ export const SoundtrackProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const pause = useCallback(() => { shouldPlayRef.current = false; audioRef.current?.pause(); setIsPlaying(false); }, []);
   const toggleMute = useCallback(() => {preferencesEditedRef.current=true;setIsMuted(v=>!v);}, []);
   const setVolume = useCallback((v:number) => {preferencesEditedRef.current=true;setVolumeState(soundtrackVolume(v));}, []);
-  const selectTrack = useCallback((i:number) => startIndex(i), [startIndex]);
-  const nextTrack = useCallback(() => startIndex(randomTrackIndex(tracks, currentTrackIndex)), [startIndex,tracks,currentTrackIndex]);
+  const selectTrack = useCallback((i:number) => {
+    // Explicit selection counts as hearing this song in the current shuffle.
+    shuffleQueueRef.current = shuffleQueueRef.current.filter(index => index !== i);
+    startIndex(i);
+  }, [startIndex]);
+  const nextTrack = useCallback(() => startIndex(takeShuffledTrackIndex(tracks, currentTrackIndex)), [startIndex,tracks,currentTrackIndex]);
   const prevTrack = useCallback(() => startIndex(adjacentTrackIndex(tracks, currentTrackIndex, -1)), [startIndex,tracks,currentTrackIndex]);
 
   const setIntroActive = useCallback((active:boolean) => {
