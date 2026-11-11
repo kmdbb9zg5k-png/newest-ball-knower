@@ -19,3 +19,8 @@
 .bk-profile-page.bk-screen .bk-profile-hero:has(.bk-athlete-profile-showcase) .bk-profile-hero-title{min-height:0;padding:12px 4px 8px}
 .bk-profile-page.bk-screen .bk-profile-hero:has(.bk-athlete-profile-showcase) .bk-profile-hero-title h2{font-size:clamp(30px,7vw,54px);max-width:none;line-height:1}
 .bk-profile-page.bk-screen .bk-profile-hero:has(.bk-athlete-profile-showcase) .bk-profile-hero-title br{display:none}
+
+.bk-profile-athlete .bk-athlete-profile-showcase{height:clamp(278px,74vw,400px)}
+.bk-profile-athlete-frame{position:absolute;z-index:2;top:5px;right:7px;min-height:44px;padding:0 8px;border:1px solid #96733b;border-radius:8px;background:#121217;color:#ffe4a1;font-size:.75rem;font-weight:750}
+.bk-profile-athlete-frame:disabled{opacity:.5}
+@media(max-width:380px){.bk-athlete-profile-showcase figcaption span{display:none}}

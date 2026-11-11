@@ -69,7 +69,7 @@ export default function AthleteLivePreview({profile:inputProfile,view='body',onV
       {showroomAthleteToggle&&<button className="bk-showroom-athlete-toggle" type="button" onClick={showroomAthleteToggle.onClick}>{showroomAthleteToggle.label}</button>}
     </figcaption> : <figcaption>YOUR ATHLETE <span>3D PREVIEW</span></figcaption>}
     <div className="bk-athlete-3d-stage" ref={host} onPointerDown={event=>{if(state!=='ready'||(event.pointerType==='mouse'&&event.button!==0))return;drag.current={id:event.pointerId,x:event.clientX,start:angle.current};event.currentTarget.setPointerCapture(event.pointerId);}} onPointerMove={event=>{const active=drag.current;if(active?.id===event.pointerId)rotate(active.start+(event.clientX-active.x)*.65);}} onPointerUp={()=>{drag.current=null;}} onPointerCancel={()=>{drag.current=null;}} onLostPointerCapture={()=>{drag.current=null;}}/>
-    {onViewChange&&<div className="bk-athlete-view-toggle" aria-label="Preview framing"><button type="button" aria-pressed={view==='body'} onClick={()=>onViewChange('body')}>Full body</button><button type="button" aria-pressed={view==='head'} onClick={()=>onViewChange('head')}>Close-up</button></div>}
+    {onViewChange&&!profileShowcase&&<div className="bk-athlete-view-toggle" aria-label="Preview framing"><button type="button" aria-pressed={view==='body'} onClick={()=>onViewChange('body')}>Full body</button><button type="button" aria-pressed={view==='head'} onClick={()=>onViewChange('head')}>Close-up</button></div>}
     {showroom&&<>
       <button className="bk-showroom-reset" type="button" aria-label="Reset view" disabled={state!=='ready'} onClick={resetShowroom}><RotateCcw size={20} aria-hidden="true"/></button>
       <div className="bk-showroom-orbit" role="group" aria-label="Rotate athlete">
@@ -88,9 +88,10 @@ export default function AthleteLivePreview({profile:inputProfile,view='body',onV
       <p>Try again, or open Ball Knower in Safari instead of an in-app browser.</p>
       <button type="button" onClick={()=>setAttempt(value=>value+1)}>Retry 3D preview</button>
     </div>:null}
+    {profileShowcase&&onViewChange&&<button className="bk-profile-athlete-frame" type="button" disabled={state!=='ready'} onClick={()=>onViewChange(view==='body'?'head':'body')}>{view==='body'?'Close-up':'Full body'}</button>}
     {profileShowcase&&<div className="bk-profile-athlete-controls">
       <button type="button" aria-label="Rotate athlete left" disabled={state!=='ready'} onClick={()=>rotate(angle.current-30)}><ChevronLeft aria-hidden="true"/></button>
-      <button className="bk-profile-walkout" type="button" disabled={state!=='ready'} onClick={()=>{rotate(0);scene.current?.walkout();}}><Footprints aria-hidden="true"/> Walkout</button>
+      <button className="bk-profile-walkout" type="button" disabled={state!=='ready'} onClick={()=>{if(view!=='body'){onViewChange?.('body');scene.current?.setView('body');}rotate(0);scene.current?.walkout();}}><Footprints aria-hidden="true"/> Walkout</button>
       <button type="button" aria-label="Rotate athlete right" disabled={state!=='ready'} onClick={()=>rotate(angle.current+30)}><ChevronRight aria-hidden="true"/></button>
     </div>}
     {!showroom&&!profileShowcase&&<div className="bk-athlete-preview-footer"><strong>{dimensions}</strong><label><span>Drag to rotate · Rotate athlete</span><input aria-label="Rotate athlete" type="range" min={-180} max={180} value={rotation} disabled={state!=='ready'} onChange={event=>{rotate(Number(event.target.value));}}/></label></div>}
