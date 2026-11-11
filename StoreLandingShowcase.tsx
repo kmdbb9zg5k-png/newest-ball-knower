@@ -24,9 +24,9 @@ const tunnel=[
 // The cast can use different existing campaign poses without redrawing characters.
 const heroCast=[
  {id:'gold-standard',name:'Gold Standard',img:storeImage('gold-standard-realistic')},
- {id:'bk-femme',name:'BKF Nicki',img:'/store/bkf-nicki-cover-v3.webp'},
- {id:'bfk-dee',name:'BKF Dee',img:'/store/bfk-dee-cover-v1.webp'},
- {id:'bkf-youngboy',name:'BKF YoungBoy',img:'/store/bkf-youngboy-cover.webp'},
+ {id:'bk-femme',name:'BKF Nicki',img:'/store/bkf-nicki-apose-v1.webp'},
+ {id:'bfk-dee',name:'BKF Dee',img:'/store/bfk-dee-standing-reference-v1.webp'},
+ {id:'bkf-youngboy',name:'BKF YoungBoy',img:'/store/bkf-youngboy.svg'},
  {id:'bkf-outlaw',name:'Country Boy',img:'/store/bkf-outlaw-look.webp'},
  {id:'bkf-kickflip',name:'Skater',img:'/store/bkf-kickflip-look.webp'},
  {id:'frostbite',name:'Frostbite',img:storeImage('frostbite')},
