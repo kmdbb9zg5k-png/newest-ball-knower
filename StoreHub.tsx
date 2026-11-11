@@ -20,6 +20,8 @@ const JerseyShop = lazy(() => import('./JerseyShop'));
 const PantsShop = lazy(() => import('./PantsShop'));
 const CleatShop = lazy(() => import('./CleatShop'));
 const AccessoriesShop = lazy(() => import('./AccessoriesShop'));
+const StoreLandingShowcase = lazy(() => import('./StoreLandingShowcase'));
+
 const BKFYoungBoyPose = lazy(() => import('./BKFYoungBoyPose'));
 const StoreCharacterPreview = lazy(() => import('./StoreCharacterPreview'));
 const BKFFrostbitePose = lazy(() => import('./BKFFrostbitePose'));
@@ -339,6 +341,13 @@ export default function StoreHub({ initialCategory, onOpenLocker, onOpenGauntlet
     (page === 'featured' ? viewAll.current : title.current)?.focus({ preventScroll: true });
   }, [page]);
 
+  // Department navigation can keep the same page state, so also reset the
+  // scroll position when opening a premium collection from deep in the Store.
+  useEffect(() => {
+    if (!navigated.current) return;
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+  }, [department]);
+
   useEffect(() => {
     if (tunnelProduct || !returnToCard.current) return;
     const { id, top } = returnToCard.current;
@@ -356,7 +365,7 @@ export default function StoreHub({ initialCategory, onOpenLocker, onOpenGauntlet
     }
   };
   const matchingProducts = filter === 'all' ? STORE_PRODUCTS : STORE_PRODUCTS.filter(product => product.categories.includes(filter));
-  const heading = page === 'featured' ? 'The Locker' : page === 'catalog' ? 'Shop the Store' : 'Earn Free Gear';
+  const heading = page === 'featured' ? 'BK Store' : page === 'catalog' ? 'Shop the Store' : 'Earn Free Gear';
 
   const categoryButtons = <div className="bk-store-filters" role="group" aria-label="Shop categories">
     {[{ id: 'all', label: 'All' } as const, ...STORE_CATEGORIES].map(category =>
@@ -403,7 +412,7 @@ export default function StoreHub({ initialCategory, onOpenLocker, onOpenGauntlet
   </Suspense>;
   if (tunnelProduct) return <TunnelProductPage product={tunnelProduct} onBack={() => setTunnelProduct(null)}/>;
 
-  return <section className="bk-store bk-store-locker-shop" data-store-page={page} ref={store} aria-label="Store">
+  return <section className="bk-store bk-store-locker-shop" data-store-page={page} data-store-department={department} ref={store} aria-label="Store">
     {page !== 'featured' && <button className="bk-store-back" type="button" onClick={() => { setDepartment('featured'); openPage('featured'); }}><ArrowLeft size={17} aria-hidden="true"/> Back to Store</button>}
     <header className="bk-store-header">
       <div><span className="bk-store-brand">Ball Knower</span><h1 id="bk-store-title" ref={title} tabIndex={-1}>{heading}</h1></div>
@@ -415,18 +424,27 @@ export default function StoreHub({ initialCategory, onOpenLocker, onOpenGauntlet
         onClick={() => { setDepartment(item.id); setFilter('all'); setPage(item.id === 'all' ? 'catalog' : 'featured'); }}>{item.label}</button>)}
     </div>}
     {page === 'featured' && <>
-      {department === 'featured' && <section className="bk-store-featured" aria-labelledby="bk-store-featured-title">
-        <img className="bk-store-hero-art" src={storeImage('campaign-blackout')} alt="" fetchPriority="high"/>
-        <div className="bk-store-featured-copy">
-          <span className="bk-store-kicker">The signature collection</span>
-          <h2 id="bk-store-featured-title">Blackout<br/>Gear Kit</h2>
-          <div className="bk-store-featured-actions"><button className="bk-store-button bk-store-button-gold" type="button" onClick={() => showProduct(BLACKOUT_KIT)}>Explore Drop</button></div>
-        </div>
-      </section>}
+      {department === 'featured' && <>
+        <Suspense fallback={<div className="bk-store-featured" role="status">Loading BK premium collections…</div>}>
+          <StoreLandingShowcase
+            onNavigate={next => { setDepartment(next); setFilter('all'); openPage('featured'); }}
+            onTunnelFits={() => document.getElementById('bk-store-clothing-title')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+          />
+        </Suspense>
+        <section className="bk-store-featured bk-store-featured--secondary" aria-labelledby="bk-store-featured-title">
+          <img className="bk-store-hero-art" src={storeImage('campaign-blackout')} alt="" loading="lazy"/>
+          <div className="bk-store-featured-copy">
+            <span className="bk-store-kicker">The signature drop</span>
+            <h2 id="bk-store-featured-title">Blackout<br/>Gear Kit</h2>
+            <p>For those who play different.</p>
+            <div className="bk-store-featured-actions"><button className="bk-store-button bk-store-button-gold" type="button" onClick={() => showProduct(BLACKOUT_KIT)}>Explore Drop <ChevronRight size={16} aria-hidden="true"/></button></div>
+          </div>
+        </section>
+      </>}
       {[
-        { id: 'characters', title: 'New character collections', kicker: 'Featured drop', products: shuffledCharacters },
-        { id: 'clothing', title: 'Build your tunnel fit', kicker: 'Clothing', products: clothingProducts },
-        { id: 'accessories', title: 'Make it your own', kicker: 'Accessories', products: accessoryProducts },
+        { id: 'clothing', title: 'Build your tunnel fit', kicker: 'Off-field style', products: clothingProducts },
+        { id: 'characters', title: 'Meet the characters', kicker: 'Character drops', products: shuffledCharacters },
+        { id: 'accessories', title: 'More ways to customize', kicker: 'Classic extras', products: accessoryProducts },
         { id: 'more', title: 'More for your game', kicker: 'Gear & extras', products: otherProducts },
       ].filter(group => department === 'featured' || department === group.id).map(group => <section key={group.id} aria-labelledby={'bk-store-' + group.id + '-title'} className="bk-store-shop">
         <span className="bk-store-kicker">{group.kicker}</span>
