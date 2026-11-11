@@ -28,19 +28,33 @@ const chapterTitles = [
   ['Wild Card', 'Win or Go Home', 'Road to the Divisional', 'Divisional Round', 'Survive and Advance', 'Road Comeback', 'Conference Semifinal', 'One More Game', 'Conference Final', 'Punch Your Ticket'],
   ['The Final Stretch', 'Title Defense', 'Legends at Home', 'The Last Drive', 'Fourth Quarter', 'The Heavyweights', 'The Big Stage', 'Leave Your Mark', 'Championship Eve', 'The Legacy Game'],
 ];
+// Chapter order sets the CPU tier and how much room the player has to recover.
+const chapterDifficulty = [
+  { difficulty: 'rookie', deficit: 0, timeouts: 3 },
+  { difficulty: 'rookie', deficit: 3, timeouts: 3 },
+  { difficulty: 'pro', deficit: 4, timeouts: 2 },
+  { difficulty: 'pro', deficit: 0, timeouts: 2 },
+  { difficulty: 'pro', deficit: 6, timeouts: 1 },
+  { difficulty: 'all-pro', deficit: 7, timeouts: 2 },
+  { difficulty: 'all-pro', deficit: 10, timeouts: 1 },
+  { difficulty: 'all-pro', deficit: 13, timeouts: 1 },
+] as const;
+
 export const CAMPAIGN: Scenario[] = chapterTitles.flatMap((titles, chapter) => titles.map((title, index): Scenario => {
   const final = index === 9;
+  const rules = chapterDifficulty[chapter];
+  const deficit = rules.deficit + (chapter >= 5 && final ? 1 : 0);
   const defending = chapter === 3 || (chapter === 7 && index === 1);
   const goal = defending ? 'shutout' : final || chapter > 2 ? 'win' : (['win', 'pass', 'rush'] as const)[index % 3];
   const opponent = MINI_TEAMS.filter(team => team.abbr !== 'JCY')[(chapter * 11 + index * 3) % (MINI_TEAMS.length - 1)];
   const ball = chapter === 0 && index === 0 ? 90 : defending ? (index === 0 ? 98 : 62 + index * 3) : chapter === 2 ? (final ? 85 : 81 + index) : chapter === 4 && index === 4 ? 25 : 20 + (index % 5) * 5;
-  const clock = chapter === 0 && index === 0 ? 45 : final ? (chapter === 7 ? 300 : 150 + chapter * 12) : defending ? 18 + index * 3 : chapter === 4 ? (index === 4 ? 45 : 42 + index * 4) : 72 + index * 5 + chapter * 3;
+  const clock = chapter === 0 && index === 0 ? 45 : final ? (chapter === 7 ? 300 : 150 + chapter * 12) : defending ? 18 + index * 3 : chapter === 4 ? (index === 4 ? 45 : 42 + index * 4) : chapter >= 5 ? 100 - (chapter - 5) * 10 + index * 3 : 72 + index * 5 + chapter * 3;
   return { id: chapter * 10 + index, title, opponent: opponent.abbr, ball, clock, goal,
     target: goal === 'pass' || goal === 'rush' ? (chapter === 2 ? Math.min(7 + index, 100 - ball) : 12 + chapter * 8 + index * 2) : 0,
-    difficulty: chapter < 2 ? 'rookie' : chapter < 5 ? 'pro' : 'all-pro',
-    score: defending ? 24 : chapter === 0 ? 21 : 17,
-    awayScore: defending ? 21 : chapter < 3 ? 21 : chapter === 4 ? 23 : 21 + index % 4,
-    defending, timeouts: chapter === 4 && index === 1 ? 0 : chapter === 4 ? 1 : 3 };
+    difficulty: rules.difficulty,
+    score: defending ? 24 : 21 - deficit,
+    awayScore: 21,
+    defending, timeouts: chapter === 4 && index === 1 ? 0 : rules.timeouts };
 }));
 
 export const TRAINING: Scenario[] = [
