@@ -598,6 +598,14 @@ body:has(.bk-tunnel-showroom[open]) { overflow: hidden; }
 
 /* Locker storefront: full-body collection cards and a scrollable department rail. */
 .bk-store-locker-shop { background: #0d0e12; border-radius: 22px; padding-top: 22px; }
+.bk-store-locker-shop[data-store-page="featured"] {
+  background-image:
+    linear-gradient(180deg, #0d0e1226, #0d0e124d 48%, #0d0e12 95%),
+    url('/store/locker-stadium-tunnel.webp');
+  background-position: center top;
+  background-repeat: no-repeat;
+  background-size: 100% clamp(290px, 66.67vw, 654px), max(100%, 435px) auto;
+}
 .bk-store-brand { display: block; color: var(--store-gold); font-size: 13px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; margin-bottom: 8px; }
 .bk-store-locker-shop .bk-store-header h1 { font-family: inherit; font-style: normal; font-size: clamp(28px, 7vw, 46px); line-height: 1.1; }
 .bk-store-locker-shop .bk-store-header { margin-bottom: 20px; }
