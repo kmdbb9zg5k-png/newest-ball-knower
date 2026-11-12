@@ -479,6 +479,9 @@ export default function StoreHub({ initialCategory, onOpenLocker, onOpenGauntlet
     {page === 'featured' && department !== 'featured' && <button ref={viewAll} className="bk-store-button bk-store-view-all" type="button" onClick={() => { setDepartment('all'); setFilter('all'); openPage('catalog'); }}>View All Items <ChevronRight size={17} aria-hidden="true"/></button>}
 
         {page === 'catalog' && <div className="bk-store-catalog">
+      <figure className="bk-store-collections-poster">
+        <img src="/store/ball-knower-store-collections.svg" alt="Ball Knower Store Collections poster featuring a central football athlete and Game Gear, Tunnel Fits, Celebrations, Profile, Franchise, and Bundles" loading="eager" decoding="async"/>
+      </figure>
       <p className="bk-store-intro">Find game-day gear, tunnel outfits, profile packs, and more. Pick an item to see what comes with it.</p>
       {categoryButtons}
       <p className="bk-store-count" role="status">{matchingProducts.length} {matchingProducts.length === 1 ? 'item' : 'items'} · Catalog preview</p>
