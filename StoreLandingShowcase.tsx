@@ -20,20 +20,18 @@ const tunnel=[
  {id:'bkf-kickflip',name:'BKF Kickflip',rarity:'Rare',color:'#73d4ff',img:storeImage('bkf-kickflip-look')},
  {id:'frostbite',name:'Frostbite',rarity:'Epic',color:'#d18aff',img:storeImage('frostbite-look')}
 ];
-// Only original artwork already saved in the Ball Knower catalog/repository.
-// The cast can use different existing campaign poses without redrawing characters.
-const heroCast=[
- {id:'gold-standard',name:'Gold Standard',img:storeImage('gold-standard-realistic')},
- {id:'bk-femme',name:'BKF Nicki',img:'/store/bkf-nicki-cover-v3.webp'},
- {id:'bfk-dee',name:'BKF Dee',img:'/store/bfk-dee-cover-v1.webp'},
- {id:'bkf-youngboy',name:'BKF YoungBoy',img:'/store/bkf-youngboy-cover.webp'},
- {id:'bkf-outlaw',name:'Country Boy',img:'/store/bkf-outlaw-look.webp'},
- {id:'bkf-kickflip',name:'Skater',img:'/store/bkf-kickflip-look.webp'},
- {id:'frostbite',name:'Frostbite',img:storeImage('frostbite')},
- {id:'bkf-phantom',name:'Phantom',img:storeImage('bkf-phantom')},
- {id:'bkf-lowrider',name:'Lowrider',img:'/store/bkf-lowrider-look.webp'},
- {id:'bkf-iron-wolf',name:'Iron Wolf',img:'/store/bkf-iron-wolf-look.webp'},
- {id:'bkf-street-boss',name:'Street Boss',img:'/store/bkf-street-boss-cover.webp'}
+const heroCast = [
+ {id:'bkf-kickflip', name:'Skater', img:'/store/bkf-kickflip-look.webp'},
+ {id:'frostbite', name:'Frostbite', img:storeImage('frostbite')},
+ {id:'bkf-phantom', name:'Phantom', img:storeImage('bkf-phantom')},
+ {id:'bkf-outlaw', name:'Country Boy', img:'/store/bkf-outlaw-look.webp'},
+ {id:'bkf-iron-wolf', name:'Iron Wolf', img:'/store/bkf-iron-wolf-look.webp'},
+ {id:'bkf-lowrider', name:'Lowrider', img:'/store/bkf-lowrider-look.webp'},
+ {id:'bkf-street-boss', name:'Street Boss', img:'/store/bkf-street-boss-cover.webp'},
+ {id:'bkf-youngboy', name:'BKF YoungBoy', img:storeImage('bkf-youngboy')},
+ {id:'bk-femme', name:'BKF Nicki', img:'/store/bkf-nicki-cover-v3.webp'},
+ {id:'bfk-dee', name:'BKF Dee', img:storeImage('bfk-dee')},
+ {id:'gold-standard', name:'Gold Standard', img:storeImage('gold-standard-realistic')},
 ] as const;
 const extras=['chrome-grip','ink-pack','blackout','profile-pack','founders-pack','end-zone-backflip'];
 const nav=[
@@ -61,19 +59,23 @@ export default function StoreLandingShowcase({onNavigate,onProduct,onCatalog,onR
  </aside>
  <div className="bk-cinema-main">
   <section className="bk-cinema-hero" aria-labelledby="bk-cinema-hero-title">
-   <div className="bk-cinema-hero-cast" aria-label="Original Ball Knower character collection">
-    {heroCast.map((character,i)=><button key={character.id} type="button" className={`bk-cinema-hero-person bk-cinema-hero-person-${i}`} title={`See ${character.name}`} onClick={()=>open(character.id)}>
-     <img src={character.img} alt={character.name+' original character artwork'} loading={i<4?'eager':'lazy'} draggable={false} onError={e=>{e.currentTarget.style.opacity='0'}}/>
-     <span className="bk-cinema-hero-person-label">{character.name}</span>
-    </button>)}
+   <div className="bk-cinema-hero-cast" aria-hidden="true">
+    {heroCast.map(character => <img key={character.id} src={character.img} alt="" className="bk-cinema-hero-person" data-character={character.id} draggable={false}/>)}
    </div>
    <div className="bk-cinema-hero-copy">
     <small>B A L L &nbsp; K N O W E R</small>
     <h2 id="bk-cinema-hero-title"><em>BK</em> STORE</h2>
     <p>TUNNEL FITS <b>•</b> GAME GEAR <b>•</b> CHARACTERS <b>•</b> EXTRAS</p>
-    <button type="button" className="bk-cinema-cta" onClick={()=>open('gold-standard')}>Shop Gold Standard <ArrowRight size={16}/></button>
    </div>
-   <div className="bk-cinema-hero-feature"><strong>THE BKF<br/>LINEUP</strong><small>ORIGINAL BKF CHARACTERS</small><button type="button" onClick={()=>onNavigate('characters')}>SHOP CHARACTERS <ChevronRight size={15}/></button></div>
+   <div className="bk-cinema-hero-actions">
+    <button type="button" className="bk-cinema-cta" onClick={()=>open('gold-standard')}>Shop Gold Standard <ArrowRight size={16}/></button>
+    <button type="button" className="bk-cinema-cta" onClick={()=>onNavigate('characters')}>Shop Characters <ChevronRight size={16}/></button>
+   </div>
+   <div className="bk-cinema-hero-roster" role="group" aria-label="Featured Ball Knower characters">
+    {heroCast.filter(character => character.id !== 'gold-standard').map(character =>
+     <button key={character.id} type="button" onClick={()=>open(character.id)}>{character.name}</button>
+    )}
+   </div>
   </section>
   <nav className="bk-cinema-equipment" aria-label="Browse equipment">
    {equipment.map(item=><button type="button" key={item.id} onClick={()=>onNavigate(item.id)}>
