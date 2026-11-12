@@ -379,9 +379,25 @@ export default function StoreHub({ initialCategory, onOpenLocker, onOpenGauntlet
   const matchingProducts = filter === 'all' ? STORE_PRODUCTS : STORE_PRODUCTS.filter(product => product.categories.includes(filter));
   const heading = page === 'featured' ? 'BK Store' : page === 'catalog' ? 'Shop the Store' : page === 'previews' ? 'Preview Collection' : 'Earn Free Gear';
 
-  const categoryButtons = <div className="bk-store-filters" role="group" aria-label="Shop categories">
-    {[{ id: 'all', label: 'All' } as const, ...STORE_CATEGORIES].map(category =>
-      <button type="button" key={category.id} aria-pressed={filter === category.id} onClick={() => setFilter(category.id)}>{category.label}</button>)}
+  const categoryArtwork: Record<StoreCategory, string> = {
+    'game-gear': 'blackout',
+    'tunnel-fits': 'gold-standard-realistic',
+    profile: 'profile-pack',
+    celebrations: 'end-zone-backflip',
+    franchise: 'franchise-branding',
+    bundles: 'founders-pack',
+  };
+  const categoryButtons = <div className="bk-store-collection-nav" role="group" aria-label="Shop categories">
+    <div className="bk-store-collection-heading"><span className="bk-store-kicker">Ball Knower Collections</span><strong>Choose your collection</strong></div>
+    <div className="bk-store-collection-grid">
+      {STORE_CATEGORIES.map(category =>
+        <button className="bk-store-collection-tile" type="button" key={category.id} aria-pressed={filter === category.id} onClick={() => setFilter(category.id)}>
+          <img src={storeImage(categoryArtwork[category.id])} alt="" loading="lazy" decoding="async"/>
+          <span className="bk-store-collection-shade" aria-hidden="true"/>
+          <span className="bk-store-collection-name">{category.label}</span>
+        </button>)}
+    </div>
+    <button className="bk-store-collection-all" type="button" aria-pressed={filter === 'all'} onClick={() => setFilter('all')}>View All Collections <ChevronRight size={16} aria-hidden="true"/></button>
   </div>;
 
   if (department === 'game-fits' && page !== 'rewards') return <Suspense fallback={<p role="status">Loading game fits…</p>}>
