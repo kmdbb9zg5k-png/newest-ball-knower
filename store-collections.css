@@ -1,0 +1,17 @@
+/* Illustrated Store collections. Uses the real catalog artwork and keeps filtering native. */
+.bk-store-collection-nav{margin:14px 0 18px;display:grid;gap:12px}
+.bk-store-collection-heading{display:grid;gap:3px}
+.bk-store-collection-heading strong{font:900 clamp(23px,5.4vw,38px)/1 var(--store-display);text-transform:uppercase;color:#fff;letter-spacing:.015em}
+.bk-store-collection-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.bk-store-collection-tile{position:relative;isolation:isolate;display:block;min-width:0;aspect-ratio:1.42;overflow:hidden;border:1px solid #9c824e80;border-radius:14px;background:#151311;padding:0;color:#fff;text-align:left;box-shadow:inset 0 0 0 1px #ffffff0b,0 12px 28px #0006;transition:border-color .18s,transform .18s}
+.bk-store-collection-tile img{display:block;width:100%;height:100%;object-fit:cover;object-position:center 34%;filter:saturate(.82) contrast(1.1);transition:transform .22s}
+.bk-store-collection-tile:active img{transform:scale(1.035)}
+.bk-store-collection-shade{position:absolute;inset:0;background:linear-gradient(0deg,#030304f2 0%,#08080875 40%,#0001 80%),linear-gradient(110deg,#d4a34a26,transparent 70%)}
+.bk-store-collection-name{position:absolute;bottom:12px;left:12px;right:9px;font:900 clamp(19px,4.4vw,30px)/.98 var(--store-display);text-transform:uppercase;letter-spacing:.035em;text-shadow:0 2px 10px #000}
+.bk-store-collection-tile[aria-pressed="true"]{border:2px solid var(--store-gold);box-shadow:0 0 0 2px #e7b85430,0 10px 30px #0009}
+.bk-store-collection-tile[aria-pressed="true"] .bk-store-collection-name{color:var(--store-gold)}
+.bk-store-collection-all{justify-self:start;display:inline-flex;align-items:center;gap:7px;min-height:44px;padding:9px 14px;border:1px solid #d3aa6070;border-radius:999px;color:#f3d38d;background:#15120c;font-size:13px;font-weight:800}
+.bk-store-collection-all[aria-pressed="true"]{background:var(--store-gold);color:#120f09}
+@media(min-width:700px){.bk-store-collection-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.bk-store-collection-tile{aspect-ratio:1.6}}
+@media(max-width:360px){.bk-store-collection-grid{gap:7px}.bk-store-collection-tile{aspect-ratio:1.25}.bk-store-collection-name{font-size:17px;left:9px;bottom:9px}}
+@media(prefers-reduced-motion:reduce){.bk-store-collection-tile,.bk-store-collection-tile img{transition:none}}
