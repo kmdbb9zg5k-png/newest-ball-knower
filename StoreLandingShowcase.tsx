@@ -22,8 +22,8 @@ const tunnel=[
 ];
 const heroCast = [
  {id:'bkf-kickflip', name:'Skater', img:'/store/bkf-kickflip-look.webp'},
- {id:'frostbite', name:'Frostbite', img:storeImage('frostbite')},
- {id:'bkf-phantom', name:'Phantom', img:storeImage('bkf-phantom')},
+ {id:'frostbite', name:'Frostbite', img:'/store/lineup-frostbite.webp'},
+ {id:'bkf-phantom', name:'Phantom', img:'/store/lineup-bkf-phantom.webp'},
  {id:'bkf-outlaw', name:'Country Boy', img:'/store/bkf-outlaw-look.webp'},
  {id:'bkf-iron-wolf', name:'Iron Wolf', img:'/store/bkf-iron-wolf-look.webp'},
  {id:'bkf-lowrider', name:'Lowrider', img:'/store/bkf-lowrider-look.webp'},
@@ -31,7 +31,7 @@ const heroCast = [
  {id:'bkf-youngboy', name:'BKF YoungBoy', img:storeImage('bkf-youngboy')},
  {id:'bk-femme', name:'BKF Nicki', img:'/store/bkf-nicki-cover-v3.webp'},
  {id:'bfk-dee', name:'BKF Dee', img:storeImage('bfk-dee')},
- {id:'gold-standard', name:'Gold Standard', img:storeImage('gold-standard-realistic')},
+ {id:'gold-standard', name:'Gold Standard', img:'/store/lineup-gold-standard-realistic.webp'},
 ] as const;
 const extras=['chrome-grip','ink-pack','blackout','profile-pack','founders-pack','end-zone-backflip'];
 const nav=[
