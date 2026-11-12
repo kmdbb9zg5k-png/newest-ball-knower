@@ -15,3 +15,8 @@
 @media(min-width:700px){.bk-store-collection-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.bk-store-collection-tile{aspect-ratio:1.6}}
 @media(max-width:360px){.bk-store-collection-grid{gap:7px}.bk-store-collection-tile{aspect-ratio:1.25}.bk-store-collection-name{font-size:17px;left:9px;bottom:9px}}
 @media(prefers-reduced-motion:reduce){.bk-store-collection-tile,.bk-store-collection-tile img{transition:none}}
+
+/* The approved all-collections campaign poster stays fully visible on phones. */
+.bk-store-collections-poster{margin:4px 0 16px;overflow:hidden;border:1px solid #d3aa6066;border-radius:14px;background:#0a0908;box-shadow:0 12px 34px #0009}
+.bk-store-collections-poster img{display:block;width:100%;height:auto;aspect-ratio:4/3;object-fit:contain}
+@media(min-width:700px){.bk-store-collections-poster{max-width:740px;margin:8px auto 22px}}
