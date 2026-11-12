@@ -14,8 +14,11 @@ header[data-profile-chrome="true"] .bk-header-brand h1 {position:absolute;width:
 header[data-profile-chrome="true"] .bk-explore-trigger {background:linear-gradient(145deg,#242424,#0b0d13);border-color:#a7834999;box-shadow:inset 0 1px #f8d58b28}
 header[data-profile-chrome="true"] .bk-header-account-trigger {border-color:#edc164;box-shadow:0 0 0 2px #d9ac5729,0 0 12px #efbd5854}
 header[data-profile-chrome="true"] .bk-home-news-strip {
-  border-color:#b78b46;background:linear-gradient(100deg,#2b1d0d,#0a0b0d 49%,#211709);
-  box-shadow:inset 0 1px #ffd88a30,inset 0 -1px #e7b95a27;
+  border-color:#b78b4680;
+  border-bottom-color:transparent;
+  background:linear-gradient(100deg,#1e150be6,#0a0b0dbf 49%,#211709bf),
+    url('/profile/cinematic/athlete-showcase-foil.webp') center 22% / cover;
+  box-shadow:inset 0 1px #ffd88a30;
 }
 header[data-profile-chrome="true"] .bk-home-news-label {color:#ffe095;font-style:italic;border-right-color:#ad86494d;background:transparent}
 header[data-profile-chrome="true"] .bk-home-news-control {color:#efd295}

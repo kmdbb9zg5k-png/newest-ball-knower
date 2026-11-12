@@ -35,10 +35,9 @@
 .bk-profile-page.bk-screen .bk-profile-hero-title em{font-style:inherit}
 .bk-profile-page.bk-screen .bk-profile-hero:has(.bk-athlete-profile-showcase) .bk-profile-hero-art{opacity:0}
 .bk-profile-page.bk-screen .bk-profile-hero:has(.bk-athlete-profile-showcase) .bk-profile-hero-title{
-  position:relative;display:block;min-height:0;aspect-ratio:678/149;padding:0;margin:0 -2px;
-  background:linear-gradient(0deg,#08090d,transparent 16%,transparent 91%,#08090d),
-    linear-gradient(90deg,#08090d,transparent 4%,transparent 96%,#08090d),
-    #08090d url('/profile/cinematic/profile-legacy-lockup.webp') center/100% 100% no-repeat;
+  position:relative;display:block;min-height:0;aspect-ratio:678/149;padding:0;margin:0;
+  background:linear-gradient(0deg,#08090d,transparent 20%,transparent 80%,#0b090770),
+    url('/profile/cinematic/profile-legacy-lockup.webp') center/100% 100% no-repeat;
 }
 .bk-profile-page.bk-screen .bk-profile-hero:has(.bk-athlete-profile-showcase) .bk-profile-hero-title h2{
   position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap;
@@ -92,4 +91,35 @@
 @media(max-width:359px){
   .bk-profile-athlete-rail{top:14%;gap:3px}
   .bk-profile-page.bk-screen .bk-profile-hero:has(.bk-athlete-profile-showcase) .bk-profile-identity-actions>button:first-child{font-size:.62rem}
+}
+
+/* Let the artwork reach the screen edges while keeping the controls inset. */
+.bk-profile-page.bk-screen:has(.bk-athlete-profile-showcase) {
+  padding-block-start:0;
+  background:
+    linear-gradient(180deg,#0b09074d,#08090d 380px,transparent 720px),
+    url('/profile/cinematic/athlete-showcase-foil.webp') center top / 100% auto no-repeat,
+    linear-gradient(165deg,#101014,#06080a 58%);
+}
+.bk-profile-page.bk-screen:has(.bk-athlete-profile-showcase) .bk-scene-backdrop {display:none}
+.bk-profile-page.bk-screen:has(.bk-athlete-profile-showcase) .bk-locker-masthead {
+  padding:5px 16px;
+  border:0;
+  background:transparent;
+  box-shadow:none;
+}
+.bk-profile-page.bk-screen .bk-profile-hero:has(.bk-athlete-profile-showcase) {background:transparent}
+@media(max-width:639px) {
+  .bk-profile-page.bk-screen:has(.bk-athlete-profile-showcase) {padding-inline:0}
+  .bk-profile-hero:has(.bk-athlete-profile-showcase) .bk-athlete-profile-showcase {
+    background:
+      linear-gradient(0deg,#08090d,transparent 16%,transparent 88%,#08090d),
+      #08090d url('/profile/cinematic/athlete-showcase-stage.webp') center / 100% 100% no-repeat;
+  }
+  .bk-profile-hero:has(.bk-athlete-profile-showcase) :is(.bk-profile-athlete-sharing,.bk-profile-identity,.bk-profile-showcase-stats) {
+    margin-inline:12px;
+  }
+  .bk-profile-page.bk-screen:has(.bk-athlete-profile-showcase) :is(.bk-locker-overview,.bk-locker-trophies,.bk-profile-extras) {
+    margin-inline:12px;
+  }
 }
