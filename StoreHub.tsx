@@ -12,6 +12,7 @@ import {
   storeImage, storePrice, type StoreCategory, type StoreFilter, type StoreProduct,
 } from './storeCatalog';
 import './store.css';
+import './store-collections.css';
 import './bkf-drop.css';
 
 const AthleteLivePreview = lazy(() => import('./AthleteLivePreview'));
