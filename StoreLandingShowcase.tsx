@@ -30,7 +30,7 @@ const heroCast = [
  {id:'bkf-street-boss', name:'Street Boss', img:'/store/bkf-street-boss-cover.webp'},
  {id:'bkf-youngboy', name:'BKF YoungBoy', img:storeImage('bkf-youngboy')},
  {id:'bk-femme', name:'BKF Nicki', img:'/store/bkf-nicki-cover-v3.webp'},
- {id:'bfk-dee', name:'BKF Dee', img:storeImage('bfk-dee')},
+ {id:'bfk-dee', name:'BKF Dee', img:'/store/bfk-dee-standing-reference-v1.webp'},
  {id:'gold-standard', name:'Gold Standard', img:'/store/lineup-gold-standard-realistic.webp'},
 ] as const;
 const extras=['chrome-grip','ink-pack','blackout','profile-pack','founders-pack','end-zone-backflip'];
