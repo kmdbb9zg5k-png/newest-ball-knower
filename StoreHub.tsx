@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { Archive, ArrowLeft, Box as BoxIcon, ChevronRight, Crown, Image as ImageIcon, Shirt, X } from 'lucide-react';
 import { DEFAULT_ATHLETE_APPEARANCE } from './athleteAppearance';
 import { recommendedAthleteBuild } from './athleteBuild';
@@ -6,6 +6,7 @@ import { readAthletePassport, type AthletePassport } from './athletePassport';
 import GameGearPreview from './GameGearPreview';
 import { sanitizeGameGear } from './playerGameGear';
 import { readOutfit } from './playerWardrobe';
+import { readLockerState, refreshLocker, subscribeLocker } from './lockerCommerceClient';
 import {
   STORE_CATEGORIES, STORE_PRODUCTS,
   storeImage, storePrice, type StoreCategory, type StoreFilter, type StoreProduct,
@@ -28,7 +29,7 @@ const BKFYoungBoyPose = lazy(() => import('./BKFYoungBoyPose'));
 const StoreCharacterPreview = lazy(() => import('./StoreCharacterPreview'));
 const BKFFrostbitePose = lazy(() => import('./BKFFrostbitePose'));
 
-type StorePage = 'featured' | 'catalog' | 'rewards';
+type StorePage = 'featured' | 'catalog' | 'rewards' | 'previews';
 type Selection = { product: StoreProduct };
 type ShopDepartment = 'featured' | 'game-fits' | 'characters' | 'clothing' | 'helmets' | 'jerseys' | 'pants' | 'cleats' | 'accessories' | 'all';
 const departments = [
@@ -38,6 +39,7 @@ const departments = [
 ] as const;
 const isCharacter = (product: StoreProduct) => product.department !== 'clothing' && (product.posterOnly || Boolean(product.showcase) || ['bkf-youngboy', 'frostbite'].includes(product.id));
 const characterProducts = STORE_PRODUCTS.filter(isCharacter);
+const previewPacks = STORE_PRODUCTS.filter(product => !isCharacter(product) && product.categories.includes('bundles'));
 const clothingProducts = STORE_PRODUCTS.filter(product => product.categories.includes('tunnel-fits') && !isCharacter(product) && product.id !== 'ink-pack');
 
 const tunnelPhotos = [
@@ -330,6 +332,16 @@ export default function StoreHub({ initialCategory, onOpenLocker, onOpenGauntlet
   const viewAll = useRef<HTMLButtonElement>(null);
   const navigated = useRef(false);
 
+  const canReviewPreviews = useSyncExternalStore(subscribeLocker, readLockerState).mode === 'grant';
+  useEffect(() => { void refreshLocker(); }, []);
+  useEffect(() => {
+    if (page === 'previews' && !canReviewPreviews) {
+      setSelection(null);
+      setTunnelProduct(null);
+      setPage('featured');
+    }
+  }, [page, canReviewPreviews]);
+
   function openPage(next: StorePage) {
     navigated.current = true;
     setPage(next);
@@ -365,7 +377,7 @@ export default function StoreHub({ initialCategory, onOpenLocker, onOpenGauntlet
     }
   };
   const matchingProducts = filter === 'all' ? STORE_PRODUCTS : STORE_PRODUCTS.filter(product => product.categories.includes(filter));
-  const heading = page === 'featured' ? 'BK Store' : page === 'catalog' ? 'Shop the Store' : 'Earn Free Gear';
+  const heading = page === 'featured' ? 'BK Store' : page === 'catalog' ? 'Shop the Store' : page === 'previews' ? 'Preview Collection' : 'Earn Free Gear';
 
   const categoryButtons = <div className="bk-store-filters" role="group" aria-label="Shop categories">
     {[{ id: 'all', label: 'All' } as const, ...STORE_CATEGORIES].map(category =>
@@ -427,8 +439,9 @@ export default function StoreHub({ initialCategory, onOpenLocker, onOpenGauntlet
     </header>
 
     {page !== 'rewards' && <div className="bk-store-departments" role="group" aria-label="Shop departments">
-      {departments.map(item => <button key={item.id} type="button" aria-pressed={department === item.id}
+      {departments.map(item => <button key={item.id} type="button" aria-pressed={page !== 'previews' && department === item.id}
         onClick={() => { setDepartment(item.id); setFilter('all'); setPage(item.id === 'all' ? 'catalog' : 'featured'); }}>{item.label}</button>)}
+      {canReviewPreviews && <button type="button" aria-pressed={page === 'previews'} onClick={() => { setDepartment('featured'); openPage('previews'); }}>My Previews</button>}
     </div>}
     {page === 'featured' && department === 'featured' && <Suspense fallback={<p role="status">Loading cinematic BK Store…</p>}>
       <StoreLandingShowcase
@@ -457,10 +470,18 @@ export default function StoreHub({ initialCategory, onOpenLocker, onOpenGauntlet
       </div>
     </div>}
 
+    {page === 'previews' && canReviewPreviews && <div className="bk-store-catalog">
+      <p className="bk-store-intro">Review the packs and characters in development. Open any card to see its included items and available previews.</p>
+      {[{ title: 'Characters', products: characterProducts }, { title: 'Packs', products: previewPacks }].map(group => <section className="bk-store-shop" key={group.title} aria-label={group.title}>
+        <header className="bk-store-shop-header"><h2>{group.title}</h2></header>
+        <div className="bk-store-grid">{group.products.map(product => <ProductCard key={product.id} product={product} onOpen={showProduct}/>)}</div>
+      </section>)}
+    </div>}
+
     {page === 'rewards' && <Suspense fallback={<p role="status">Loading gear rewards…</p>}>
       <StoreRewards onOpenLocker={onOpenLocker} onOpenGauntlet={onOpenGauntlet}/>
     </Suspense>}
 
-    {selection && ((selection.product.showcase || selection.product.id === 'bkf-youngboy' || selection.product.id === 'frostbite' || selection.product.id === 'gold-standard') ? <BKFConceptDialog product={selection.product} onClose={() => setSelection(null)}/> : <ProductDialog selection={selection} onClose={() => setSelection(null)}/>)}
+    {selection && (page !== 'previews' || canReviewPreviews) && ((selection.product.showcase || selection.product.id === 'bkf-youngboy' || selection.product.id === 'frostbite' || selection.product.id === 'gold-standard') ? <BKFConceptDialog product={selection.product} onClose={() => setSelection(null)}/> : <ProductDialog selection={selection} onClose={() => setSelection(null)}/>)}
   </section>;
 }
