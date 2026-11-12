@@ -398,7 +398,7 @@ export default function StoreHub({ initialCategory, onOpenLocker, onOpenGauntlet
           <span className="bk-store-collection-name">{category.label}</span>
         </button>)}
     </div>
-    <button className="bk-store-collection-all" type="button" aria-pressed={filter === 'all'} onClick={() => setFilter('all')}>View All Collections <ChevronRight size={16} aria-hidden="true"/></button>
+    <button className="bk-store-collection-all" type="button" aria-label="All" aria-pressed={filter === 'all'} onClick={() => setFilter('all')}>View All Collections <ChevronRight size={16} aria-hidden="true"/></button>
   </div>;
 
   if (department === 'game-fits' && page !== 'rewards') return <Suspense fallback={<p role="status">Loading game fits…</p>}>
