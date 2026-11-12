@@ -20,18 +20,17 @@ const tunnel=[
  {id:'bkf-kickflip',name:'BKF Kickflip',rarity:'Rare',color:'#73d4ff',img:storeImage('bkf-kickflip-look')},
  {id:'frostbite',name:'Frostbite',rarity:'Epic',color:'#d18aff',img:storeImage('frostbite-look')}
 ];
-const heroCast = [
- {id:'bkf-kickflip', name:'Skater', img:'/store/bkf-kickflip-look.webp'},
- {id:'frostbite', name:'Frostbite', img:'/store/lineup-frostbite.webp'},
- {id:'bkf-phantom', name:'Phantom', img:'/store/lineup-bkf-phantom.webp'},
- {id:'bkf-outlaw', name:'Country Boy', img:'/store/bkf-outlaw-look.webp'},
- {id:'bkf-iron-wolf', name:'Iron Wolf', img:'/store/bkf-iron-wolf-look.webp'},
- {id:'bkf-lowrider', name:'Lowrider', img:'/store/bkf-lowrider-look.webp'},
- {id:'bkf-street-boss', name:'Street Boss', img:'/store/bkf-street-boss-cover.webp'},
- {id:'bkf-youngboy', name:'BKF YoungBoy', img:storeImage('bkf-youngboy')},
- {id:'bk-femme', name:'BKF Nicki', img:'/store/bkf-nicki-cover-v3.webp'},
- {id:'bfk-dee', name:'BKF Dee', img:'/store/bfk-dee-standing-reference-v1.webp'},
- {id:'gold-standard', name:'Gold Standard', img:'/store/lineup-gold-standard-realistic.webp'},
+const heroRoster = [
+ {id:'bkf-kickflip', name:'Skater'},
+ {id:'frostbite', name:'Frostbite'},
+ {id:'bkf-phantom', name:'Phantom'},
+ {id:'bkf-outlaw', name:'Country Boy'},
+ {id:'bkf-iron-wolf', name:'Iron Wolf'},
+ {id:'bkf-lowrider', name:'Lowrider'},
+ {id:'bkf-street-boss', name:'Street Boss'},
+ {id:'bkf-youngboy', name:'BKF YoungBoy'},
+ {id:'bk-femme', name:'BKF Nicki'},
+ {id:'bfk-dee', name:'BKF Dee'},
 ] as const;
 const extras=['chrome-grip','ink-pack','blackout','profile-pack','founders-pack','end-zone-backflip'];
 const nav=[
@@ -59,20 +58,19 @@ export default function StoreLandingShowcase({onNavigate,onProduct,onCatalog,onR
  </aside>
  <div className="bk-cinema-main">
   <section className="bk-cinema-hero" aria-labelledby="bk-cinema-hero-title">
-   <div className="bk-cinema-hero-cast" aria-hidden="true">
-    {heroCast.map(character => <img key={character.id} src={character.img} alt="" className="bk-cinema-hero-person" data-character={character.id} draggable={false}/>)}
-   </div>
-   <div className="bk-cinema-hero-copy">
-    <small>B A L L &nbsp; K N O W E R</small>
-    <h2 id="bk-cinema-hero-title"><em>BK</em> STORE</h2>
-    <p>TUNNEL FITS <b>•</b> GAME GEAR <b>•</b> CHARACTERS <b>•</b> EXTRAS</p>
+   <div className="bk-cinema-hero-stage">
+    <img className="bk-cinema-hero-photo" src="/store/bkf-tunnel-lineup-v2.webp" alt="" width={1536} height={1024} fetchPriority="high"/>
+    <div className="bk-cinema-hero-copy">
+     <small>B A L L &nbsp; K N O W E R</small>
+     <h2 id="bk-cinema-hero-title"><em>BK</em> STORE</h2>
+    </div>
    </div>
    <div className="bk-cinema-hero-actions">
     <button type="button" className="bk-cinema-cta" onClick={()=>open('gold-standard')}>Shop Gold Standard <ArrowRight size={16}/></button>
     <button type="button" className="bk-cinema-cta" onClick={()=>onNavigate('characters')}>Shop Characters <ChevronRight size={16}/></button>
    </div>
    <div className="bk-cinema-hero-roster" role="group" aria-label="Featured Ball Knower characters">
-    {heroCast.filter(character => character.id !== 'gold-standard').map(character =>
+    {heroRoster.map(character =>
      <button key={character.id} type="button" onClick={()=>open(character.id)}>{character.name}</button>
     )}
    </div>
