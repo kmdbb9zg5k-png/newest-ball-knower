@@ -1,7 +1,7 @@
 import {Capacitor} from '@capacitor/core';
 import {supabase} from './supabase';
 import {setVerifiedWardrobe,type Outfit} from './playerWardrobe';
-export type LockerState={available:boolean;mode?:'test';owned:string[];outfit?:Outfit|null;pending?:boolean;prices:Record<string,{amount:number;currency:string}>};
+export type LockerState={available:boolean;mode?:'test'|'grant';redeemable?:boolean;owned:string[];outfit?:Outfit|null;pending?:boolean;prices:Record<string,{amount:number;currency:string}>};
 const EMPTY:LockerState={available:false,owned:[],prices:{}};
 let snapshot=EMPTY,userId:string|null=null,epoch=0,requestId=0;
 const listeners=new Set<()=>void>();
@@ -20,11 +20,11 @@ export async function refreshLocker(){
  resetLockerIdentity(s?.user.id||null);
  if(!s){publish(EMPTY);return EMPTY;}
  const mine=++requestId,identity=epoch;
- try{const data=await api(s.access_token);if(mine===requestId&&identity===epoch)publish(data.available&&data.mode==='test'?data:EMPTY);}
+ try{const data=await api(s.access_token);if(mine===requestId&&identity===epoch)publish(data.redeemable||(data.available&&(data.mode==='test'||data.mode==='grant'))?data:EMPTY);}
  catch{if(mine===requestId&&identity===epoch)publish(EMPTY);}
  return snapshot;
 }
-export async function lockerAction(action:'restore'|'equip'|'checkout',extra:Record<string,unknown>={}){
+export async function lockerAction(action:'restore'|'equip'|'checkout'|'redeem',extra:Record<string,unknown>={}){
  if(Capacitor.isNativePlatform())throw new Error('Purchases are not available in this app yet.');
  const s=await session();if(!s||s.user.id!==userId)throw new Error('Sign in again to use the Locker.');
  const identity=epoch;requestId++; // Discard any earlier reads that finish after this mutation.
