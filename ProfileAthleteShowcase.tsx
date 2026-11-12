@@ -1,6 +1,7 @@
 import React, { lazy, Suspense, useEffect, useState } from 'react';
 import { ATHLETE_CHANGED, ATHLETE_SAVE_KEY, readAthletePassport } from './athletePassport';
 import { refreshLocker } from './lockerCommerceClient';
+import { CLOTHING, CLOTHING_SLOTS } from './playerWardrobe';
 import { usePlayerOutfit } from './usePlayerOutfit';
 import { sanitizeShowcaseFit, type ShowcaseFit } from './profileAthleteShowcase';
 import { supabase } from './supabase';
@@ -50,6 +51,14 @@ export function ProfileAthleteShowcase({ userId, visitor, canShare, displayName,
 
   const personalFit = athlete ? sanitizeShowcaseFit({ ...athlete.build, ...athlete.appearance, number: athlete.number, wardrobe: outfit }) : null;
   const fit = visitor ? shared : personalFit;
+  const previewOutfit = fit ? { ...fit.wardrobe } : undefined;
+  if (!visitor && previewOutfit) {
+    for (const slot of CLOTHING_SLOTS) {
+      if (CLOTHING.some(item => item.slot === slot && item.id === outfit[slot] && item.retailPreview)) {
+        previewOutfit[slot] = outfit[slot];
+      }
+    }
+  }
   const changed = JSON.stringify(personalFit) !== JSON.stringify(shared);
 
   async function share(next: ShowcaseFit | null) {
@@ -74,7 +83,7 @@ export function ProfileAthleteShowcase({ userId, visitor, canShare, displayName,
   return <section className="bk-profile-athlete" aria-label="Player showcase">
     {fit && <Suspense fallback={<img className="bk-profile-athlete-poster" src={poster} alt="" />}>
       <AthleteLivePreview profile={{ ...fit, name: visitor ? displayName || 'Featured athlete' : athlete?.name || 'Your athlete',
-        combineId: visitor ? userId : athlete?.id }} previewOutfit={fit.wardrobe} profileShowcase
+        combineId: visitor ? userId : athlete?.id }} previewOutfit={previewOutfit} profileShowcase
         fallbackImage={visitor ? poster : athlete?.portrait || poster}/>
     </Suspense>}
     {!visitor && canShare && <div className="bk-profile-athlete-sharing">
