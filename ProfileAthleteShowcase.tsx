@@ -74,7 +74,7 @@ export function ProfileAthleteShowcase({ userId, visitor, canShare, displayName,
   return <section className="bk-profile-athlete" aria-label="Player showcase">
     {fit && <Suspense fallback={<img className="bk-profile-athlete-poster" src={poster} alt="" />}>
       <AthleteLivePreview profile={{ ...fit, name: visitor ? displayName || 'Featured athlete' : athlete?.name || 'Your athlete',
-        combineId: visitor ? userId : athlete?.id }} previewOutfit={visitor ? fit.wardrobe : outfit} profileShowcase
+        combineId: visitor ? userId : athlete?.id }} previewOutfit={fit.wardrobe} profileShowcase
         fallbackImage={visitor ? poster : athlete?.portrait || poster}/>
     </Suspense>}
     {!visitor && canShare && <div className="bk-profile-athlete-sharing">
