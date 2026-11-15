@@ -80,8 +80,8 @@ void main(){
   float depth=smoothstep(28.,155.,distance(eye,world));
   vec3 crowd=pow(base.rgb,vec3(2.2));
   crowd=mix(crowd,vec3(dot(crowd,vec3(.2126,.7152,.0722))),.24);
-  crowd*=mix(.46,.24,depth);
-  crowd=mix(crowd,vec3(.006,.012,.021),depth*.25);
+  crowd*=mix(.54,.30,depth);
+  crowd=mix(crowd,vec3(.006,.012,.021),depth*.29);
   outputColor=vec4(pow(film(crowd),vec3(1./2.2)),1.);return;
  }
  if(textured==1)base*=texture(image,tex);if(base.a<.012)discard;
@@ -106,19 +106,20 @@ void main(){
   albedo=mix(albedo,vec3(.76,.72,.59),lace);
   N=normalize(N+vec3(pebble.x,0.,pebble.y)*.075*detail*(1.-lace));rough=.82;g=.08;
  }
+ // Modulate only the grass so the painted markings and the mowing stripes
+ // keep their own color. Bound the normal perturbation as detail mips out.
+ float grassMask=0.;
+ if(material==4)grassMask=(1.-smoothstep(.82,.96,base.r/max(base.g,.001)))*smoothstep(.19,.27,base.g);
  if(material==4&&hasTurfDetail==1){
   vec2 grassUV=world.xz*.38;
-  vec3 grass=texture(turfDetail,grassUV).rgb;
-  grass=mix(grass,vec3(.30,.43,.24),.23);
-  float grassMask=(1.-smoothstep(.80,.96,base.r/max(base.g,.001)))*smoothstep(.16,.23,base.g);
-  // Preserve both broad mowing direction and the fine turf map.
-  float fiber=dot(grass,vec3(.2126,.7152,.0722));
-  vec3 turf=pow(grass*vec3(.73,.78,.72),vec3(2.2));
-  albedo=mix(albedo,turf,grassMask*.82);
-  float rawFiber=dot(texture(turfDetail,grassUV).rgb,vec3(.3,.6,.1));
-  float dx=dot(texture(turfDetail,grassUV+vec2(.001,0.)).rgb,vec3(.3,.6,.1))-rawFiber;
-  float dz=dot(texture(turfDetail,grassUV+vec2(0.,.001)).rgb,vec3(.3,.6,.1))-rawFiber;
-  N=normalize(N+vec3(-dx,0.,-dz)*1.4);
+  vec3 detail=texture(turfDetail,grassUV).rgb;
+  vec3 luma=vec3(.2126,.7152,.0722);
+  float fiber=dot(detail,luma);
+  float contrast=clamp((fiber-.36)*1.15,-.24,.23);
+  albedo*=1.+contrast*grassMask;
+  float dx=dot(texture(turfDetail,grassUV+vec2(.001,0.)).rgb,luma)-fiber;
+  float dz=dot(texture(turfDetail,grassUV+vec2(0.,.001)).rgb,luma)-fiber;
+  N=normalize(N+vec3(-dx,0.,-dz)*(1.20*grassMask));
  }
  if(material==4){
   vec2 grid=world.xz*36.;float aa=1.-smoothstep(.6,2.3,max(fwidth(grid.x),fwidth(grid.y)));
@@ -141,11 +142,11 @@ void main(){
  float bankB=max(dot(N,normalize(toB)),0.)/(1.+dot(toB,toB)*.0011);
  float bankC=max(dot(N,normalize(toC)),0.)/(1.+dot(toC,toC)*.0015);
  float bankD=max(dot(N,normalize(toD)),0.)/(1.+dot(toD,toD)*.0015);
- vec3 diffuse=ambient+vec3(1.63,1.54,1.34)*d0*mix(.22,1.,lit)+vec3(.46,.59,.84)*d1+vec3(.22,.27,.36)*d2+vec3(1.12,1.10,1.02)*(bankA+bankB)*2.55+vec3(.82,1.02,1.30)*(bankC+bankD)*1.25;
+ vec3 diffuse=ambient+vec3(1.63,1.56,1.42)*d0*mix(.15,1.,lit)+vec3(.41,.55,.78)*d1+vec3(.22,.27,.36)*d2+vec3(1.12,1.10,1.02)*(bankA+bankB)*2.55+vec3(.82,1.02,1.30)*(bankC+bankD)*1.25;
  // Slight wrap on skin keeps faces readable without making uniforms luminous.
  if(material==3)diffuse+=vec3(.17,.10,.075)*max(0.,dot(N,L0)+.35);
  // The field is floodlit; the surrounding bowl remains a night environment.
- float exposure=material==4?.48:material==0?.48:1.;
+ float exposure=material==4?.52:material==0?.50:1.;
  vec3 rgb=albedo*diffuse*exposure;
  float nv=max(dot(N,V),0.);vec3 F0=mix(vec3(.025),albedo*.55+vec3(.12),g*.5);
  vec3 fresnel=F0+(1.-F0)*pow(1.-nv,5.);
@@ -159,13 +160,11 @@ void main(){
   rgb+=fresnel*g*crown*.7;
  }
  if(material==4){
-  float grassOnly=(1.-smoothstep(.80,.96,base.r/max(base.g,.001)))*smoothstep(.16,.23,base.g);
-  float mowing=mix(.84,1.08,smoothstep(-.035,.035,sin((world.z-10.)*3.14159*.2)));
-  rgb*=mix(1.,mowing,grassOnly);
-  float paint=smoothstep(.20,.45,albedo.r);rgb=mix(rgb,rgb*1.08,paint);
-  float grazing=pow(1.-max(dot(N,V),0.),3.);float dew=pow(max(dot(N,normalize(L1+V)),0.),30.);
-  float blade=hash(floor(world.xz*92.));float grassSheen=(1.-smoothstep(.80,.96,base.r/max(base.g,.001)))*smoothstep(.16,.23,base.g);
-  rgb+=vec3(.022,.045,.026)*(grazing*(.42+blade*.20)+dew*.30)*grassSheen;
+  float paint=smoothstep(.20,.45,albedo.r);
+  rgb*=mix(1.,1.08,paint);
+  float grazing=pow(1.-max(dot(N,V),0.),3.);
+  float dew=pow(max(dot(N,normalize(L1+V)),0.),30.);
+  rgb+=vec3(.014,.025,.017)*(grazing*.42+dew*.30)*grassMask;
  }
  float groundFill=smoothstep(0.,.72,world.y);if(material>0&&material!=4)rgb*=mix(.68,1.,groundFill);
  // Grounded ambient occlusion gives feet, equipment and stadium seams weight.
