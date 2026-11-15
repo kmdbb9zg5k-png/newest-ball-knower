@@ -174,7 +174,7 @@ try {
         } else if (current.unit?.kind === 'defense' && current.unit.book) {
           if (liveDefense === 0) {
             await click('unitCallDefense');
-            await click('defenseReady');
+            await step(10);
             await step(.8);
             liveDefense++;
           } else {

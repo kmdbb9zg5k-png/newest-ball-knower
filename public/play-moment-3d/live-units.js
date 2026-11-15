@@ -19,19 +19,18 @@ export function createLiveUnits({config, getActors, inputVector, onResult, onSim
  let aimPointer=null,aimInput=[0,0];
  let state=null, call=DEFENSE_PLAYS[0],formation='4–3', art=false,press=0,shift=0,paused=false;
  const root=document.createElement('section');root.id='liveUnits';root.hidden=true;
- root.innerHTML='<section id="defenseBook" aria-label="Defensive playbook"><div class="unit-book-heading"><div><h2>CALL DEFENSE</h2><p id="defensePersonnel"></p></div><button id="unitSimBook"><span aria-hidden="true">▶</span> Simulate Play</button></div><div id="defenseFormations" role="group" aria-label="Defensive formations"></div><div id="defenseCalls"></div><div id="defensePreview" hidden><button id="closeDefensePreview" aria-label="Close play preview">✕</button><div id="defensePreviewDiagram"></div><strong id="defensePreviewName"></strong><span class="defense-legend">CYAN · COVERAGE &nbsp; ORANGE · RUSH</span></div></section><div id="unitTop"><span id="unitStatus" role="status"></span><button id="unitSim">SIMULATE NEXT PLAY</button></div><div id="unitPre"><button id="unitBook">PLAYBOOK</button><button id="unitArt" aria-pressed="false">SHOW PLAY</button><button id="unitPress">PRESS</button><button id="unitBack">BACK OFF</button><button id="unitShift">SHIFT LINE</button><button id="unitReady">READY</button></div><div id="unitPad"><button id="unitSwitch">SWITCH</button><button id="unitPrimary">TACKLE</button><button id="unitSecondary">HIT STICK</button></div><div id="unitKick"><div id="kickGuide"><span id="kickHelp">MOVE STICK TO AIM</span><div class="kick-meter"><span class="kick-zone"></span><i id="kickPower"></i></div></div><button id="unitKickButton">KICK</button><button id="unitTouchback">TAKE TOUCHBACK</button><button id="unitFairCatch">FAIR CATCH</button></div><div id="kickAimPad"><span>AIM KICK</span><div id="kickAimStick" role="slider" tabindex="0" aria-label="Aim kick. Arrow keys move target." aria-valuemin="-24" aria-valuemax="24" aria-valuenow="0"><i id="kickAimKnob"></i></div></div><div id="unitResult" role="status"><h2></h2><button id="unitContinue">CONTINUE →</button></div>';
+ root.innerHTML='<section id="defenseBook" aria-label="Defensive playbook"><div class="unit-book-heading"><div><h2>CALL DEFENSE</h2><p id="defensePersonnel"></p></div><button id="unitSimBook"><span aria-hidden="true">▶</span> Simulate Play</button></div><div id="defenseFormations" role="group" aria-label="Defensive formations"></div><div id="defenseCalls"></div><div id="defensePreview" hidden><button id="closeDefensePreview" aria-label="Close play preview">✕</button><div id="defensePreviewDiagram"></div><strong id="defensePreviewName"></strong><span class="defense-legend">CYAN · COVERAGE &nbsp; ORANGE · RUSH</span></div></section><div id="unitTop"><span id="unitStatus" role="status"></span><button id="unitSim">SIMULATE NEXT PLAY</button></div><div id="unitPre"><button id="unitBook">PLAYBOOK</button><button id="unitArt" aria-pressed="false">SHOW PLAY</button><button id="unitPress">PRESS</button><button id="unitBack">BACK OFF</button><button id="unitShift">SHIFT LINE</button></div><div id="unitPad"><button id="unitSwitch">SWITCH</button><button id="unitPrimary">TACKLE</button><button id="unitSecondary">HIT STICK</button></div><div id="unitKick"><div id="kickGuide"><span id="kickHelp">MOVE STICK TO AIM</span><div class="kick-meter"><span class="kick-zone"></span><i id="kickPower"></i></div></div><button id="unitKickButton">KICK</button><button id="unitTouchback">TAKE TOUCHBACK</button><button id="unitFairCatch">FAIR CATCH</button></div><div id="kickAimPad"><span>AIM KICK</span><div id="kickAimStick" role="slider" tabindex="0" aria-label="Aim kick. Arrow keys move target." aria-valuemin="-24" aria-valuemax="24" aria-valuenow="0"><i id="kickAimKnob"></i></div></div><div id="unitResult" role="status"><h2></h2><button id="unitContinue">CONTINUE →</button></div>';
  document.getElementById('hud').after(root);
  const $=id=>root.querySelector('#'+id);
- // Adjustments belong inside the playbook; live defense has only two actions.
- $('defenseBook').append($('unitPre'));$('unitBook').hidden=true;$('unitReady').hidden=true;
+ // Adjustments belong inside the playbook.
+ $('defenseBook').append($('unitPre'));$('unitBook').hidden=true;
  const adjustments=document.createElement('div');adjustments.id='defenseAdjustments';adjustments.hidden=true;adjustments.setAttribute('role','group');adjustments.setAttribute('aria-label','Defensive adjustments');
  adjustments.append($('unitPress'),$('unitBack'),$('unitShift'));$('defenseBook').append(adjustments);
  const adjustButton=document.createElement('button');adjustButton.id='unitAdjust';adjustButton.innerHTML='<span aria-hidden="true">☷</span> ADJUSTMENTS <span aria-hidden="true">⌃</span>';adjustButton.setAttribute('aria-expanded','false');adjustButton.setAttribute('aria-controls','defenseAdjustments');$('unitPre').append(adjustButton);
  const selection=document.createElement('div');selection.id='defenseSelection';selection.innerHTML='<span>SELECTED PLAY</span><strong id="defenseSelectedName"></strong><span id="defenseSelectedType"></span>';$('unitPre').append(selection);
  const confirm=document.createElement('button');confirm.id='unitCallDefense';confirm.innerHTML='CALL DEFENSE <span aria-hidden="true">→</span>';$('unitPre').append(confirm);
- const fieldPre=document.createElement('div');fieldPre.id='defensePreSnap';fieldPre.hidden=true;fieldPre.innerHTML='<span id="defenseSnapClock" role="timer" aria-label="Seconds until snap"></span><button id="defenseAudible">AUDIBLE</button><button id="defenseReady">READY</button>';root.append(fieldPre);
+ const fieldPre=document.createElement('div');fieldPre.id='defensePreSnap';fieldPre.hidden=true;fieldPre.innerHTML='<span id="defenseSnapClock" role="timer" aria-label="Seconds until snap"></span><button id="defenseAudible">AUDIBLE</button>';root.append(fieldPre);
  $('defenseAudible').onclick=()=>{if(!state||paused||state.stage!=='pre')return;state.book=true;closePanels();renderBook();refresh();};
- $('defenseReady').onclick=()=>{if(!state||paused||state.book||state.stage!=='pre')return;$('unitReady').onclick();};
  const coverageLabel=p=>(p.coverage==='man'?'MAN COVERAGE':'ZONE COVERAGE')+(p.blitz.length?' · BLITZ':'');
  function closePanels(){art=false;$('defensePreview').hidden=true;adjustments.hidden=true;adjustButton.setAttribute('aria-expanded','false');}
  function selectCall(p){call=p;align();renderBook();refresh();}
@@ -158,7 +157,18 @@ export function createLiveUnits({config, getActors, inputVector, onResult, onSim
  $('unitSwitch').onclick=switchPlayer;$('unitPrimary').onclick=()=>action('primary');$('unitSecondary').onclick=()=>action('secondary');
  $('unitBook').onclick=()=>{state.book=true;refresh()};$('unitArt').onclick=()=>{art=!art;adjustments.hidden=true;adjustButton.setAttribute('aria-expanded','false');refresh()};
  $('unitPress').onclick=()=>{press=press===-3?0:-3;align();refresh()};$('unitBack').onclick=()=>{press=press===5?0:5;align();refresh()};$('unitShift').onclick=()=>{shift=shift===0?-2:shift===-2?2:0;align();refresh()};
- $('unitReady').onclick=()=>{if(!state||paused||state.book||state.stage!=='pre')return;state.stage='snap';state.startedAt=state.time;state.pass=random()<cpuPassProbability(state);state.hot=call.blitz.length>0&&random()<clamp((getActors()[5].ratings.awareness||75)/100,.5,.95);state.passAt=(config.level.id==='rookie'?2.2:config.level.id==='all-pro'?1.3:1.7)+random()*1.1;getActors()[2].hasBall=false;getActors()[2].action='snap';getActors()[5].action='receive-snap';refresh()};
+ function startDefensiveSnap(){
+  const actors=getActors();
+  state.stage='snap';
+  state.startedAt=state.time;
+  state.pass=random()<cpuPassProbability(state);
+  state.hot=call.blitz.length>0&&random()<clamp((actors[5].ratings.awareness||75)/100,.5,.95);
+  state.passAt=(config.level.id==='rookie'?2.2:config.level.id==='all-pro'?1.3:1.7)+random()*1.1;
+  actors[2].hasBall=false;
+  actors[2].action='snap';
+  actors[5].action='receive-snap';
+  refresh();
+ }
  $('unitSimBook').onclick=()=>{stop();onSimulate()};$('unitSim').onclick=()=>{if(state.stage==='pre'){stop();onSimulate()}else{state.simNext=!state.simNext;refresh()}};
  $('unitFairCatch').onclick=()=>{if(state?.kind==='punt'&&state.kicking==='away'&&['kick','punt-snap','kick-flight'].includes(state.stage)){state.fairCatch=true;refresh();}};
  $('unitKickButton').onclick=()=>kick();$('unitTouchback').onclick=()=>{if(state?.kind==='kickoff'&&state.kicking==='away'&&state.stage==='kick')finish({reason:'TOUCHBACK · OWN 25',ball:25,seconds:0});};
@@ -230,7 +240,15 @@ export function createLiveUnits({config, getActors, inputVector, onResult, onSim
  function tick(dt){if(!state||paused)return;if(state.stage==='end'){const result=state.result;stop();onResult(result);return;}state.time+=dt;const a=getActors();if(state.windup!=null){const t=(state.time-state.windup)/(a[5].throwDuration||.56);a[5].throwT=t<1?clamp(t,.001,1):0;if(t>=1)a[5].throwStyle=null;}a[5].qbPocket=state.kind==='defense'&&['snap','pass'].includes(state.stage);for(const p of a){if(p.catchT>0)p.catchT=Math.max(0,p.catchT-dt);if(p.action==='miss'&&p.unitContactReady){p.actionT=clamp(1-(p.unitContactReady-state.time)/.65,0,1);if(p.actionT>=1)p.action=null;}if(['kick','juke'].includes(p.action)&&!(p.action==='kick'&&state.stage==='kick-snap')){p.actionT=Math.min(1,(p.actionT||0)+dt*1.8);if(p.actionT>=1)p.action=null;}}
   if(state.recover){const p=a[state.recoverPlayer??state.controlled];p.actionT=clamp((state.time-state.recoverStarted)/(state.recover-state.recoverStarted),0,1);}if(state.recover&&state.time>=state.recover){a[state.recoverPlayer??state.controlled].fallen=false;a[state.recoverPlayer??state.controlled].action=null;state.recover=0;}
   if(state.stage==='contact'){tackleFrame(dt);return;}if(state.book)return;if(state.stage==='kick'){if(goalKick(state.kind)&&state.kicking==='away'&&state.time>.65){kick();return;}if(state.kicking==='home')adjustAim(...aimInput,dt);if(state.timing){state.meterTime+=dt;state.power=.5-.5*Math.cos(state.meterTime*2.8);}else state.power=0;$('kickPower').style.left=(state.power*100)+'%';return;}
-  if(state.stage==='pre'){controlled(dt);state.preSnapRemaining=Math.max(0,(state.preSnapRemaining??10)-dt);refresh();if(state.preSnapRemaining<=0)$('unitReady').onclick();return;}
+  if(state.stage==='pre'){
+   controlled(dt);
+   // Round away the floating-point residue at the end of the fixed-step countdown.
+   const remaining=(state.preSnapRemaining??10)-dt;
+   state.preSnapRemaining=remaining>1e-9?remaining:0;
+   if(state.preSnapRemaining===0)startDefensiveSnap();
+   else refresh();
+   return;
+  }
   if(state.kind==='defense'||state.kind==='punt'||state.kind==='kickoff'&&state.stage==='run')state.liveTime+=dt;state.clock=Math.max(0,state.clock-dt);
   if(state.stage==='snap'){const motion=snapExchange(a[2],a[5],state.time-state.startedAt),t=motion.progress;state.stagedBall=motion.ball;a[2].actionT=a[5].actionT=t;a[2].ballTarget=motion.centerTarget;a[5].ballTarget=motion.target;if(t>=1){state.stagedBall=null;a[2].action=null;a[5].action=null;a[2].ballTarget=a[5].ballTarget=null;state.stage=state.pass?'pass':'handoff';state.carrier=5;a[5].hasBall=true;state.snapTime=state.time;refresh()}return;}
   if(state.stage==='punt-snap'){

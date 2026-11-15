@@ -7,6 +7,7 @@ on:
       - 'scripts/check-gameplay-polish.mjs'
       - 'scripts/check-carry-control.mjs'
       - 'scripts/check-catch-controls.mjs'
+      - 'scripts/check-defense-presnap.mjs'
       - '.github/workflows/gameplay-polish-review.yml'
   workflow_dispatch:
 permissions:
@@ -23,6 +24,10 @@ jobs:
           cache: npm
       - run: npm ci --no-audit --no-fund
       - run: npx playwright install --with-deps chromium
+      - name: Verify automatic defensive snaps on mobile
+        run: node scripts/check-defense-presnap.mjs
+        env:
+          OUT: artifacts/carry-control-48/defense-presnap
       - run: node scripts/check-football-foundation.mjs
       - run: node scripts/check-football-pursuit.mjs
       - run: node scripts/check-catch-controls.mjs
