@@ -5,6 +5,7 @@ import { equipLockerItem, fetchLockerExperience, formatStorePrice, LockerState, 
 import { useBallKnower } from './BallKnowerContext';
 import { ModalPortal } from './ModalPortal';
 import { ProgressionProfileCard } from './ProgressionProfileCard';
+import { MemberFirst1000Badge } from './First1000Badge';
 import { ProfilePhotoEditor } from './ProfilePhotoEditor';
 import { ProfileGuide } from './ProfileGuide';
 import './profileLocker.css';
@@ -57,7 +58,7 @@ const PublicLocker: React.FC<{ member: LeagueMember; onBack?: () => void }> = ({
               <span aria-hidden="true"><Maximize2/></span>
             </button>}
           </div>
-          <div className="bk-member-locker-copy"><div>{name}</div><div>League manager · verified Ball Knower profile</div></div>
+          <div className="bk-member-locker-copy"><div><span className="bk-first1000-identity"><span>{name}</span><MemberFirst1000Badge userId={member.userId}/></span></div><div>League manager · verified Ball Knower profile</div></div>
         </section>
       </div>}/>
     </div>

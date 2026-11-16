@@ -39,6 +39,8 @@ try {
       page.on('pageerror', error => crashes.push(error.message));
       let mode = 'initial', failProfile = false, equipped = null, equipCalls = 0, sharedFit = null;
       const isGuest = width === 390;
+      const badgeEligible = width === 320;
+      let badgeClaimed = false, badgeClaims = 0;
       const user = { id: userId, aud: 'authenticated', role: 'authenticated', email: isGuest ? undefined : 'profile-fixture@example.invalid', is_anonymous: isGuest, app_metadata: { provider: isGuest ? 'anonymous' : 'email', providers: [isGuest ? 'anonymous' : 'email'] }, user_metadata: isGuest ? {} : { name: width === 320 ? 'A Very Long Profile Display Name' : 'Profile Fixture GM', full_name: width === 320 ? 'A Very Long Profile Display Name' : 'Profile Fixture GM' }, created_at: timestamp };
       const token = [Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url'), Buffer.from(JSON.stringify({ sub: userId, aud: 'authenticated', role: 'authenticated', exp: Math.floor(Date.now()/1000)+86400, is_anonymous: isGuest })).toString('base64url'), 'test-fixture-only'].join('.');
       const session = { user, access_token: token, refresh_token: 'fixture-only', token_type: 'bearer', expires_in: 86400, expires_at: Math.floor(Date.now()/1000)+86400 };
@@ -60,6 +62,14 @@ try {
         if (path.endsWith('/rpc/ensure_ball_knower_progress_profile')) {
           if (failProfile) return respond({ message: 'Profile fixture outage', code: 'TEST_OUTAGE' }, 503);
           return respond([{ user_id: userId, display_name: user.user_metadata.name, bk_rating: mode === 'earned' ? 61 : 50, xp: mode === 'earned' ? 1450 : mode === 'zero' ? 0 : 550, level: mode === 'earned' ? 2 : 1, football_iq: 50, gm_rating: 52, prediction_rating: 48, trivia_rating: 50, agent_rating: 51, owner_rating: 49, championships: mode === 'earned' ? 3 : 0, current_streak: 0, longest_streak: 2, updated_at: timestamp }]);
+        }
+        if (path.endsWith('/ball_knower_first_1000_badges')) return respond(badgeEligible ? [{ claimed_at: badgeClaimed ? timestamp : null }] : []);
+        if (path.endsWith('/rpc/bk_claim_first_1000_badge')) {
+          assert.deepEqual(route.request().postDataJSON(), { p_user_id: userId });
+          assert.ok(badgeEligible);
+          if (++badgeClaims === 1) return respond({ message: 'Temporary fixture failure' }, 400);
+          badgeClaimed = true;
+          return respond(true);
         }
         if (path.endsWith('/ball_knower_profile_showcases')) {
           if (route.request().method() === 'POST') {
@@ -103,6 +113,16 @@ try {
       }, { session, user });
       await page.goto(base, { waitUntil: 'domcontentloaded' });
       await page.locator('.bk-home-stadium').waitFor();
+      const badgeOffer = page.getByRole('dialog', { name: 'You’re in the First 1,000', exact: true });
+      if (badgeEligible) {
+        await badgeOffer.waitFor();
+        const acceptBox = await badgeOffer.getByRole('button', { name: 'Accept Badge' }).boundingBox();
+        assert.ok(acceptBox?.height >= 44 && acceptBox.x >= 0 && acceptBox.x + acceptBox.width <= width);
+        await badgeOffer.locator('img').evaluate(image => image.decode());
+        await badgeOffer.getByRole('button', { name: 'Later' }).click();
+        await badgeOffer.waitFor({ state: 'detached' });
+        assert.equal(badgeClaims, 0, 'Later must leave the offer unclaimed');
+      }
       // Font loading and WebKit's deferred layout must settle before measuring the baseline.
       await page.evaluate(async () => { await document.fonts.ready; await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))); });
       const homeBrandSize = await page.getByRole('button', { name: 'Ball Knower home', exact: true }).locator('h1').evaluate(element => { element.getBoundingClientRect(); return getComputedStyle(element).fontSize; });
@@ -123,6 +143,25 @@ try {
       await guide.waitFor({ state: 'detached' });
       assert.equal(await page.evaluate(() => localStorage.getItem('bk-guide-profile-v1')), 'seen');
       await page.getByRole('heading', { name: 'Profile', exact: true }).waitFor();
+      const foundingBadge = profile.getByRole('button', { name: 'First 1,000', exact: true });
+      assert.equal(await foundingBadge.count(), 0, 'Profile must withhold the badge until it is accepted');
+      if (badgeEligible) {
+        await profile.getByRole('button', { name: 'Claim First 1,000 Badge' }).click();
+        await badgeOffer.getByRole('button', { name: 'Accept Badge' }).click();
+        await badgeOffer.getByRole('alert').waitFor();
+        assert.equal(await foundingBadge.count(), 0, 'A failed claim must leave the badge unclaimed');
+        await badgeOffer.getByRole('button', { name: 'Accept Badge' }).click();
+        await foundingBadge.waitFor();
+        const badgeBox = await foundingBadge.boundingBox();
+        assert.ok(badgeBox?.height >= 44 && badgeBox.x >= 0 && badgeBox.x + badgeBox.width <= width);
+        await foundingBadge.click();
+        const badgeDetails = page.getByRole('dialog', { name: 'First 1,000', exact: true });
+        await badgeDetails.getByText('One of the first 1,000 players to join Ball Knower.').waitFor();
+        await badgeDetails.getByRole('button', { name: 'Close' }).click();
+      } else {
+        assert.equal(await badgeOffer.count(), 0);
+        assert.equal(await profile.getByRole('button', { name: 'Claim First 1,000 Badge' }).count(), 0);
+      }
       const help = page.getByRole('button', { name: 'How it works', exact: true });
       await help.click();
       await guide.waitFor();
