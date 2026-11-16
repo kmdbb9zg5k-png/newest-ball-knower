@@ -27,7 +27,7 @@ export async function loadPracticeCharacter(url, source, fitting) {
     let lowestSole;
     if (fitting) {
       const { fitStoreRig } = await import('./fit-store-rig.js');
-      lowestSole = fitStoreRig(model, fitting);
+      lowestSole = await fitStoreRig(model, fitting);
     }
     // The Phantom's cuffs touch the jacket on the original mesh.
     const restrainedArms = fitting === 'bkf-phantom';

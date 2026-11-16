@@ -1,4 +1,4 @@
-import { Bone, Box3, Float32BufferAttribute, MathUtils, Skeleton, SkinnedMesh, Uint16BufferAttribute, Vector3 } from 'three';
+import { Bone, Box3, BufferAttribute, Float32BufferAttribute, MathUtils, Skeleton, SkinnedMesh, Uint16BufferAttribute, Vector3 } from 'three';
 
 // Joint landmarks measured on the original showroom meshes, in units of
 // stand height. Each row describes hips, shoulder, elbow, wrist, knee, ankle.
@@ -19,7 +19,31 @@ const handBottom = {
 const blend = (value, start, end) => MathUtils.smoothstep(value, start, end);
 const sideNames = ['Left', 'Right'];
 
-export function fitStoreRig(model, characterId) {
+async function reducePracticeMesh(geometry) {
+  const { MeshoptSimplifier } = await import('meshoptimizer/simplifier');
+  if (!MeshoptSimplifier.supported) return;
+  await MeshoptSimplifier.ready;
+  const position = geometry.getAttribute('position');
+  const uv = geometry.getAttribute('uv');
+  const [indices] = MeshoptSimplifier.simplifyWithAttributes(
+    new Uint32Array(geometry.index.array), position.array, 3, uv.array, 2,
+    [.45, .45], null, 90000 * 3, .012, ['RegularizeLight'],
+  );
+  const [remap, vertexCount] = MeshoptSimplifier.compactMesh(indices);
+  for (const [name, old] of Object.entries(geometry.attributes)) {
+    const array = new old.array.constructor(vertexCount * old.itemSize);
+    for (let vertex = 0; vertex < remap.length; vertex++) {
+      if (remap[vertex] >= vertexCount) continue;
+      for (let component = 0; component < old.itemSize; component++) {
+        array[remap[vertex] * old.itemSize + component] = old.array[vertex * old.itemSize + component];
+      }
+    }
+    geometry.setAttribute(name, new BufferAttribute(array, old.itemSize, old.normalized));
+  }
+  geometry.setIndex(new BufferAttribute(indices, 1));
+}
+
+export async function fitStoreRig(model, characterId) {
   const fitting = fittings[characterId];
   if (!fitting) throw new Error('The selected character has no fitted skeleton.');
   const [[hipX, hipY], [shoulderX, shoulderY], [elbowX, elbowY], [wristX, wristY],
@@ -76,6 +100,9 @@ export function fitStoreRig(model, characterId) {
   const soles = [];
   for (const original of meshes) {
     const geometry = original.geometry;
+    // Nicki's showcase asset has 500,000 triangles. Use the same UVs and
+    // materials on a lighter practice mesh so the dash can run smoothly.
+    if (characterId === 'bk-femme') await reducePracticeMesh(geometry);
     geometry.applyMatrix4(original.matrixWorld);
     geometry.computeBoundingBox();
     const position = geometry.getAttribute('position');
