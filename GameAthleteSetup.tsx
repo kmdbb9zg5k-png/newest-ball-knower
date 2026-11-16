@@ -8,13 +8,16 @@ import { GAME_ATHLETE_KEY, gameAthlete, readGameAthlete } from './public/play-mo
 
 const characters = STORE_PRODUCTS.filter(practiceAsset);
 
-export default function GameAthleteSetup({ onSaved }: { onSaved?: () => void }) {
+export default function GameAthleteSetup({ onSaved, variant }: { onSaved?: () => void; variant?: 'profile' }) {
+  const onProfile = variant === 'profile';
   const [open, setOpen] = useState(false);
-  const { owned, loading } = usePurchasedCharacters(open);
+  const { owned, loading } = usePurchasedCharacters(open || onProfile);
   const [saved, setSaved] = useState(readGameAthlete);
   const [draft, setDraft] = useState(() => saved ?? gameAthlete(readAthletePassport()?.build ?? {})!);
   const [error, setError] = useState('');
   const dialog = useRef<HTMLDialogElement>(null);
+  const activeCharacter = saved && owned.has(saved.character)
+    ? characters.find(character => character.id === saved.character)?.name : undefined;
   useEffect(() => { if (open) dialog.current?.showModal(); }, [open]);
   function save(event: React.FormEvent) {
     event.preventDefault();
@@ -28,15 +31,28 @@ export default function GameAthleteSetup({ onSaved }: { onSaved?: () => void }) 
       setError('Your athlete settings could not be saved on this device.');
     }
   }
+  function openSetup() {
+    const current = readGameAthlete();
+    setSaved(current);
+    setDraft(current ?? gameAthlete(readAthletePassport()?.build ?? {})!);
+    setError('');
+    setOpen(true);
+  }
   return <>
-    <button type="button" className="rounded-xl border border-white/20 bg-[#18232e] px-4 py-3 text-sm font-bold text-white"
-      onClick={() => { setDraft(saved ?? gameAthlete(readAthletePassport()?.build ?? {})!); setError(''); setOpen(true); }}>
+    {onProfile ? <div className="bk-profile-game-character">
+      <div>
+        <span>Game character</span>
+        <strong aria-live="polite">{loading && saved?.character ? 'Checking purchase…' : activeCharacter ?? 'My Player'}</strong>
+      </div>
+      <button type="button" onClick={openSetup}>Switch character</button>
+    </div> : <button type="button" className="rounded-xl border border-white/20 bg-[#18232e] px-4 py-3 text-sm font-bold text-white"
+      onClick={openSetup}>
       {saved ? 'Edit game athlete' : 'Set up game athlete'}
-    </button>
+    </button>}
     {open && createPortal(<dialog ref={dialog} onClose={() => setOpen(false)} aria-labelledby="bk-game-athlete-title"
       className="m-auto max-h-[90dvh] w-[min(92vw,420px)] rounded-2xl border border-white/20 bg-[#111923] p-5 text-white backdrop:bg-black/70">
       <form onSubmit={save} className="grid gap-4">
-        <h2 id="bk-game-athlete-title" className="text-xl font-black">Game athlete</h2>
+        <h2 id="bk-game-athlete-title" className="text-xl font-black">{onProfile ? 'Switch game character' : 'Game athlete'}</h2>
         <label className="grid gap-1 text-sm">Character
           <select value={owned.has(draft.character) ? draft.character : ''} className="h-11 rounded-lg bg-[#243344] px-3"
             onChange={e => setDraft({ ...draft, character: e.target.value })}>
@@ -65,7 +81,7 @@ export default function GameAthleteSetup({ onSaved }: { onSaved?: () => void }) 
         {error && <p role="alert">{error}</p>}
         <div className="flex justify-end gap-2">
           <button type="button" className="min-h-11 rounded-lg border border-white/20 px-3" onClick={() => setOpen(false)}>Cancel</button>
-          <button type="submit" disabled={loading && Boolean(draft.character)} className="min-h-11 rounded-lg bg-amber-300 px-4 font-bold text-black">Save athlete</button>
+          <button type="submit" disabled={loading && Boolean(draft.character)} className="min-h-11 rounded-lg bg-amber-300 px-4 font-bold text-black">{onProfile ? 'Save game character' : 'Save athlete'}</button>
         </div>
       </form>
     </dialog>, document.body)}
