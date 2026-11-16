@@ -41,6 +41,7 @@ export default defineConfig(() => {
       },
     }],
     build: { rollupOptions: {
+      preserveEntrySignatures: 'exports-only',
       input: { app: path.join(root, 'index.html'), combine: path.join(root, 'combine.html'), fieldCharacter: path.join(root, 'field-character.ts') },
       output: { entryFileNames: chunk => chunk.name === 'fieldCharacter' ? 'assets/bk-field-character.js' : 'assets/[name]-[hash].js' },
     } },

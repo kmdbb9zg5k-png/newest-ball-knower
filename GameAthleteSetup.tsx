@@ -56,7 +56,7 @@ export default function GameAthleteSetup({ onSaved }: { onSaved?: () => void }) 
           <input type="range" min={ATHLETE_BODY_LIMITS.weight[0]} max={ATHLETE_BODY_LIMITS.weight[1]}
             value={draft.weightLbs} onChange={e => setDraft({ ...draft, weightLbs: +e.target.value })} />
         </label>
-        <p className="text-xs text-zinc-300">Position drills use the drill’s role. Online ratings are set by the game.</p>
+        <p className="text-xs text-zinc-300">Football games use this as your roster position. Position drills use their own role. Online ratings are set by the game.</p>
         {error && <p role="alert">{error}</p>}
         <div className="flex justify-end gap-2">
           <button type="button" className="min-h-11 rounded-lg border border-white/20 px-3" onClick={() => setOpen(false)}>Cancel</button>
