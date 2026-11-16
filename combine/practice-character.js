@@ -19,6 +19,8 @@ for (const side of ['Left', 'Right']) {
   limbEnds[side + 'Foot'] = side + 'ToeBase';
 }
 
+export const sourceJointNames = Object.freeze(Object.keys(jointNames));
+
 export async function loadPracticeCharacter(url, source, fitting) {
   let model;
   try {
@@ -85,7 +87,8 @@ function bindPracticeCharacter(model, source, lowestSole, restrainedArms) {
     };
   });
 
-  const initialY = model.position.y;
+  const initialPosition = model.position.clone(), initialScale = model.scale.clone();
+  const buildScale = new Vector3(1, 1, 1);
   const sourceHip = source.Hips;
   const targetHip = target.get('Hips');
   const startSourceHip = sourceHip.position.clone();
@@ -95,9 +98,18 @@ function bindPracticeCharacter(model, source, lowestSole, restrainedArms) {
 
   return {
     model,
-    pose(root) {
-      if (lowestSole) model.position.y = initialY;
-      hip.copy(sourceHip.position).sub(startSourceHip).multiply(sourceHipScale).add(startTargetHip);
+    setDimensions(width, height) {
+      buildScale.set(width, height, width);
+      model.scale.copy(initialScale).multiply(buildScale);
+    },
+    hand(side, root) {
+      const center = position(target.get(side + 'Hand'));
+      return root.worldToLocal(center);
+    },
+    pose(root, ground = true) {
+      model.position.copy(initialPosition).multiply(buildScale);
+      hip.copy(sourceHip.position).sub(startSourceHip).multiply(sourceHipScale)
+        .add(startTargetHip).multiply(buildScale);
       targetHip.position.copy(targetHip.parent.worldToLocal(root.localToWorld(hip)));
       for (const pair of pairs) {
         pair.source.getWorldQuaternion(pair.target.quaternion);
@@ -106,11 +118,11 @@ function bindPracticeCharacter(model, source, lowestSole, restrainedArms) {
         pair.target.quaternion.premultiply(inverseParent).slerp(pair.rest, 1 - pair.range);
         pair.target.updateMatrixWorld();
       }
-      if (lowestSole) {
+      if (lowestSole && ground) {
         model.updateMatrixWorld(true);
         // The original shoes have different proportions from the driver.
         // Keep them above the track without changing motion or race physics.
-        model.position.y += MathUtils.clamp(root.position.y - lowestSole(), 0, .24);
+        model.position.y += MathUtils.clamp(root.getWorldPosition(new Vector3()).y - lowestSole(), 0, .24);
         model.updateMatrixWorld(true);
       }
     },

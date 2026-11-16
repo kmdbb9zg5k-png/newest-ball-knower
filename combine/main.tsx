@@ -3,6 +3,10 @@ import {refreshLocker} from '../lockerCommerceClient';
 import LockerAccountSync from '../LockerAccountSync';
 import {readAthletePassport,withAthleteIdentity} from '../athletePassport';
 import {inMiniChallenge,exitMiniChallenge} from '../public/mini-challenge-bridge.js';
+import {gameCharacterAppearance} from '../gameAthleteAppearance';
+import GameAthleteSetup from '../GameAthleteSetup';
+import { readGameAthlete } from '../public/play-moment-3d/game-athlete.js';
+import { athleteMovement } from '../athleteBuild';
 import MiniGameAthleteBuilder from '../MiniGameAthleteBuilder';
 import RBExperience from './RBExperience';
 import React,{useEffect,useState} from 'react';
@@ -31,11 +35,33 @@ const practiceCharacter = !competitive && drill === 'dash'
 const drillNames:Record<string,string>={dash:'40-Yard Dash','broad-jump':'Broad Jump',shuttle:'20-Yard Shuttle',bench:'Bench Press',routes:'Receiver Routes','one-on-one':'1-on-1 Routes',rb:'Running Back Challenge',db:'Defensive Back Challenge'};
 const exit=()=>{if(!exitMiniChallenge())location.href='/?miniGames=1&combine=1';};
 
-function playersForDrill(){
-  const pool=drill==='db'?allPlayers.filter(p=>p.position==='CB'):drill==='rb'?allPlayers.filter(p=>p.position==='RB'):['routes','one-on-one'].includes(drill||'')?allPlayers.filter(p=>p.position==='WR'):allPlayers;
-  const passport=readAthletePassport(),base=pool[0]||allPlayers[0];
-  if(competitive)return[dressMyAthlete(withAthleteIdentity({...base,speed:85,acceleration:85,agility:85,careerStrength:85,contact:85},passport),'workout')];
-  return[dressMyAthlete(passport?withAthleteIdentity({...base,speed:passport.movement.speed,acceleration:passport.movement.acceleration,agility:passport.movement.agility,careerStrength:passport.movement.strength,contact:passport.movement.contact},passport):{...base,name:'My Player'},'workout')];
+function playersForDrill() {
+  const settings = readGameAthlete();
+  const role = drill === 'db' ? 'CB' : drill === 'rb' ? 'RB'
+    : ['routes', 'one-on-one'].includes(drill || '') ? 'WR' : competitive ? undefined : settings?.position;
+  const base = allPlayers.find(player => player.position === role) || allPlayers[0];
+  const passport = readAthletePassport();
+  const character = settings && STORE_PRODUCTS.find(product => product.id === settings.character && practiceAsset(product));
+  if (settings) {
+    const build = { ...passport?.build, ...settings, position: role || base.position };
+    const movement = athleteMovement(build as Parameters<typeof athleteMovement>[0], competitive);
+    const player = dressMyAthlete(withAthleteIdentity({
+      ...base, position: build.position, speed: movement.speed, acceleration: movement.acceleration,
+      agility: movement.agility, careerStrength: movement.strength, contact: movement.contact,
+    }, passport), 'workout');
+    return [{
+      ...player, heightInches: settings.heightInches, weightLbs: settings.weightLbs,
+      ...(character ? { name: character.name, id: 'store:' + character.id, ...gameCharacterAppearance(character.id) } : {}),
+      ...(competitive ? { id: base.id } : {}),
+    }];
+  }
+  if (competitive) return [dressMyAthlete(withAthleteIdentity({
+    ...base, speed: 85, acceleration: 85, agility: 85, careerStrength: 85, contact: 85,
+  }, passport), 'workout')];
+  return [dressMyAthlete(passport ? withAthleteIdentity({
+    ...base, speed: passport.movement.speed, acceleration: passport.movement.acceleration,
+    agility: passport.movement.agility, careerStrength: passport.movement.strength, contact: passport.movement.contact,
+  }, passport) : { ...base, name: 'My Player' }, 'workout')];
 }
 
 function Drill(){
@@ -50,7 +76,9 @@ function Drill(){
 
 function CharacterPractice({ character }: { character: StoreProduct }) {
   const [athlete] = useState(() => ({
-    ...combineAthlete({ id: 'store:' + character.id, name: character.name, position: 'WR', speed: 85 }),
+    ...combineAthlete({ id: 'store:' + character.id, name: character.name, position: readGameAthlete()?.position ?? 'WR', speed: 85 }),
+    heightInches: readGameAthlete()?.heightInches,
+    weightLbs: readGameAthlete()?.weightLbs,
     acceleration: 85,
     practiceRig: practiceAsset(character),
     fitPracticeRig: character.fitPracticeRig ? character.id : undefined,
@@ -60,7 +88,7 @@ function CharacterPractice({ character }: { character: StoreProduct }) {
 }
 
 function CombineEntry(){
-  const [started,setStarted]=useState(competitive),[outfitReady,setOutfitReady]=useState(false);
+  const [started,setStarted]=useState(competitive || !!readGameAthlete()),[outfitReady,setOutfitReady]=useState(false);
   useEffect(()=>{
     let active=true;
     // Account sync must never strand a guest or an expired session on loading.
@@ -71,7 +99,7 @@ function CombineEntry(){
   },[]);
   if(!outfitReady)return <main className="combine-entry" role="status">Loading your saved outfit…</main>;
   const name=drillNames[drill||'dash']||drillNames.dash;
-  return <><LockerAccountSync/>{started?<Drill/>:<main className="combine-entry" aria-label={`${name} athlete setup`}><header><button type="button" onClick={exit} aria-label="Back to Mini Games">‹</button><div><span>BALL KNOWER / MINI COMBINE</span><h1>{name}</h1></div></header><MiniGameAthleteBuilder actionLabel={`Save & start ${name}`} onContinue={()=>setStarted(true)}/></main>}</>;
+  return <><LockerAccountSync/>{started?<Drill/>:<main className="combine-entry" aria-label={`${name} athlete setup`}><header><button type="button" onClick={exit} aria-label="Back to Mini Games">‹</button><div><span>BALL KNOWER / MINI COMBINE</span><h1>{name}</h1></div><GameAthleteSetup onSaved={()=>setStarted(true)}/></header><MiniGameAthleteBuilder actionLabel={`Save & start ${name}`} onContinue={()=>setStarted(true)}/></main>}</>;
 }
 
 createRoot(document.getElementById('root')!).render(practiceCharacter ? <CharacterPractice character={practiceCharacter}/> : <CombineEntry/>);

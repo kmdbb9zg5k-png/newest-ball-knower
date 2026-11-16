@@ -4,7 +4,7 @@ import {DEFENDER,manBall} from './man-coverage.js';
 export async function createDefender(scene,player=DEFENDER){
  const db=await loadCombineRunner(player);db.root.name='man-coverage-defender';scene.add(db.root);
  // Default defenders use burgundy; equipped clothing keeps its own colors.
- db.root.traverse(o=>{if(!o.isSkinnedMesh)return;for(const m of(Array.isArray(o.material)?o.material:[o.material])){const before=m.onBeforeCompile,cache=m.customProgramCacheKey.bind(m);m.onBeforeCompile=shader=>{before.call(m,shader);shader.vertexShader='varying vec3 bkDBWorld;\n'+shader.vertexShader.replace('#include <worldpos_vertex>','#include <worldpos_vertex>\nbkDBWorld=(modelMatrix*vec4(transformed,1.)).xyz;');shader.fragmentShader='varying vec3 bkDBWorld;\n'+shader.fragmentShader.replace('#include <color_fragment>',`#include <color_fragment>
+ if(!player.practiceRig)db.root.traverse(o=>{if(!o.isSkinnedMesh)return;for(const m of(Array.isArray(o.material)?o.material:[o.material])){const before=m.onBeforeCompile,cache=m.customProgramCacheKey.bind(m);m.onBeforeCompile=shader=>{before.call(m,shader);shader.vertexShader='varying vec3 bkDBWorld;\n'+shader.vertexShader.replace('#include <worldpos_vertex>','#include <worldpos_vertex>\nbkDBWorld=(modelMatrix*vec4(transformed,1.)).xyz;');shader.fragmentShader='varying vec3 bkDBWorld;\n'+shader.fragmentShader.replace('#include <color_fragment>',`#include <color_fragment>
  if(bkKit_enabled < .5){
  vec3 sourceColor=texture2D(map,vMapUv).rgb;
  float neutral=(1.-smoothstep(.018,.07,max(sourceColor.r,max(sourceColor.g,sourceColor.b))-min(sourceColor.r,min(sourceColor.g,sourceColor.b))))*smoothstep(.025,.06,dot(sourceColor,vec3(.333)));
@@ -12,7 +12,7 @@ export async function createDefender(scene,player=DEFENDER){
  db.root.updateMatrixWorld(true);
  const bones={};db.root.traverse(o=>{if(o.isBone)bones[o.name.replace('mixamorig','').replace(':','')]=o;});
  const sleeves=[];
- for(const [name,child,top,bottom] of [['RightArm','RightForeArm',.071,.057],['RightForeArm','RightHand',.056,.039]]){
+ if(!player.practiceRig)for(const [name,child,top,bottom] of [['RightArm','RightForeArm',.071,.057],['RightForeArm','RightHand',.056,.039]]){
   const bone=bones[name],end=bones[child].position.clone(),scale=bone.getWorldScale(new T.Vector3()).x;
   const sleeve=new T.Mesh(new T.CylinderGeometry(bottom/scale,top/scale,end.length()*.98,12),new T.MeshStandardMaterial({color:'#20242b',roughness:.9}));
   sleeve.name='DB compression sleeve';sleeve.position.copy(end).multiplyScalar(.5);sleeve.quaternion.setFromUnitVectors(new T.Vector3(0,1,0),end.normalize());bone.add(sleeve);sleeve.castShadow=true;sleeve.visible=!player.wardrobe;sleeves.push(sleeve);

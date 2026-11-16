@@ -31,8 +31,19 @@ function flattenedRepoResolver(root:string):Plugin{
 export default defineConfig(() => {
   const root = path.resolve(__dirname, '.');
   return {
-    plugins: [flattenedRepoResolver(root), react(), tailwindcss()],
-    build: { rollupOptions: { input: { app: path.join(root, 'index.html'), combine: path.join(root, 'combine.html') } } },
+    plugins: [flattenedRepoResolver(root), react(), tailwindcss(), {
+      name: 'ball-knower-field-character-entry',
+      configureServer(server) {
+        server.middlewares.use((request, _response, next) => {
+          if (request.url === '/assets/bk-field-character.js') request.url = '/field-character.ts';
+          next();
+        });
+      },
+    }],
+    build: { rollupOptions: {
+      input: { app: path.join(root, 'index.html'), combine: path.join(root, 'combine.html'), fieldCharacter: path.join(root, 'field-character.ts') },
+      output: { entryFileNames: chunk => chunk.name === 'fieldCharacter' ? 'assets/bk-field-character.js' : 'assets/[name]-[hash].js' },
+    } },
     resolve: { alias: { '@': root } },
     server: {
       hmr: process.env.DISABLE_HMR !== 'true',
