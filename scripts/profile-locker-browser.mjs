@@ -152,8 +152,8 @@ try {
         const picker = page.getByRole('dialog', { name: 'Switch game character', exact: true });
         await picker.getByText('Purchase a Store character to play as them.').waitFor();
         const character = picker.getByRole('combobox', { name: 'Character', exact: true });
-        assert.equal(await character.locator('option[value="bkf-phantom"]').isDisabled(), true);
-        assert.equal(await character.locator('option[value="bkf-kickflip"]').isDisabled(), isGuest);
+        assert.equal(await character.locator('option[value="bkf-phantom"]').evaluate(option => option.disabled), true);
+        assert.equal(await character.locator('option[value="bkf-kickflip"]').evaluate(option => option.disabled), isGuest);
         if (isGuest) {
           await picker.getByRole('button', { name: 'Cancel', exact: true }).click();
         } else {
