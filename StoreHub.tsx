@@ -154,6 +154,7 @@ function BKFConceptDialog({ product, onClose }: { product: StoreProduct; onClose
         <h3><span>Included</span></h3>
         <ul>{product.includes.map(item=><li key={item}>{item}</li>)}</ul>
       </div>
+      {product.practiceRig && <a className="bk-store-button" href={`/combine.html?drill=dash&character=${encodeURIComponent(product.id)}`}>Run the 40 as {product.name}</a>}
       <footer className="bkf-drop-footer">
         <button type="button" className="bkf-drop-cta" onClick={() => {
           if (!has3d && showcase) {
@@ -309,7 +310,7 @@ function TunnelProductPage({ product, onBack }: { product: StoreProduct; onBack:
 }
 
 export default function StoreHub({ initialCategory, onOpenLocker, onOpenGauntlet }: {
-  initialCategory?: StoreCategory;
+  initialCategory?: StoreCategory | 'characters';
   onOpenLocker: () => void;
   onOpenGauntlet: () => void;
 }) {
@@ -321,9 +322,9 @@ export default function StoreHub({ initialCategory, onOpenLocker, onOpenGauntlet
     }
     return products;
   });
-  const [department, setDepartment] = useState<ShopDepartment>(initialCategory ? 'all' : 'featured');
+  const [department, setDepartment] = useState<ShopDepartment>(initialCategory === 'characters' ? 'characters' : initialCategory ? 'all' : 'featured');
   const [page, setPage] = useState<StorePage>(initialCategory ? 'catalog' : 'featured');
-  const [filter, setFilter] = useState<StoreFilter>(initialCategory ?? 'all');
+  const [filter, setFilter] = useState<StoreFilter>(initialCategory === 'characters' ? 'all' : initialCategory ?? 'all');
   const [selection, setSelection] = useState<Selection | null>(null);
   const [tunnelProduct, setTunnelProduct] = useState<StoreProduct | null>(null);
   const store = useRef<HTMLElement>(null);

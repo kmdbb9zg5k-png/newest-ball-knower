@@ -23,3 +23,10 @@ jobs:
       - run: node scripts/combine-startup-browser.mjs
       - run: npm run build
       - run: node scripts/drill-retry-browser.mjs
+      - run: node scripts/combine-character-practice-browser.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: combine-character-practice
+          path: artifacts/character-practice/
+          if-no-files-found: ignore

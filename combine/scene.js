@@ -282,7 +282,7 @@ export async function createCombineScene(host, player, onLost, drill = 'dash') {
   stage='background';
   background=await createCombineBackground(scene,runner.root,{fieldPeople:!isRoutes,standOffset});
   host.dataset.backgroundVersion='reactive-v3';host.dataset.scouts=String(background.counts.scouts);host.dataset.waitingAthletes=String(background.counts.waitingAthletes);
-  scene.add(runner.root);host.dataset.character='native-athlete';
+  scene.add(runner.root);host.dataset.character=player.practiceRig?'store-character':'native-athlete';
   stage='field';
   if(isRoutes)routePresentation=drill==='rb'?await createRBPresentation(scene,runner,camera):await createRoutePresentation(scene,runner,camera,host,defensive?RECEIVER:player,drill==='one-on-one'||defensive,defensive?player:null);
   let ghostRunner=null,ghostState=null;

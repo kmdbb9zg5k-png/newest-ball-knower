@@ -4,7 +4,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { createPlayerAppearance } from './player-appearance.js';
 import {createBodyShape,bodyMass} from './body-shape.js';
 
-// Native 52-bone athlete and its own captured clips; no cross-rig retargeting.
+// Native 52-bone athlete and its captured Combine clips.
 export const COMBINE_CHARACTER_URL = '/play-moment-3d/assets/combine-native-athlete-v1.glb?v=native-1';
 const v=(x=0,y=0,z=0)=>new T.Vector3(x,y,z);
 const position=o=>o.getWorldPosition(v());
@@ -58,6 +58,19 @@ export async function loadCombineRunner(player,showroom=false,showroomSkin=false
   }
   const start=Object.fromEntries(Object.entries(bones).map(([name,b])=>[name,{p:b.position.clone(),q:b.quaternion.clone()}]));
   reset();
+  let disposed = false;
+  let practiceCharacter = null;
+  if (player.practiceRig && !showroom) {
+    try {
+      const {loadPracticeCharacter} = await import('./practice-character.js');
+      practiceCharacter = await loadPracticeCharacter(player.practiceRig, bones);
+    } catch (error) {
+      disposeRunner();
+      throw error;
+    }
+    body.visible = false;
+    root.add(practiceCharacter.model);
+  }
   let gaitPhase=0,lastDistance=0,idleTime=0,walkWeight=0,idleWeight=0;
   function setAthlete(next){
     shape(next);
@@ -97,6 +110,7 @@ export async function loadCombineRunner(player,showroom=false,showroomSkin=false
       b.quaternion.slerpQuaternions(start[name].q,b.quaternion.clone(),blend);
     }
     body.position.y=0;root.updateMatrixWorld(true);
+    practiceCharacter?.pose(root);
   }
   // Isolated two-foot jump pose on the same rig used by the 40. Targets are
   // solved at the origin, then the entire athlete is placed in the lane.
@@ -287,8 +301,7 @@ export async function loadCombineRunner(player,showroom=false,showroomSkin=false
     root.updateMatrixWorld(true);
   }
   pose(0,0,true);
-  let disposed=false;
   root.disposeCombineRunner=disposeRunner;
   return {root,pose,poseCreator,poseJump,poseBench,poseShuttleTurn,poseReceiver,poseDefender,poseRB,poseHandoff,poseQuarterback,setAthlete,dispose:disposeRunner};
-  function disposeRunner(){if(disposed)return;disposed=true;appearance.dispose();mixer.stopAllAction();mixer.uncacheRoot(body);const images=new Set();body.traverse(o=>{o.skeleton?.dispose();for(const m of(Array.isArray(o.material)?o.material:[o.material]))if(m)for(const value of Object.values(m))if(value?.isTexture&&value.image)images.add(value.image);});for(const image of images)image.close?.();}
+  function disposeRunner(){if(disposed)return;disposed=true;practiceCharacter?.dispose();appearance.dispose();mixer.stopAllAction();mixer.uncacheRoot(body);const images=new Set();body.traverse(o=>{o.skeleton?.dispose();for(const m of(Array.isArray(o.material)?o.material:[o.material]))if(m)for(const value of Object.values(m))if(value?.isTexture&&value.image)images.add(value.image);});for(const image of images)image.close?.();}
 }

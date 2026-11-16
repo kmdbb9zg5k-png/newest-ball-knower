@@ -27,6 +27,7 @@ export type StoreProduct = {
   tryOn?: TryOn;
   department?: 'clothing';
   posterOnly?: boolean;
+  practiceRig?: string;
   proposedCoins?: number;
   showcase?: { model?: string; look: string; collection: string; theme: string; pose?: 'A-pose' };
 };
@@ -65,6 +66,11 @@ export const FEATURED_PACKS: readonly StoreProduct[] = [
     use: 'My Player and Profile',
   },
 ];
+
+export const STORE_CHARACTER_RIGS = {
+  'bkf-youngboy': 'https://v3b.fal.media/files/b/0ab1eab7/V83xtyKKr4wmgiSU8ye4w_rigged_character.glb',
+  frostbite: 'https://v3b.fal.media/files/b/0ab1eab9/7U3TFsS4ADTIdrTSvoC8Z_rigged_character.glb',
+} as const;
 
 export const STORE_PRODUCTS: readonly StoreProduct[] = [
   BLACKOUT_KIT,
@@ -130,6 +136,7 @@ export const STORE_PRODUCTS: readonly StoreProduct[] = [
   },
   {
     id: 'bkf-youngboy',
+    practiceRig: STORE_CHARACTER_RIGS['bkf-youngboy'],
     name: 'BKF YoungBoy',
     summary: 'Shiesty mask, black hoodie, cargos, gold & boots',
     description: 'Street-luxury concept pack featuring an upright 3D athlete: black ski mask, oversized black BK hoodie, baggy brown cargo trousers, rugged tan boots, Cuban-link gold chain and diamond-style watch. The artwork is a concept preview. Detailed wearable 3D assets, ownership and purchasing are not available yet.',
@@ -140,6 +147,7 @@ export const STORE_PRODUCTS: readonly StoreProduct[] = [
   },
   {
     id: 'frostbite',
+    practiceRig: STORE_CHARACTER_RIGS['frostbite'],
     name: 'Frostbite',
     summary: 'Ice-silver puffer, white mask & glacier cargos',
     description: 'An icy streetwear concept featuring a glossy silver-white quilted puffer, white knit balaclava, pale-gray cargo trousers, silver Cuban-link chain, diamond-style watch and icy white boots. The complete rigged 3D character is available to preview; individual wearable clothing, ownership and checkout are not available yet.',

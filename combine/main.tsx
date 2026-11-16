@@ -14,6 +14,7 @@ import BroadJumpExperience from './BroadJumpExperience';
 import AgilityStrengthExperience from './AgilityStrengthExperience';
 import {SOLO_PLAYERS_DATABASE} from '../soloUniverse';
 import {combineAthlete} from './dash.js';
+import {STORE_PRODUCTS, type StoreProduct} from '../storeCatalog';
 import '../index.css';
 import '../communityMiniGames.css';
 import '../solo/soloPresentation.css';
@@ -21,8 +22,12 @@ import './combine-entry.css';
 
 const positions=['WR','RB','CB','QB','TE','LB'];
 const allPlayers=positions.flatMap(pos=>SOLO_PLAYERS_DATABASE.filter(p=>p.position===pos).slice(0,3)).map(combineAthlete);
-const drill=new URLSearchParams(location.search).get('drill');
+const params = new URLSearchParams(location.search);
+const drill = params.get('drill');
 const competitive=inMiniChallenge();
+const practiceCharacter = !competitive && drill === 'dash'
+  ? STORE_PRODUCTS.find(product => product.id === params.get('character') && product.practiceRig)
+  : undefined;
 const drillNames:Record<string,string>={dash:'40-Yard Dash','broad-jump':'Broad Jump',shuttle:'20-Yard Shuttle',bench:'Bench Press',routes:'Receiver Routes','one-on-one':'1-on-1 Routes',rb:'Running Back Challenge',db:'Defensive Back Challenge'};
 const exit=()=>{if(!exitMiniChallenge())location.href='/?miniGames=1&combine=1';};
 
@@ -43,6 +48,16 @@ function Drill(){
   return <Experience players={players} context="standalone" onClose={exit}/>;
 }
 
+function CharacterPractice({ character }: { character: StoreProduct }) {
+  const [athlete] = useState(() => ({
+    ...combineAthlete({ id: 'store:' + character.id, name: character.name, position: 'WR', speed: 85 }),
+    acceleration: 85,
+    practiceRig: character.practiceRig,
+  }));
+  return <CombineExperience players={[athlete]} context="character-practice"
+    onClose={() => { location.href = '/?storeCharacters=1'; }} />;
+}
+
 function CombineEntry(){
   const [started,setStarted]=useState(competitive),[outfitReady,setOutfitReady]=useState(false);
   useEffect(()=>{
@@ -58,4 +73,4 @@ function CombineEntry(){
   return <><LockerAccountSync/>{started?<Drill/>:<main className="combine-entry" aria-label={`${name} athlete setup`}><header><button type="button" onClick={exit} aria-label="Back to Mini Games">‹</button><div><span>BALL KNOWER / MINI COMBINE</span><h1>{name}</h1></div></header><MiniGameAthleteBuilder actionLabel={`Save & start ${name}`} onContinue={()=>setStarted(true)}/></main>}</>;
 }
 
-createRoot(document.getElementById('root')!).render(<CombineEntry/>);
+createRoot(document.getElementById('root')!).render(practiceCharacter ? <CharacterPractice character={practiceCharacter}/> : <CombineEntry/>);
