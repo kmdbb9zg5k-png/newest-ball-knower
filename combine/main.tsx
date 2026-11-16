@@ -14,7 +14,7 @@ import BroadJumpExperience from './BroadJumpExperience';
 import AgilityStrengthExperience from './AgilityStrengthExperience';
 import {SOLO_PLAYERS_DATABASE} from '../soloUniverse';
 import {combineAthlete} from './dash.js';
-import {STORE_PRODUCTS, type StoreProduct} from '../storeCatalog';
+import {practiceAsset, STORE_PRODUCTS, type StoreProduct} from '../storeCatalog';
 import '../index.css';
 import '../communityMiniGames.css';
 import '../solo/soloPresentation.css';
@@ -26,7 +26,7 @@ const params = new URLSearchParams(location.search);
 const drill = params.get('drill');
 const competitive=inMiniChallenge();
 const practiceCharacter = !competitive && drill === 'dash'
-  ? STORE_PRODUCTS.find(product => product.id === params.get('character') && product.practiceRig)
+  ? STORE_PRODUCTS.find(product => product.id === params.get('character') && practiceAsset(product))
   : undefined;
 const drillNames:Record<string,string>={dash:'40-Yard Dash','broad-jump':'Broad Jump',shuttle:'20-Yard Shuttle',bench:'Bench Press',routes:'Receiver Routes','one-on-one':'1-on-1 Routes',rb:'Running Back Challenge',db:'Defensive Back Challenge'};
 const exit=()=>{if(!exitMiniChallenge())location.href='/?miniGames=1&combine=1';};
@@ -52,7 +52,8 @@ function CharacterPractice({ character }: { character: StoreProduct }) {
   const [athlete] = useState(() => ({
     ...combineAthlete({ id: 'store:' + character.id, name: character.name, position: 'WR', speed: 85 }),
     acceleration: 85,
-    practiceRig: character.practiceRig,
+    practiceRig: practiceAsset(character),
+    fitPracticeRig: character.fitPracticeRig ? character.id : undefined,
   }));
   return <CombineExperience players={[athlete]} context="character-practice"
     onClose={() => { location.href = '/?storeCharacters=1'; }} />;

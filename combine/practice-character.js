@@ -1,6 +1,6 @@
 // Keep the Store mesh and skin. The native Combine rig still drives the dash,
 // while its poses are copied onto the character's own proportions.
-import { Box3, Quaternion, Vector3 } from 'three';
+import { Box3, MathUtils, Quaternion, Vector3 } from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { invalidateCombineAsset, loadCombineAsset } from './asset-loading.js';
 
@@ -19,12 +19,17 @@ for (const side of ['Left', 'Right']) {
   limbEnds[side + 'Foot'] = side + 'ToeBase';
 }
 
-export async function loadPracticeCharacter(url, source) {
+export async function loadPracticeCharacter(url, source, fitting) {
   let model;
   try {
     const bytes = await loadCombineAsset(url);
     ({ scene: model } = await new GLTFLoader().parseAsync(bytes.slice(0), new URL('.', new URL(url, location.href)).href));
-    return bindPracticeCharacter(model, source);
+    let lowestSole;
+    if (fitting) {
+      const { fitStoreRig } = await import('./fit-store-rig.js');
+      lowestSole = fitStoreRig(model, fitting);
+    }
+    return bindPracticeCharacter(model, source, lowestSole);
   } catch (error) {
     if (model) disposePracticeCharacter(model);
     invalidateCombineAsset(url);
@@ -32,7 +37,7 @@ export async function loadPracticeCharacter(url, source) {
   }
 }
 
-function bindPracticeCharacter(model, source) {
+function bindPracticeCharacter(model, source, lowestSole) {
   const target = new Map();
   let skinned = false;
   model.traverse(object => {
@@ -73,6 +78,7 @@ function bindPracticeCharacter(model, source) {
     return { source: a, target: b, correction: orientation(a).invert().multiply(adjustment).multiply(orientation(b)) };
   });
 
+  const initialY = model.position.y;
   const sourceHip = source.Hips;
   const targetHip = target.get('Hips');
   const startSourceHip = sourceHip.position.clone();
@@ -83,6 +89,7 @@ function bindPracticeCharacter(model, source) {
   return {
     model,
     pose(root) {
+      if (lowestSole) model.position.y = initialY;
       hip.copy(sourceHip.position).sub(startSourceHip).multiply(sourceHipScale).add(startTargetHip);
       targetHip.position.copy(targetHip.parent.worldToLocal(root.localToWorld(hip)));
       for (const pair of pairs) {
@@ -91,6 +98,13 @@ function bindPracticeCharacter(model, source) {
         pair.target.parent.getWorldQuaternion(inverseParent).invert();
         pair.target.quaternion.premultiply(inverseParent);
         pair.target.updateMatrixWorld();
+      }
+      if (lowestSole) {
+        model.updateMatrixWorld(true);
+        // The original shoes have different proportions from the driver.
+        // Keep them above the track without changing motion or race physics.
+        model.position.y += MathUtils.clamp(root.position.y - lowestSole(), 0, .24);
+        model.updateMatrixWorld(true);
       }
     },
     dispose() { disposePracticeCharacter(model); },

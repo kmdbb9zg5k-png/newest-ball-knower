@@ -9,7 +9,7 @@ import { readOutfit } from './playerWardrobe';
 import { readLockerState, refreshLocker, subscribeLocker } from './lockerCommerceClient';
 import {
   STORE_CATEGORIES, STORE_PRODUCTS,
-  storeImage, storePrice, type StoreCategory, type StoreFilter, type StoreProduct,
+  practiceAsset, storeImage, storePrice, type StoreCategory, type StoreFilter, type StoreProduct,
 } from './storeCatalog';
 import './store.css';
 import './bkf-drop.css';
@@ -154,7 +154,7 @@ function BKFConceptDialog({ product, onClose }: { product: StoreProduct; onClose
         <h3><span>Included</span></h3>
         <ul>{product.includes.map(item=><li key={item}>{item}</li>)}</ul>
       </div>
-      {product.practiceRig && <a className="bk-store-button" href={`/combine.html?drill=dash&character=${encodeURIComponent(product.id)}`}>Run the 40 as {product.name}</a>}
+      {practiceAsset(product) && <a className="bk-store-button" href={`/combine.html?drill=dash&character=${encodeURIComponent(product.id)}`}>Run the 40 as {product.name}</a>}
       <footer className="bkf-drop-footer">
         <button type="button" className="bkf-drop-cta" onClick={() => {
           if (!has3d && showcase) {

@@ -63,7 +63,7 @@ export async function loadCombineRunner(player,showroom=false,showroomSkin=false
   if (player.practiceRig && !showroom) {
     try {
       const {loadPracticeCharacter} = await import('./practice-character.js');
-      practiceCharacter = await loadPracticeCharacter(player.practiceRig, bones);
+      practiceCharacter = await loadPracticeCharacter(player.practiceRig, bones, player.fitPracticeRig);
     } catch (error) {
       disposeRunner();
       throw error;

@@ -30,3 +30,34 @@ jobs:
           name: combine-character-practice
           path: artifacts/character-practice/
           if-no-files-found: ignore
+  fitted-characters:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - group: wolf-phantom
+            characters: bkf-iron-wolf,bkf-phantom
+          - group: outlaw-nicki
+            characters: bkf-outlaw,bk-femme
+          - group: lowrider-kickflip
+            characters: bkf-lowrider,bkf-kickflip
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npx playwright install --with-deps chromium
+      - run: npm run build
+      - run: node scripts/combine-character-practice-browser.mjs
+        env:
+          BK_CHARACTER_PRACTICE_IDS: ${{ matrix.characters }}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: combine-character-practice-${{ matrix.group }}
+          path: artifacts/character-practice/
+          if-no-files-found: ignore

@@ -6,10 +6,18 @@ import { chromium } from 'playwright';
 const output = 'artifacts/character-practice';
 await mkdir(output, { recursive: true });
 const server = await preview({ preview: { host: '127.0.0.1', port: 4192, strictPort: true } });
+const characters = [
+  ['frostbite', 'Frostbite', 390], ['bkf-youngboy', 'BKF YoungBoy', 320],
+  ['bkf-iron-wolf', 'Iron Wolf', 390], ['bkf-phantom', 'The Phantom', 320],
+  ['bkf-outlaw', 'BKF Outlaw', 390], ['bk-femme', 'BKF Nicki', 320],
+  ['bkf-lowrider', 'BKF Lowrider', 390], ['bkf-kickflip', 'BKF Kickflip', 320],
+];
+const ids = (process.env.BK_CHARACTER_PRACTICE_IDS || 'frostbite,bkf-youngboy').split(',');
+assert.ok(ids.every(id => characters.some(([character]) => id === character)), 'Unknown practice character');
 let browser;
 try {
   browser = await chromium.launch({ args: ['--no-sandbox', '--enable-unsafe-swiftshader', '--use-angle=swiftshader'] });
-  for (const [id, name, width] of [['frostbite', 'Frostbite', 390], ['bkf-youngboy', 'BKF YoungBoy', 320]]) {
+  for (const [id, name, width] of characters.filter(([id]) => ids.includes(id))) {
     const context = await browser.newContext({
       viewport: { width, height: 844 }, isMobile: true, hasTouch: true, serviceWorkers: 'block',
     });
