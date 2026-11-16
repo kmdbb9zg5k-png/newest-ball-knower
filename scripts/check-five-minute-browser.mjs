@@ -43,7 +43,7 @@ try{
  d=await state();assert.equal(d.drive.score,7);assert.equal(d.mini.conversion,null);assert.equal(d.unit.kind,'kickoff');
  await kick();await settleUnit();d=await state();assert.equal(d.mini.possession,'away');assert.equal(d.unit.kind,'defense');assert(d.unit.book);
  // Actually call a defense and play a snap before exercising the optional Simulate Play control.
- await click('unitCallDefense');await click('defenseReady');await step(.5);await page.keyboard.down('ArrowLeft');await step(.25);await page.keyboard.up('ArrowLeft');
+ await click('unitCallDefense');await step(10);await step(.5);await page.keyboard.down('ArrowLeft');await step(.25);await page.keyboard.up('ArrowLeft');
  await click('pause');const frozen=(await state()).simTime;await step(5);assert.equal((await state()).simTime,frozen);await click('resume');
  await settleUnit();await page.screenshot({path:out+'/defense-play.png'});
  console.log('PASS touchdown -> manual PAT -> kickoff -> defensive snap and pause');
@@ -57,7 +57,7 @@ try{
    assert.equal(cur.glError,0);assert(cur.players.filter(p=>p.hasBall).length<=1,'Ball has multiple owners');
    if(cur.unit){
     if(cur.unit.kind==='defense'&&cur.unit.book){
-     if(liveDefense<2){await click('unitCallDefense');await click('defenseReady');liveDefense++;}
+     if(liveDefense<2){await click('unitCallDefense');await step(10);liveDefense++;}
      else await click('unitSimBook');
     }else if(cur.unit.stage==='kick')await kick();
     else await step(5);

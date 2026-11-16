@@ -5,28 +5,149 @@ import{installNightStadium}from'./night-stadium.js';
 const C=hex;
 function canvas(w,h){const c=document.createElement('canvas');c.width=w;c.height=h;return[c,c.getContext('2d')]}
 let seed=31;function random(){seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296}
+function paintField(ctx, width, height, px, py) {
+ const grass = ctx.createLinearGradient(0, 0, width, 0);
+ grass.addColorStop(0, '#244927');
+ grass.addColorStop(.18, '#335e31');
+ grass.addColorStop(.5, '#3b6a36');
+ grass.addColorStop(.82, '#335e31');
+ grass.addColorStop(1, '#244927');
+ ctx.fillStyle = grass;
+ ctx.fillRect(0, 0, width, height);
+ for (let yard = 10; yard < 110; yard += 5) {
+  ctx.fillStyle = yard % 10 === 0 ? 'rgba(7,31,16,.15)' : 'rgba(138,166,102,.08)';
+  ctx.fillRect(0, py(yard), width, py(5));
+ }
+
+ // Keep the field visible before the optional grass atlas finishes loading.
+ for (let i = 0; i < 30000; i++) {
+  const bright = random() > .46;
+  const shade = Math.floor(random() * 24 + 38);
+  ctx.fillStyle = bright ? `rgba(${shade},${shade + 38},${shade - 4},.16)` : 'rgba(9,28,12,.11)';
+  ctx.fillRect(random() * width, random() * height, .6 + random() * 1.4, 1 + random() * 2.1);
+ }
+
+ for (const [yard, reverse, name] of [[5, false, 'KNOWERS'], [115, true, 'BALL KNOWER']]) {
+  ctx.save();
+  ctx.translate(width / 2, py(yard));
+  ctx.rotate(reverse ? Math.PI : 0);
+  const endHeight = py(10);
+  const paint = ctx.createLinearGradient(-width / 2, 0, width / 2, 0);
+  paint.addColorStop(0, '#111e2b');
+  paint.addColorStop(.5, '#22394c');
+  paint.addColorStop(1, '#111e2b');
+  ctx.fillStyle = paint;
+  ctx.fillRect(-width / 2, -endHeight / 2, width, endHeight);
+  ctx.strokeStyle = '#ad9360';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(-width / 2 + 14, -endHeight / 2 + 13, width - 28, endHeight - 26);
+  for (const sign of [-1, 1]) {
+   for (let offset = 0; offset < 3; offset++) {
+    const x = sign * (400 + offset * 25);
+    ctx.fillStyle = offset === 0 ? '#b89b60' : '#6f634b';
+    ctx.beginPath();
+    ctx.moveTo(x, -44);
+    ctx.lineTo(x + 12 * sign, -44);
+    ctx.lineTo(x + 37 * sign, 44);
+    ctx.lineTo(x + 25 * sign, 44);
+    ctx.closePath();
+    ctx.fill();
+   }
+  }
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.font = 'italic 900 91px Arial';
+  ctx.strokeStyle = '#101b25';
+  ctx.lineWidth = 9;
+  ctx.strokeText(name, 0, 5, 735);
+  ctx.fillStyle = '#e6cc8a';
+  ctx.fillText(name, 0, 5, 735);
+  ctx.restore();
+ }
+
+ ctx.strokeStyle = '#f2edde';
+ ctx.lineCap = 'butt';
+ ctx.lineWidth = 5;
+ ctx.strokeRect(3, 3, width - 6, height - 6);
+ for (let yard = 10; yard <= 110; yard += 5) {
+  ctx.lineWidth = yard === 10 || yard === 110 ? 5 : yard === 60 ? 4 : 3;
+  ctx.beginPath();
+  ctx.moveTo(3, py(yard));
+  ctx.lineTo(width - 3, py(yard));
+  ctx.stroke();
+ }
+ ctx.lineWidth = 2;
+ ctx.beginPath();
+ for (let yard = 11; yard < 110; yard++) {
+  if (yard % 5 === 0) continue;
+  for (const x of [-25.6, -3.1, 3.1, 25.6]) {
+   ctx.moveTo(px(x) - 6, py(yard));
+   ctx.lineTo(px(x) + 6, py(yard));
+  }
+ }
+ ctx.stroke();
+
+ ctx.font = '900 42px Arial';
+ ctx.textAlign = 'center';
+ ctx.textBaseline = 'middle';
+ ctx.fillStyle = '#eee9d8';
+ for (let yard = 20; yard <= 100; yard += 10) {
+  const number = Math.min(yard - 10, 110 - yard);
+  for (const x of [-21.2, 21.2]) {
+   const center = px(x);
+   const y = py(yard);
+   ctx.save();
+   ctx.translate(center, y);
+   ctx.rotate(x < 0 ? -Math.PI / 2 : Math.PI / 2);
+   // Leave the yard line visible between the two digits.
+   ctx.fillText(String(number)[0], -15, 2);
+   ctx.fillText(String(number)[1], 15, 2);
+   ctx.restore();
+   if (yard !== 60) {
+    const dir = yard < 60 ? -1 : 1;
+    ctx.beginPath();
+    ctx.moveTo(center - 8, y + 33 * dir);
+    ctx.lineTo(center + 8, y + 33 * dir);
+    ctx.lineTo(center, y + 47 * dir);
+    ctx.closePath();
+    ctx.fill();
+   }
+  }
+ }
+
+ ctx.save();
+ ctx.translate(width / 2, py(60));
+ ctx.rotate(Math.PI / 2);
+ ctx.beginPath();
+ ctx.moveTo(-91, -77);
+ ctx.lineTo(73, -77);
+ ctx.lineTo(116, 0);
+ ctx.lineTo(73, 77);
+ ctx.lineTo(-91, 77);
+ ctx.lineTo(-116, 0);
+ ctx.closePath();
+ ctx.fillStyle = '#142938';
+ ctx.fill();
+ ctx.strokeStyle = '#c7aa68';
+ ctx.lineWidth = 7;
+ ctx.stroke();
+ ctx.font = 'italic 900 106px Arial';
+ ctx.fillStyle = '#eee5d1';
+ ctx.fillText('BK', -3, 6);
+ ctx.restore();
+}
+
 export function makeStadium(r){
  const art=installSceneMaterials(r),fans=[],staffSprites=[],staffFallback=[],crowdFallback=[],staticParts=[],goalParts=[],lamps=[];let crowdGeometry=false;const add=(...args)=>(crowdGeometry?crowdFallback:staticParts).push(args);
  seed=31;
  const turfScale=Math.min(2,(r.gl?.getParameter?.(r.gl.MAX_TEXTURE_SIZE)||4096)/2048);
  const [t,ctx]=canvas(1024*turfScale,2048*turfScale),W=1024,H=2048;ctx.scale(turfScale,turfScale);
  const px=x=>(x+26.6667)/53.3334*W,py=z=>z/120*H;
- const base=ctx.createLinearGradient(0,0,W,0);base.addColorStop(0,'#22482c');base.addColorStop(.5,'#35673c');base.addColorStop(1,'#21452b');ctx.fillStyle=base;ctx.fillRect(0,0,W,H);
- for(let i=0;i<24;i++){ctx.fillStyle=i%2?'rgba(10,34,17,.22)':'rgba(101,139,81,.13)';ctx.fillRect(0,i*H/24,W,H/24)}
- for(let i=0;i<30000;i++){const bright=random()>.46,k=Math.floor(random()*24+38);ctx.fillStyle=bright?`rgba(${k},${k+38},${k-4},.16)`:`rgba(9,28,12,.11)`;ctx.fillRect(random()*W,random()*H,.6+random()*1.4,1+random()*2.1)}
- for(let i=0;i<820;i++){const z=py(12+random()*96),x=px((random()-.5)*14),radius=3+random()*15,wear=ctx.createRadialGradient(x,z,0,x,z,radius);wear.addColorStop(0,'rgba(156,145,91,.025)');wear.addColorStop(1,'rgba(156,145,91,0)');ctx.fillStyle=wear;ctx.fillRect(x-radius,z-radius,radius*2,radius*2)}
- for(const [a,b]of[[0,10],[110,120]]){const end=ctx.createLinearGradient(0,py(a),0,py(b));end.addColorStop(0,'#10252f');end.addColorStop(.55,'#17333c');end.addColorStop(1,'#0b1b25');ctx.fillStyle=end;ctx.fillRect(0,py(a),W,py(b-a))}
- ctx.strokeStyle='#eeeadd';ctx.lineCap='round';ctx.lineWidth=3.1;ctx.strokeRect(4,4,W-8,H-8);
- for(let y=10;y<=110;y+=5){ctx.globalAlpha=y%10===0?1:.72;ctx.lineWidth=y%10===0?3.2:2.1;ctx.beginPath();ctx.moveTo(0,py(y));ctx.lineTo(W,py(y));ctx.stroke()}
- ctx.globalAlpha=1;
- for(let z=11;z<110;z++)for(const x of[-25.6,-3.1,3.1,25.6]){ctx.beginPath();ctx.moveTo(px(x)-5.5,py(z));ctx.lineTo(px(x)+5.5,py(z));ctx.lineWidth=z%5===0?2.2:1.65;ctx.stroke()}
- ctx.strokeStyle='#cdb16b';ctx.lineWidth=4;for(const z of[10,110]){ctx.beginPath();ctx.moveTo(0,py(z));ctx.lineTo(W,py(z));ctx.stroke()}
- for(let z=20;z<=100;z+=10){const n=z<=60?z-10:110-z;for(const x of[-21.2,21.2]){ctx.save();ctx.translate(px(x),py(z));ctx.rotate(x<0?-Math.PI/2:Math.PI/2);ctx.font='900 42px Arial';ctx.textAlign='center';ctx.fillStyle='#e2e1cc';ctx.fillText(String(n),0,15);ctx.restore()}}
- ctx.fillStyle='#d9bc74';ctx.textAlign='center';ctx.shadowColor='rgba(0,0,0,.35)';ctx.shadowBlur=6;ctx.font='italic 950 84px system-ui';ctx.fillText('KNOWERS',W/2,py(6.5));ctx.save();ctx.translate(W/2,py(114));ctx.rotate(Math.PI);ctx.fillText('BALL KNOWER',0,0);ctx.restore();ctx.shadowBlur=0;
- ctx.save();ctx.translate(W/2,py(60));ctx.rotate(Math.PI/2);ctx.beginPath();ctx.moveTo(-92,-73);ctx.lineTo(76,-73);ctx.lineTo(112,0);ctx.lineTo(76,73);ctx.lineTo(-92,73);ctx.lineTo(-116,0);ctx.closePath();ctx.fillStyle='#102a36d9';ctx.fill();ctx.lineWidth=9;ctx.strokeStyle='#cbb06b';ctx.stroke();ctx.font='italic 950 104px system-ui';ctx.fillStyle='#eef0e7';ctx.fillText('BK',-2,35);ctx.restore();r.texture('turf',t);
+ paintField(ctx, W, H, px, py);
+ r.texture('turf',t);
  const [b,bc]=canvas(1024,128);bc.fillStyle='#0c1925';bc.fillRect(0,0,1024,128);bc.fillStyle='#d9c284';bc.font='900 49px system-ui';bc.textAlign='center';bc.fillText('BALL KNOWER',512,70);bc.font='700 14px system-ui';bc.letterSpacing='4px';bc.fillStyle='#adbcca';bc.fillText('BUILD YOUR LEGACY',512,103);r.texture('banner',b);
  const [glow,gc]=canvas(128,128),halo=gc.createRadialGradient(64,64,0,64,64,64);
- halo.addColorStop(0,'rgba(230,242,255,.9)');halo.addColorStop(.12,'rgba(198,220,255,.5)');halo.addColorStop(.38,'rgba(152,191,244,.12)');halo.addColorStop(1,'rgba(100,160,255,0)');gc.fillStyle=halo;gc.fillRect(0,0,128,128);r.texture('lamp-glow',glow);
+ halo.addColorStop(0,'rgba(247,250,255,.92)');halo.addColorStop(.10,'rgba(206,228,255,.54)');halo.addColorStop(.33,'rgba(147,191,247,.14)');halo.addColorStop(1,'rgba(100,160,255,0)');gc.fillStyle=halo;gc.fillRect(0,0,128,128);r.texture('lamp-glow',glow);
  const [sh,sc]=canvas(64,64),g=sc.createRadialGradient(32,32,0,32,32,32);g.addColorStop(0,'rgba(0,0,0,.55)');g.addColorStop(.3,'rgba(0,0,0,.38)');g.addColorStop(1,'rgba(0,0,0,0)');sc.fillStyle=g;sc.fillRect(0,0,64,64);r.texture('shadow',sh);
  const [focus,fc]=canvas(128,128),focusGlow=fc.createRadialGradient(64,64,3,64,64,64);focusGlow.addColorStop(0,'rgba(255,223,129,.38)');focusGlow.addColorStop(.34,'rgba(225,188,91,.16)');focusGlow.addColorStop(1,'rgba(204,165,68,0)');fc.fillStyle=focusGlow;fc.fillRect(0,0,128,128);r.texture('player-glow',focus);
  const [dust,dc]=canvas(96,96),dustGlow=dc.createRadialGradient(48,48,2,48,48,46);dustGlow.addColorStop(0,'rgba(255,247,210,.82)');dustGlow.addColorStop(.26,'rgba(196,166,103,.48)');dustGlow.addColorStop(1,'rgba(124,96,54,0)');dc.fillStyle=dustGlow;dc.fillRect(0,0,96,96);for(let i=0;i<28;i++){dc.fillStyle=`rgba(255,239,190,${.12+random()*.28})`;dc.beginPath();dc.arc(18+random()*60,18+random()*60,.7+random()*2.2,0,Math.PI*2);dc.fill()}r.texture('turf-fx',dust);
@@ -167,5 +288,5 @@ export function makeStadium(r){
  return{draw(){for(const {z,parts}of goalParts){const foreground=z===3?r.eye[2]<z&&r.target[2]>z:r.eye[2]>z&&r.target[2]<z;if(!foreground)for(const p of parts)r.add(...p);}for(const p of staticParts)r.add(...p);if(!art.crowd)for(const p of crowdFallback)r.add(...p);
   if(art.crowd)for(const [x,y,z,w,h,cell,shade,warm]of fans)r.add('crowdSprite',pose(x,y,z,w,h,1),[shade*(.92+warm*.13),shade*(.96+warm*.04),shade*(1.06-warm*.14),1],'crowd-atlas',false,cell,6);
   if(art.sideline)for(const [x,y,z,h,cell,width,shade]of staffSprites){r.add('crowdSprite',pose(x,y,z,h*width,h,1),[shade,shade,shade,1],'sideline-atlas',false,cell,6);r.add('plane',pose(x,.016,z,.7,1,.55),[1,1,1,.42],'shadow',true)}else for(const p of staffFallback)r.add(...p);
-  for(const pos of lamps){r.glow(pos,8,[.64,.75,1,.19]);r.glow(pos,2.4,[1,.95,.80,.52]);}},parts:staticParts.length};
+  for(const pos of lamps){r.glow(pos,9,[.69,.82,1,.25]);r.glow(pos,2.25,[1,.97,.87,.61]);}},parts:staticParts.length};
 }

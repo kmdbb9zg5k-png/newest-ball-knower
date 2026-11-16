@@ -1,4 +1,4 @@
-/** Original, static night-game scenery for the isolated 3D practice preview.
+/** Original, static night-game scenery for the 3D field.
  * No gameplay state, animation timers, network requests or career storage.
  * One shared 1024 x 256 sign texture; existing instanced shapes do the rest.
  */
@@ -92,25 +92,46 @@ export function makeNightSign(doc = document) {
   canvas.height = SIGN_HEIGHT;
   const ctx = canvas.getContext('2d');
   if (!ctx) return null;
-  const gradient = ctx.createLinearGradient(0, 0, SIGN_WIDTH, SIGN_HEIGHT);
-  gradient.addColorStop(0, '#142b3b');
-  gradient.addColorStop(.6, '#0b1722');
-  gradient.addColorStop(1, '#343326');
-  ctx.fillStyle = gradient;
+  const background = ctx.createLinearGradient(0, 0, SIGN_WIDTH, SIGN_HEIGHT);
+  background.addColorStop(0, '#29475b');
+  background.addColorStop(.55, '#142736');
+  background.addColorStop(1, '#0c1723');
+  ctx.fillStyle = background;
   ctx.fillRect(0, 0, SIGN_WIDTH, SIGN_HEIGHT);
-  ctx.strokeStyle = '#71849320';
-  ctx.lineWidth = 1;
-  for (let x = -256; x < SIGN_WIDTH; x += 48) {
-    ctx.beginPath();ctx.moveTo(x, 0);ctx.lineTo(x + 256, 256);ctx.stroke();
+
+  ctx.strokeStyle = '#7791a535';
+  ctx.lineWidth = 2;
+  for (let x = 135; x < SIGN_WIDTH; x += 54) {
+    ctx.beginPath();
+    ctx.moveTo(x, SIGN_HEIGHT);
+    ctx.lineTo(x + 190, 0);
+    ctx.stroke();
   }
-  ctx.fillStyle = '#d4b575';ctx.fillRect(32, 34, 5, 186);
-  ctx.textAlign = 'center';ctx.textBaseline = 'middle';
-  ctx.font = '750 20px system-ui';ctx.fillStyle = '#cdbb90';
-  ctx.fillText('BALL KNOWER  /  UNDER THE LIGHTS', 526, 56);
-  ctx.font = 'italic 900 72px system-ui';ctx.fillStyle = '#f0f1e9';
-  ctx.fillText('OWN THE MOMENT', 526, 132, 920);
-  ctx.font = '650 19px system-ui';ctx.fillStyle = '#9bb1bc';
-  ctx.fillText('3D PRACTICE  /  ORIGINAL TEAMS', 526, 207);
+  ctx.fillStyle = '#10202f';
+  ctx.beginPath();
+  ctx.moveTo(0, 0);
+  ctx.lineTo(268, 0);
+  ctx.lineTo(198, SIGN_HEIGHT);
+  ctx.lineTo(0, SIGN_HEIGHT);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.strokeStyle = '#b99d63';
+  ctx.lineWidth = 4;
+  ctx.strokeRect(12, 12, SIGN_WIDTH - 24, SIGN_HEIGHT - 24);
+  ctx.beginPath();
+  ctx.moveTo(267, 14);
+  ctx.lineTo(203, SIGN_HEIGHT - 14);
+  ctx.stroke();
+
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.font = 'italic 900 108px Arial';
+  ctx.fillStyle = '#e7c783';
+  ctx.fillText('BK', 117, 134);
+  ctx.font = 'italic 900 86px Arial';
+  ctx.fillStyle = '#f2eddf';
+  ctx.fillText('BALL KNOWER', 624, 134, 715);
   return canvas;
 }
 
