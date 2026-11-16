@@ -11,6 +11,11 @@ const fittings = {
   'bkf-phantom': [[.057, .45], [.095, .79], [.135, .65], [.143, .50], [.075, .24], [.085, .058]],
 };
 
+const handBottom = {
+  'bkf-iron-wolf': .427, 'bkf-kickflip': .407, 'bkf-lowrider': .389,
+  'bkf-outlaw': .423, 'bk-femme': .423, 'bkf-phantom': .397,
+};
+
 const blend = (value, start, end) => MathUtils.smoothstep(value, start, end);
 const sideNames = ['Left', 'Right'];
 
@@ -19,6 +24,7 @@ export function fitStoreRig(model, characterId) {
   if (!fitting) throw new Error('The selected character has no fitted skeleton.');
   const [[hipX, hipY], [shoulderX, shoulderY], [elbowX, elbowY], [wristX, wristY],
     [kneeX, kneeY], [ankleX, ankleY]] = fitting;
+  const fingertips = handBottom[characterId];
   const meshes = [];
   model.traverse(object => { if (object.isMesh) meshes.push(object); });
   if (!meshes.length) throw new Error('The selected character has no mesh.');
@@ -112,9 +118,11 @@ export function fitStoreRig(model, characterId) {
         const armCenter = y < elbowY
           ? MathUtils.lerp(wristX, elbowX, MathUtils.clamp((y - wristY) / (elbowY - wristY), 0, 1))
           : MathUtils.lerp(elbowX, shoulderX, MathUtils.clamp((y - elbowY) / (shoulderY - elbowY), 0, 1));
-        const armCut = armCenter - (characterId === 'bkf-phantom' ? .031 : .038);
-        const arm = blend(lateral, armCut - .013, armCut + .013) *
-          blend(y, wristY - .09, wristY - .046) * (1 - blend(y, shoulderY + .018, shoulderY + .065));
+        const width = MathUtils.lerp(.005, .020, blend(y, elbowY, shoulderY));
+        const armCut = armCenter - .037 -
+          (characterId === 'bkf-phantom' ? .014 * blend(z, .011, .053) : 0);
+        const arm = blend(lateral, armCut - width, armCut + width) *
+          blend(y, fingertips - .013, fingertips) * (1 - blend(y, shoulderY + .018, shoulderY + .065));
         const legs = (1 - arm) * (1 - blend(y, hipY - .055, hipY + .028));
         const torso = 1 - arm - legs;
         const hand = 1 - blend(y, wristY - .043, wristY + .026);

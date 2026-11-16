@@ -29,7 +29,9 @@ export async function loadPracticeCharacter(url, source, fitting) {
       const { fitStoreRig } = await import('./fit-store-rig.js');
       lowestSole = fitStoreRig(model, fitting);
     }
-    return bindPracticeCharacter(model, source, lowestSole);
+    // The Phantom's cuffs touch the jacket on the original mesh.
+    const restrainedArms = fitting === 'bkf-phantom';
+    return bindPracticeCharacter(model, source, lowestSole, restrainedArms);
   } catch (error) {
     if (model) disposePracticeCharacter(model);
     invalidateCombineAsset(url);
@@ -37,7 +39,7 @@ export async function loadPracticeCharacter(url, source, fitting) {
   }
 }
 
-function bindPracticeCharacter(model, source, lowestSole) {
+function bindPracticeCharacter(model, source, lowestSole, restrainedArms) {
   const target = new Map();
   let skinned = false;
   model.traverse(object => {
@@ -75,7 +77,12 @@ function bindPracticeCharacter(model, source, lowestSole) {
     } else if (name.endsWith('Hand')) adjustment.copy(adjustments[side + 'ForeArm']);
     else if (name.endsWith('ToeBase')) adjustment.copy(adjustments[side + 'Foot']);
     adjustments[name] = adjustment;
-    return { source: a, target: b, correction: orientation(a).invert().multiply(adjustment).multiply(orientation(b)) };
+    const arm = /(?:Shoulder|Arm|Hand)$/.test(name);
+    const range = restrainedArms && arm ? .23 : 1;
+    return {
+      source: a, target: b, correction: orientation(a).invert().multiply(adjustment).multiply(orientation(b)),
+      rest: b.quaternion.clone(), range,
+    };
   });
 
   const initialY = model.position.y;
@@ -96,7 +103,7 @@ function bindPracticeCharacter(model, source, lowestSole) {
         pair.source.getWorldQuaternion(pair.target.quaternion);
         pair.target.quaternion.multiply(pair.correction);
         pair.target.parent.getWorldQuaternion(inverseParent).invert();
-        pair.target.quaternion.premultiply(inverseParent);
+        pair.target.quaternion.premultiply(inverseParent).slerp(pair.rest, 1 - pair.range);
         pair.target.updateMatrixWorld();
       }
       if (lowestSole) {
