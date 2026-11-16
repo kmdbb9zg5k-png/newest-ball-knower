@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Camera, ImagePlus, Loader2, Mail, Pencil, Save, Trash2, UserRound, X } from 'lucide-react';
 import { useBallKnower } from './BallKnowerContext';
 import { ModalPortal } from './ModalPortal';
+import { OwnFirst1000Badge } from './First1000Badge';
 import {
   canvasToProfilePhoto,
   drawSquareProfileImage,
@@ -179,7 +180,7 @@ export const ProfilePhotoEditor: React.FC<{ onOpenAuth?: () => void }> = ({ onOp
         <span className="absolute bottom-0 right-0 grid h-7 w-7 place-items-center rounded-full border border-black bg-[var(--bk-team-accent)] text-[var(--bk-on-accent)]"><Pencil className="h-3.5 w-3.5" /></span>
       </button>
       <div className="min-w-0 flex-1">
-        <div className="truncate text-base font-black uppercase">{currentUser?.name || 'Ball Knower'}</div>
+        <div className="truncate text-base font-black uppercase"><span className="bk-first1000-identity"><span>{currentUser?.name || 'Ball Knower'}</span><OwnFirst1000Badge/></span></div>
         <div className="mt-1 truncate text-[10px] font-bold text-zinc-500">{currentUser?.email || (currentUser?.isAnonymous ? 'Guest profile · no sign-in required' : 'Ball Knower account')}</div>
         <div className="bk-profile-identity-actions mt-3 flex flex-wrap gap-2"><button type="button" onClick={() => setActionsOpen(true)} className="min-h-10 rounded-xl border border-white/10 px-4 text-[9px] font-black uppercase text-zinc-200" aria-label="Edit Name &amp; Photo">Edit Profile</button>{currentUser?.isAnonymous && onOpenAuth && <button type="button" onClick={onOpenAuth} className="min-h-10 rounded-xl bg-[var(--bk-team-accent)] px-4 text-[9px] font-black uppercase text-[var(--bk-on-accent)]">Save With Email</button>}</div>
       </div>
