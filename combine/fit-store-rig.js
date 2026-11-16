@@ -100,9 +100,9 @@ export async function fitStoreRig(model, characterId) {
   const soles = [];
   for (const original of meshes) {
     const geometry = original.geometry;
-    // Nicki's showcase asset has 500,000 triangles. Use the same UVs and
-    // materials on a lighter practice mesh so the dash can run smoothly.
-    if (characterId === 'bk-femme') await reducePracticeMesh(geometry);
+    // Keep the original UVs and materials while bounding the two densest
+    // showroom meshes for field and drill rendering.
+    if (characterId === 'bk-femme' || characterId === 'bkf-phantom') await reducePracticeMesh(geometry);
     geometry.applyMatrix4(original.matrixWorld);
     geometry.computeBoundingBox();
     const position = geometry.getAttribute('position');
