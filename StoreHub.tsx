@@ -1,3 +1,4 @@
+import { usePurchasedCharacters } from './usePurchasedCharacters';
 import { lazy, Suspense, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { Archive, ArrowLeft, Box as BoxIcon, ChevronRight, Crown, Image as ImageIcon, Shirt, X } from 'lucide-react';
 import { DEFAULT_ATHLETE_APPEARANCE } from './athleteAppearance';
@@ -9,7 +10,7 @@ import { readOutfit } from './playerWardrobe';
 import { readLockerState, refreshLocker, subscribeLocker } from './lockerCommerceClient';
 import {
   STORE_CATEGORIES, STORE_PRODUCTS,
-  storeImage, storePrice, type StoreCategory, type StoreFilter, type StoreProduct,
+  practiceAsset, storeImage, storePrice, type StoreCategory, type StoreFilter, type StoreProduct,
 } from './storeCatalog';
 import './store.css';
 import './bkf-drop.css';
@@ -99,6 +100,8 @@ const FROSTBITE_PREVIEW_FALLBACK = 'https://v3b.fal.media/files/b/0ab1eab2/PuPh4
 
 function BKFConceptDialog({ product, onClose }: { product: StoreProduct; onClose: () => void }) {
   const dialog = useRef<HTMLDialogElement>(null);
+  const playable = Boolean(practiceAsset(product));
+  const { owned, loading } = usePurchasedCharacters(playable);
   const showcase = product.showcase;
   const has3d = !showcase || Boolean(showcase.model);
   const isFrostbite = product.id === 'frostbite';
@@ -154,6 +157,9 @@ function BKFConceptDialog({ product, onClose }: { product: StoreProduct; onClose
         <h3><span>Included</span></h3>
         <ul>{product.includes.map(item=><li key={item}>{item}</li>)}</ul>
       </div>
+      {playable && (owned.has(product.id)
+        ? <a className="bk-store-button" href={`/combine.html?drill=dash&character=${encodeURIComponent(product.id)}`}>Run the 40 as {product.name}</a>
+        : <p className="bkf-showroom-model-note">{loading ? 'Checking character purchases…' : 'Purchase required to play'}</p>)}
       <footer className="bkf-drop-footer">
         <button type="button" className="bkf-drop-cta" onClick={() => {
           if (!has3d && showcase) {
@@ -309,7 +315,7 @@ function TunnelProductPage({ product, onBack }: { product: StoreProduct; onBack:
 }
 
 export default function StoreHub({ initialCategory, onOpenLocker, onOpenGauntlet }: {
-  initialCategory?: StoreCategory;
+  initialCategory?: StoreCategory | 'characters';
   onOpenLocker: () => void;
   onOpenGauntlet: () => void;
 }) {
@@ -321,9 +327,9 @@ export default function StoreHub({ initialCategory, onOpenLocker, onOpenGauntlet
     }
     return products;
   });
-  const [department, setDepartment] = useState<ShopDepartment>(initialCategory ? 'all' : 'featured');
+  const [department, setDepartment] = useState<ShopDepartment>(initialCategory === 'characters' ? 'characters' : initialCategory ? 'all' : 'featured');
   const [page, setPage] = useState<StorePage>(initialCategory ? 'catalog' : 'featured');
-  const [filter, setFilter] = useState<StoreFilter>(initialCategory ?? 'all');
+  const [filter, setFilter] = useState<StoreFilter>(initialCategory === 'characters' ? 'all' : initialCategory ?? 'all');
   const [selection, setSelection] = useState<Selection | null>(null);
   const [tunnelProduct, setTunnelProduct] = useState<StoreProduct | null>(null);
   const store = useRef<HTMLElement>(null);

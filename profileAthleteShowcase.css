@@ -27,6 +27,34 @@
 .bk-profile-athlete-rail img{width:100%;height:100%;object-fit:contain}
 .bk-profile-athlete-rail svg{width:18px;height:18px}
 .bk-profile-athlete-sharing{display:flex;flex-wrap:wrap;gap:8px;align-items:center;color:#dbd4c6}
+.bk-profile-game-character {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 14px;
+  margin-inline: clamp(10px, 3vw, 20px);
+  padding: 8px 12px;
+  border: 1px solid #a97e3659;
+  border-radius: 10px;
+  background: #121217;
+}
+.bk-profile-game-character span {
+  display: block;
+  color: #ded0b4;
+  font-size: .75rem;
+}
+.bk-profile-game-character strong { color: #fff1d5; }
+.bk-profile-game-character button {
+  min-height: 44px;
+  padding-inline: 12px;
+  border: 1px solid #96733b;
+  border-radius: 8px;
+  background: #251e14;
+  color: #ffe4a1;
+  font-size: .85rem;
+  font-weight: 750;
+}
 .bk-profile-athlete-sharing small{font-size:.8rem}
 .bk-profile-athlete .bk-athlete-preview-message{position:absolute;z-index:1;inset:38px 12% 18%;display:grid;place-content:center;justify-items:center;gap:4px;text-align:center;background:#0e1016;color:#fff3d4;border-radius:8px}
 .bk-profile-athlete .bk-athlete-preview-message p{display:none}

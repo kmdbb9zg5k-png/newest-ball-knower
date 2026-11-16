@@ -27,6 +27,8 @@ export type StoreProduct = {
   tryOn?: TryOn;
   department?: 'clothing';
   posterOnly?: boolean;
+  practiceRig?: string;
+  fitPracticeRig?: boolean;
   proposedCoins?: number;
   showcase?: { model?: string; look: string; collection: string; theme: string; pose?: 'A-pose' };
 };
@@ -66,6 +68,11 @@ export const FEATURED_PACKS: readonly StoreProduct[] = [
   },
 ];
 
+export const STORE_CHARACTER_RIGS = {
+  'bkf-youngboy': 'https://v3b.fal.media/files/b/0ab1eab7/V83xtyKKr4wmgiSU8ye4w_rigged_character.glb',
+  frostbite: 'https://v3b.fal.media/files/b/0ab1eab9/7U3TFsS4ADTIdrTSvoC8Z_rigged_character.glb',
+} as const;
+
 export const STORE_PRODUCTS: readonly StoreProduct[] = [
   BLACKOUT_KIT,
   ...FEATURED_PACKS,
@@ -80,6 +87,7 @@ export const STORE_PRODUCTS: readonly StoreProduct[] = [
   },
   {
     id: 'bk-femme', name: 'BKF Nicki', proposedCoins: 1500,
+    fitPracticeRig: true,
     summary: 'Leather jacket, crop top, cargos & silver accessories',
     description: 'BKF Nicki pairs a black leather jacket and white crop top with loose leather cargos, black-and-white sneakers and silver accessories. Explore the campaign poster, full-body A-pose and detailed rotating 3D showcase. Proposed pack price: 1,500 BK Coins. Wearable items, purchasing and gifting are not available yet.',
     priceCents: 0, categories: ['tunnel-fits', 'bundles'],
@@ -130,6 +138,7 @@ export const STORE_PRODUCTS: readonly StoreProduct[] = [
   },
   {
     id: 'bkf-youngboy',
+    practiceRig: STORE_CHARACTER_RIGS['bkf-youngboy'],
     name: 'BKF YoungBoy',
     summary: 'Shiesty mask, black hoodie, cargos, gold & boots',
     description: 'Street-luxury concept pack featuring an upright 3D athlete: black ski mask, oversized black BK hoodie, baggy brown cargo trousers, rugged tan boots, Cuban-link gold chain and diamond-style watch. The artwork is a concept preview. Detailed wearable 3D assets, ownership and purchasing are not available yet.',
@@ -140,6 +149,7 @@ export const STORE_PRODUCTS: readonly StoreProduct[] = [
   },
   {
     id: 'frostbite',
+    practiceRig: STORE_CHARACTER_RIGS['frostbite'],
     name: 'Frostbite',
     summary: 'Ice-silver puffer, white mask & glacier cargos',
     description: 'An icy streetwear concept featuring a glossy silver-white quilted puffer, white knit balaclava, pale-gray cargo trousers, silver Cuban-link chain, diamond-style watch and icy white boots. The complete rigged 3D character is available to preview; individual wearable clothing, ownership and checkout are not available yet.',
@@ -150,6 +160,7 @@ export const STORE_PRODUCTS: readonly StoreProduct[] = [
   },
   {
     id: 'bkf-iron-wolf', name: 'Iron Wolf',
+    fitPracticeRig: true,
     summary: 'Charcoal & silver · Wolf character streetwear',
     description: 'An original wolf character in a washed-charcoal BK hoodie, oversized cargo pants, silver chain and black-and-silver sneakers. Explore the full poster, standing reference and detailed 360° model. This is a static showcase character; wearable items, purchasing and ownership are not available yet.',
     priceCents: 0, categories: ['tunnel-fits', 'bundles'],
@@ -159,6 +170,7 @@ export const STORE_PRODUCTS: readonly StoreProduct[] = [
   },
   {
     id: 'bkf-phantom', name: 'The Phantom',
+    fitPracticeRig: true,
     summary: 'Shadow kit · Tactical hoodie, chrome mask & boots',
     description: 'The Phantom moves in silence: a matte-black layered tactical streetwear hoodie, dark chrome face mask, technical cargo trousers, silver BK chain, black lace-up boots and a metal watch. An original cinematic masked streetwear character. The 3D preview is a static showcase character that rotates 360°; individual wearable items, purchasing, and ownership are not available yet.',
     priceCents: 0, categories: ['tunnel-fits', 'bundles'],
@@ -186,6 +198,7 @@ export const STORE_PRODUCTS: readonly StoreProduct[] = [
   },
   {
     id: 'bkf-outlaw', name: 'BKF Outlaw',
+    fitPracticeRig: true,
     summary: 'Country Boy · Plaid, denim & cowboy boots',
     description: 'Red plaid over a white tank. A weathered cowboy hat, classic denim, engraved belt buckle and stitched leather boots. The original Country Boy showcase character.',
     priceCents: 0, categories: ['tunnel-fits', 'bundles'],
@@ -195,6 +208,7 @@ export const STORE_PRODUCTS: readonly StoreProduct[] = [
   },
   {
     id: 'bkf-kickflip', name: 'BKF Kickflip',
+    fitPracticeRig: true,
     summary: 'Skater · Layered BKF tee & baggy denim',
     description: 'Washed-black BKF tee over cream sleeves. A knit beanie, baggy denim with a wallet chain, and worn skate shoes. The original Kickflip showcase character.',
     priceCents: 0, categories: ['tunnel-fits', 'bundles'],
@@ -204,6 +218,7 @@ export const STORE_PRODUCTS: readonly StoreProduct[] = [
   },
   {
     id: 'bkf-lowrider', name: 'BKF Lowrider',
+    fitPracticeRig: true,
     summary: 'Plaid, baggy khakis & clean white kicks',
     description: 'Charcoal plaid over a white tank. A black paisley bandana, baggy khakis and crisp white sneakers, finished with a silver chain. Classic lowrider-inspired streetwear on its own showcase character.',
     priceCents: 0, categories: ['tunnel-fits', 'bundles'],
@@ -242,6 +257,10 @@ export const STORE_PRODUCTS: readonly StoreProduct[] = [
     use: 'Franchise Command',
   },
 ];
+
+export function practiceAsset(product: StoreProduct) {
+  return product.practiceRig ?? (product.fitPracticeRig ? product.showcase?.model : undefined);
+}
 
 export const storeImage = (id: string) => id === 'bkf-street-boss'
   ? '/store/bkf-street-boss-cover.webp'
