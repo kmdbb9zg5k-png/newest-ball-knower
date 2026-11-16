@@ -27,6 +27,9 @@ try {
     page.setDefaultTimeout(75000);
     const errors = [];
     page.on('pageerror', error => errors.push(error.message));
+    page.on('console', message => {
+      if (message.text().startsWith('[Combine startup:')) console.error(message.text());
+    });
     await page.goto('http://127.0.0.1:4192/?storeCharacters=1');
     const card = page.locator(`[data-store-product="${id}"]`);
     await card.tap();
@@ -34,7 +37,7 @@ try {
     await page.getByRole('link', { name: 'Run the 40 as ' + name }).tap();
     await page.waitForURL('**/combine.html?drill=dash&character=' + id);
 
-    const start = page.getByRole('button', { name: 'Start dash' });
+    const start = page.locator('.combine-hud:not([inert])').getByRole('button', { name: 'Start dash' });
     await start.waitFor();
     assert.equal(await start.isEnabled(), true);
     assert.equal(await page.locator('.combine-scene').getAttribute('data-character'), 'store-character');
