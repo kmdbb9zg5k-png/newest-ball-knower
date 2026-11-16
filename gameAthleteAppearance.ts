@@ -5,7 +5,6 @@ export function gameCharacterAppearance(id = readGameAthlete()?.character) {
   const character = id && STORE_PRODUCTS.find(product => product.id === id);
   if (!character || !practiceAsset(character)) return {};
   return {
-    practiceRig: practiceAsset(character),
-    fitPracticeRig: character.fitPracticeRig ? character.id : undefined,
+    practiceCharacterId: character.id,
   };
 }

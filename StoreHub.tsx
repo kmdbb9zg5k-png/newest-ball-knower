@@ -1,3 +1,4 @@
+import { usePurchasedCharacters } from './usePurchasedCharacters';
 import { lazy, Suspense, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { Archive, ArrowLeft, Box as BoxIcon, ChevronRight, Crown, Image as ImageIcon, Shirt, X } from 'lucide-react';
 import { DEFAULT_ATHLETE_APPEARANCE } from './athleteAppearance';
@@ -99,6 +100,8 @@ const FROSTBITE_PREVIEW_FALLBACK = 'https://v3b.fal.media/files/b/0ab1eab2/PuPh4
 
 function BKFConceptDialog({ product, onClose }: { product: StoreProduct; onClose: () => void }) {
   const dialog = useRef<HTMLDialogElement>(null);
+  const playable = Boolean(practiceAsset(product));
+  const { owned, loading } = usePurchasedCharacters(playable);
   const showcase = product.showcase;
   const has3d = !showcase || Boolean(showcase.model);
   const isFrostbite = product.id === 'frostbite';
@@ -154,7 +157,9 @@ function BKFConceptDialog({ product, onClose }: { product: StoreProduct; onClose
         <h3><span>Included</span></h3>
         <ul>{product.includes.map(item=><li key={item}>{item}</li>)}</ul>
       </div>
-      {practiceAsset(product) && <a className="bk-store-button" href={`/combine.html?drill=dash&character=${encodeURIComponent(product.id)}`}>Run the 40 as {product.name}</a>}
+      {playable && (owned.has(product.id)
+        ? <a className="bk-store-button" href={`/combine.html?drill=dash&character=${encodeURIComponent(product.id)}`}>Run the 40 as {product.name}</a>
+        : <p className="bkf-showroom-model-note">{loading ? 'Checking character purchases…' : 'Purchase required to play'}</p>)}
       <footer className="bkf-drop-footer">
         <button type="button" className="bkf-drop-cta" onClick={() => {
           if (!has3d && showcase) {

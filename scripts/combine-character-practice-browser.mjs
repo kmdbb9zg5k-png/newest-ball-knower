@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { mkdir } from 'node:fs/promises';
 import { preview } from 'vite';
 import { chromium } from 'playwright';
+import { mockCharacterPurchases } from './character-purchase-fixture.mjs';
 
 const output = 'artifacts/character-practice';
 await mkdir(output, { recursive: true });
@@ -21,7 +22,7 @@ try {
     const context = await browser.newContext({
       viewport: { width, height: 844 }, isMobile: true, hasTouch: true, serviceWorkers: 'block',
     });
-    await context.route('**/*.supabase.co/**', route => route.abort());
+    await mockCharacterPurchases(context, [{ sku: id, source: 'purchase', expires_at: null }]);
     await context.route('**/api/**', route => route.fulfill({ json: { available: false, tracks: [] } }));
     await context.addInitScript(() => {
       localStorage.setItem('ball-knower-team-setup-v2', 'complete');

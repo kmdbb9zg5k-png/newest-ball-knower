@@ -4,16 +4,15 @@ import {
 } from 'three';
 import { loadPracticeCharacter, sourceJointNames } from './combine/practice-character.js';
 import { gameAthleteScale } from './public/play-moment-3d/game-athlete.js';
-import { practiceAsset, STORE_PRODUCTS } from './storeCatalog';
+import { purchasedCharacterAsset } from './characterPurchases';
 
 type Field = { canvas: HTMLCanvasElement; gl: WebGL2RenderingContext; vp: ArrayLike<number>; eye: number[]; target: number[] };
 type Profile = Parameters<typeof gameAthleteScale>[0] & { character: string };
 type JointMatrix = (name: string) => ArrayLike<number> | undefined;
 
 export async function loadFieldCharacter(field: Field, profile: Profile, bindPose: JointMatrix) {
-  const character = STORE_PRODUCTS.find(product => product.id === profile.character);
-  const url = character && practiceAsset(character);
-  if (!url) return null;
+  const character = await purchasedCharacterAsset(profile.character);
+  if (!character) return null;
 
   const scene = new Scene();
   const root = new Group();
@@ -33,7 +32,7 @@ export async function loadFieldCharacter(field: Field, profile: Profile, bindPos
     root.add(source[name]);
   }
   readPose(bindPose);
-  const rig = await loadPracticeCharacter(url, source, character.fitPracticeRig ? character.id : undefined);
+  const rig = await loadPracticeCharacter(character.url, source, character.fitId);
   const body = gameAthleteScale(profile);
   rig.setDimensions(body.width, body.height);
   root.add(rig.model);

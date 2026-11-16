@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { mkdir } from 'node:fs/promises';
 import { chromium } from 'playwright';
 import { preview } from 'vite';
+import { mockCharacterPurchases } from './character-purchase-fixture.mjs';
 
 const output = 'artifacts/game-athlete-modes';
 await mkdir(output,{recursive:true});
@@ -15,11 +16,24 @@ try {
   await context.addInitScript(()=>{
     localStorage.setItem('bk-game-athlete-v1',JSON.stringify({character:'bkf-kickflip',position:'RB',heightInches:75,weightLbs:245}));
   });
+  const purchases = [
+    { sku: 'bkf-kickflip', source: 'grant', expires_at: null },
+    { sku: 'bkf-kickflip', source: 'purchase', expires_at: '2020-01-01T00:00:00Z' },
+  ];
+  await mockCharacterPurchases(context, purchases);
   const page=await context.newPage();
   const errors=[];
   page.on('pageerror',error=>errors.push(error.message));
   page.on('console',message=>{if(message.type()==='error'||message.text().includes('Store character unavailable'))console.log(message.text());});
   page.setDefaultTimeout(90000);
+  await page.goto(base+'/combine.html?drill=dash&character=bkf-kickflip');
+  await page.getByRole('heading', { name: 'BKF Kickflip is locked' }).waitFor();
+  await page.getByRole('button', { name: 'Continue to Combine' }).click();
+  await page.waitForFunction(() => document.querySelector('[data-character="native-athlete"] canvas'));
+  assert.equal(await page.locator('[data-character="store-character"]').count(), 0);
+  console.log('PASS locked deep link and saved selection with only an expired purchase or grant');
+
+  purchases.push({ sku: 'bkf-kickflip', source: 'purchase', expires_at: null });
   for(const mode of ['two-minute','five-minute','arena']){
     await page.goto(base+'/play-moment-3d-preview.html?qa=1&manualFrames=1&mode='+mode);
     await page.waitForFunction(()=>window.bk3dDiagnostics?.().avatar.loaded);

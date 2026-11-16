@@ -61,10 +61,13 @@ export async function loadCombineRunner(player,showroom=false,showroomSkin=false
   reset();
   let disposed = false;
   let practiceCharacter = null;
-  if (player.practiceRig && !showroom) {
+  const storeAsset = player.practiceCharacterId && !showroom
+    ? await import('../characterPurchases').then(({purchasedCharacterAsset}) => purchasedCharacterAsset(player.practiceCharacterId))
+    : null;
+  if (storeAsset) {
     try {
       const {loadPracticeCharacter} = await import('./practice-character.js');
-      practiceCharacter = await loadPracticeCharacter(player.practiceRig, bones, player.fitPracticeRig);
+      practiceCharacter = await loadPracticeCharacter(storeAsset.url, bones, storeAsset.fitId);
     } catch (error) {
       disposeRunner();
       throw error;
@@ -311,6 +314,6 @@ export async function loadCombineRunner(player,showroom=false,showroomSkin=false
   }
   pose(0,0,true);
   root.disposeCombineRunner=disposeRunner;
-  return {root,pose,poseCreator,poseJump,poseBench,poseShuttleTurn,poseReceiver,poseDefender,poseRB,poseHandoff,poseQuarterback,setAthlete,dispose:disposeRunner};
+  return {root,storeCharacterLoaded:Boolean(practiceCharacter),pose,poseCreator,poseJump,poseBench,poseShuttleTurn,poseReceiver,poseDefender,poseRB,poseHandoff,poseQuarterback,setAthlete,dispose:disposeRunner};
   function disposeRunner(){if(disposed)return;disposed=true;practiceCharacter?.dispose();appearance.dispose();mixer.stopAllAction();mixer.uncacheRoot(body);const images=new Set();body.traverse(o=>{o.skeleton?.dispose();for(const m of(Array.isArray(o.material)?o.material:[o.material]))if(m)for(const value of Object.values(m))if(value?.isTexture&&value.image)images.add(value.image);});for(const image of images)image.close?.();}
 }

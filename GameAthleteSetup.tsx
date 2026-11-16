@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { ATHLETE_POSITIONS, ATHLETE_BODY_LIMITS, feetAndInches } from './athleteBuild';
 import { readAthletePassport } from './athletePassport';
+import { usePurchasedCharacters } from './usePurchasedCharacters';
 import { practiceAsset, STORE_PRODUCTS } from './storeCatalog';
 import { GAME_ATHLETE_KEY, gameAthlete, readGameAthlete } from './public/play-moment-3d/game-athlete.js';
 
@@ -9,6 +10,7 @@ const characters = STORE_PRODUCTS.filter(practiceAsset);
 
 export default function GameAthleteSetup({ onSaved }: { onSaved?: () => void }) {
   const [open, setOpen] = useState(false);
+  const { owned, loading } = usePurchasedCharacters(open);
   const [saved, setSaved] = useState(readGameAthlete);
   const [draft, setDraft] = useState(() => saved ?? gameAthlete(readAthletePassport()?.build ?? {})!);
   const [error, setError] = useState('');
@@ -17,7 +19,7 @@ export default function GameAthleteSetup({ onSaved }: { onSaved?: () => void }) 
   function save(event: React.FormEvent) {
     event.preventDefault();
     try {
-      const next = gameAthlete(draft);
+      const next = gameAthlete({ ...draft, character: owned.has(draft.character) ? draft.character : '' });
       localStorage.setItem(GAME_ATHLETE_KEY, JSON.stringify(next));
       setSaved(next);
       setOpen(false);
@@ -36,12 +38,15 @@ export default function GameAthleteSetup({ onSaved }: { onSaved?: () => void }) 
       <form onSubmit={save} className="grid gap-4">
         <h2 id="bk-game-athlete-title" className="text-xl font-black">Game athlete</h2>
         <label className="grid gap-1 text-sm">Character
-          <select value={draft.character} className="h-11 rounded-lg bg-[#243344] px-3"
+          <select value={owned.has(draft.character) ? draft.character : ''} className="h-11 rounded-lg bg-[#243344] px-3"
             onChange={e => setDraft({ ...draft, character: e.target.value })}>
             <option value="">My Player</option>
-            {characters.map(character => <option key={character.id} value={character.id}>{character.name}</option>)}
+            {characters.map(character => <option key={character.id} value={character.id} disabled={!owned.has(character.id)}>
+              {character.name}{owned.has(character.id) ? '' : ' · Locked'}
+            </option>)}
           </select>
         </label>
+        <p className="text-xs text-zinc-300">{loading ? 'Checking character purchases…' : 'Purchase a Store character to play as them.'}</p>
         <label className="grid gap-1 text-sm">Football position
           <select value={draft.position} className="h-11 rounded-lg bg-[#243344] px-3"
             onChange={e => setDraft({ ...draft, position: e.target.value })}>
@@ -60,7 +65,7 @@ export default function GameAthleteSetup({ onSaved }: { onSaved?: () => void }) 
         {error && <p role="alert">{error}</p>}
         <div className="flex justify-end gap-2">
           <button type="button" className="min-h-11 rounded-lg border border-white/20 px-3" onClick={() => setOpen(false)}>Cancel</button>
-          <button type="submit" className="min-h-11 rounded-lg bg-amber-300 px-4 font-bold text-black">Save athlete</button>
+          <button type="submit" disabled={loading && Boolean(draft.character)} className="min-h-11 rounded-lg bg-amber-300 px-4 font-bold text-black">Save athlete</button>
         </div>
       </form>
     </dialog>, document.body)}
