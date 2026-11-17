@@ -1,4 +1,4 @@
-import { practiceAsset, STORE_PRODUCTS } from './storeCatalog';
+import { practiceAsset, STORE_PRODUCTS } from './storeCatalog.js';
 
 export const CART_KEY = 'bk-store-cart-v1';
 export const STORE_WEARABLES: Record<string, string[]> = {
