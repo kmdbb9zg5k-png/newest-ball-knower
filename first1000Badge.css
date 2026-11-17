@@ -1,0 +1,107 @@
+.bk-first1000-identity {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.bk-first1000-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  gap: 6px;
+  padding: 3px 9px;
+  border: 1px solid #c9a66188;
+  border-radius: 8px;
+  background: #19150e;
+  color: #ffe1a0;
+  font: 800 11px/1.25 var(--bk-font-body, system-ui);
+  text-align: left;
+  text-transform: none;
+}
+
+.bk-first1000-chip img {
+  flex: none;
+  width: 34px;
+  height: 34px;
+}
+
+.bk-first1000-overlay {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  grid-template-rows: minmax(0, 1fr);
+  padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right))
+    max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+  background: #05070bd9;
+}
+
+.bk-first1000-dialog {
+  width: min(100%, 400px);
+  max-height: 100%;
+  overflow-y: auto;
+  padding: clamp(16px, 5vw, 28px);
+  border: 1px solid #c49c50;
+  border-radius: 22px;
+  background: radial-gradient(ellipse at top, #382713, #16120f 65%);
+  box-shadow: 0 20px 60px #0009;
+  color: #fff4dc;
+  text-align: center;
+  font-family: var(--bk-font-body, system-ui);
+}
+
+.bk-first1000-dialog > img {
+  display: block;
+  width: min(48vw, 180px);
+  height: auto;
+  margin: 0 auto 12px;
+}
+
+.bk-first1000-dialog h2 {
+  margin: 0;
+  color: #ffe0a0;
+  font-size: clamp(22px, 5vw, 30px);
+  font-weight: 900;
+  line-height: 1.12;
+}
+
+.bk-first1000-dialog p {
+  margin: 10px 0 0;
+  color: #e5d8c1;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.bk-first1000-dialog .bk-first1000-error { color: #fca5a5; }
+
+.bk-first1000-dialog button {
+  display: block;
+  width: 100%;
+  min-height: 44px;
+  border-radius: 9px;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.bk-first1000-dialog button:disabled { opacity: .55; }
+
+.bk-first1000-accept {
+  margin-top: 18px;
+  background: linear-gradient(115deg, #ffe1a0, #d6a548);
+  color: #191206;
+}
+
+.bk-first1000-later {
+  margin-top: 6px;
+  color: #e5d8c1;
+}
+
+.bk-first1000-chip:focus-visible,
+.bk-first1000-dialog button:focus-visible {
+  outline: 2px solid #fff0cb;
+  outline-offset: 3px;
+}

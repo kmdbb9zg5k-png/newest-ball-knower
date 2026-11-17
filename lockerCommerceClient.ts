@@ -1,7 +1,7 @@
 import {Capacitor} from '@capacitor/core';
 import {supabase} from './supabase';
 import {setVerifiedWardrobe,type Outfit} from './playerWardrobe';
-export type LockerState={available:boolean;mode?:'test'|'live';owned:string[];outfit?:Outfit|null;pending?:boolean;prices:Record<string,{amount:number;currency:string}>};
+export type LockerState={available:boolean;mode?:'test'|'grant'|'live';redeemable?:boolean;owned:string[];outfit?:Outfit|null;pending?:boolean;prices:Record<string,{amount:number;currency:string}>};
 const EMPTY:LockerState={available:false,owned:[],prices:{}};
 let storeEnabled=false;
 let snapshot=EMPTY,userId:string|null=null,epoch=0,requestId=0;
@@ -21,15 +21,27 @@ export async function refreshLocker(){
  resetLockerIdentity(s?.user.id||null);
  if(!s){publish(EMPTY);return EMPTY;}
  const mine=++requestId,identity=epoch;
- try{const store=await api(s.access_token,undefined,'/api/store-commerce');const enabled=store.available===true;const data=enabled?{...store,owned:store.wearables}:await api(s.access_token);if(mine===requestId&&identity===epoch){storeEnabled=enabled;publish(data.available?data:EMPTY);}}
+ try{
+  const [store,legacy]=await Promise.all([
+   api(s.access_token,undefined,'/api/store-commerce').catch(()=>null),
+   api(s.access_token).catch(()=>null),
+  ]);
+  const enabled=store?.available===true;
+  const data=legacy?.mode==='grant' ? legacy : enabled
+   ? {...store, owned:store.wearables, redeemable:legacy?.redeemable} : legacy;
+  if(mine===requestId&&identity===epoch){
+   storeEnabled=enabled&&data?.mode!=='grant';
+   publish(data?.available||data?.redeemable?data:EMPTY);
+  }
+ }
  catch{if(mine===requestId&&identity===epoch)publish(EMPTY);}
  return snapshot;
 }
-export async function lockerAction(action:'restore'|'equip'|'checkout',extra:Record<string,unknown>={}){
+export async function lockerAction(action:'restore'|'equip'|'checkout'|'redeem',extra:Record<string,unknown>={}){
  if(Capacitor.isNativePlatform())throw new Error('Purchases are not available in this app yet.');
  const s=await session();if(!s||s.user.id!==userId)throw new Error('Sign in again to use the Locker.');
  const identity=epoch;requestId++; // Discard any earlier reads that finish after this mutation.
- const data=await api(s.access_token,{...extra,action},storeEnabled&&action!=='checkout'?'/api/store-commerce':'/api/locker-commerce');
+ const data=await api(s.access_token,{...extra,action},storeEnabled&&(action==='restore'||action==='equip')?'/api/store-commerce':'/api/locker-commerce');
  if(identity!==epoch)throw new Error('Your account changed. Please try again.');
  if(action==='checkout'){
   const url=new URL(data.url);if(url.protocol!=='https:'||url.hostname!=='checkout.stripe.com')throw new Error('Checkout could not be opened.');

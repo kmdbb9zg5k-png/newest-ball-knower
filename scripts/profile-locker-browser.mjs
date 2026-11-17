@@ -30,21 +30,23 @@ try {
   assert.ok(ready, 'Production preview must start');
   await mkdir(output, { recursive: true });
   for (const engine of process.env.PROFILE_CHROMIUM_ONLY ? ['chromium'] : ['chromium', 'webkit']) {
-    browser = await (engine === 'chromium' ? chromium : webkit).launch({ headless: true, ...(engine === 'chromium' && process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {}) });
+    browser = await (engine === 'chromium' ? chromium : webkit).launch({ headless: true, ...(engine === 'chromium' && process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {}), ...(engine === 'chromium' ? { args: ['--enable-unsafe-swiftshader', '--use-angle=swiftshader'] } : {}) });
     for (const width of engine === 'chromium' ? [390, 430, 320, 1280] : [390]) {
       const context = await browser.newContext({ viewport: { width, height: 844 }, deviceScaleFactor: 1, isMobile: width < 768, hasTouch: width < 768, reducedMotion: 'reduce' });
       const page = await context.newPage();
       activePage = page;
       const crashes = [];
       page.on('pageerror', error => crashes.push(error.message));
-      let mode = 'initial', failProfile = false, equipped = null, equipCalls = 0;
+      let mode = 'initial', failProfile = false, equipped = null, equipCalls = 0, sharedFit = null;
       const isGuest = width === 390;
+      const badgeEligible = width === 320;
+      let badgeClaimed = false, badgeClaims = 0;
       const user = { id: userId, aud: 'authenticated', role: 'authenticated', email: isGuest ? undefined : 'profile-fixture@example.invalid', is_anonymous: isGuest, app_metadata: { provider: isGuest ? 'anonymous' : 'email', providers: [isGuest ? 'anonymous' : 'email'] }, user_metadata: isGuest ? {} : { name: width === 320 ? 'A Very Long Profile Display Name' : 'Profile Fixture GM', full_name: width === 320 ? 'A Very Long Profile Display Name' : 'Profile Fixture GM' }, created_at: timestamp };
       const token = [Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url'), Buffer.from(JSON.stringify({ sub: userId, aud: 'authenticated', role: 'authenticated', exp: Math.floor(Date.now()/1000)+86400, is_anonymous: isGuest })).toString('base64url'), 'test-fixture-only'].join('.');
       const session = { user, access_token: token, refresh_token: 'fixture-only', token_type: 'bearer', expires_in: 86400, expires_at: Math.floor(Date.now()/1000)+86400 };
       // Every hosted-data request is intercepted. These tests never mutate production.
       await page.route('**/*.supabase.co/**', async route => {
-        const path = new URL(route.request().url()).pathname;
+        const { pathname: path, searchParams } = new URL(route.request().url());
         const headers = { 'access-control-allow-origin': '*', 'access-control-allow-headers': '*', 'access-control-allow-methods': '*' };
         const respond = (body, status = 200) => route.fulfill({ status, contentType: 'application/json', headers, body: JSON.stringify(body) });
         if (route.request().method() === 'OPTIONS') return respond({});
@@ -61,10 +63,34 @@ try {
           if (failProfile) return respond({ message: 'Profile fixture outage', code: 'TEST_OUTAGE' }, 503);
           return respond([{ user_id: userId, display_name: user.user_metadata.name, bk_rating: mode === 'earned' ? 61 : 50, xp: mode === 'earned' ? 1450 : mode === 'zero' ? 0 : 550, level: mode === 'earned' ? 2 : 1, football_iq: 50, gm_rating: 52, prediction_rating: 48, trivia_rating: 50, agent_rating: 51, owner_rating: 49, championships: mode === 'earned' ? 3 : 0, current_streak: 0, longest_streak: 2, updated_at: timestamp }]);
         }
+        if (path.endsWith('/ball_knower_first_1000_badges')) return respond(badgeEligible ? [{ claimed_at: badgeClaimed ? timestamp : null }] : []);
+        if (path.endsWith('/rpc/bk_claim_first_1000_badge')) {
+          assert.deepEqual(route.request().postDataJSON(), { p_user_id: userId });
+          assert.ok(badgeEligible);
+          if (++badgeClaims === 1) return respond({ message: 'Temporary fixture failure' }, 400);
+          badgeClaimed = true;
+          return respond(true);
+        }
+        if (path.endsWith('/ball_knower_profile_showcases')) {
+          if (route.request().method() === 'POST') {
+            const payload = route.request().postDataJSON();
+            assert.equal(payload.user_id, userId);
+            assert.equal(payload.fit.number, 7);
+            assert.ok(!('portrait' in payload.fit) && !('faceImage' in payload.fit));
+            sharedFit = payload.fit;
+            return respond(null, 201);
+          }
+          if (route.request().method() === 'DELETE') { sharedFit = null; return respond(null); }
+          return respond(sharedFit ? [{ fit: sharedFit }] : []);
+        }
         if (path.endsWith('/ball_knower_progress_events')) return respond(mode === 'earned' ? Array.from({ length: 7 }, (_, index) => ({ id: index+1, event_type: index === 0 ? 'prediction_wrong' : 'trivia_correct', category: index === 0 ? 'prediction' : 'trivia', xp_awarded: index === 0 ? 2 : 20, rating_delta: index === 0 ? -1 : 1, occurred_at: timestamp, metadata: {} })) : []);
         if (path.endsWith('/ball_knower_achievement_catalog')) return respond(mode === 'extended' ? [...catalog, { achievement_key: 'seventh', title: 'Seventh Milestone', description: 'Additional verified catalog entry.', tier: 'gold', category: 'gm', xp_reward: 125 }] : catalog);
         if (path.endsWith('/ball_knower_user_achievements')) return respond(mode === 'earned' ? [{ achievement_key: 'dynasty', unlocked_at: timestamp }, { achievement_key: 'first_receipt', unlocked_at: timestamp }] : []);
         if (path.endsWith('/ball_knower_store_catalog')) return respond([{ sku: 'qa-frame', title: 'Fixture Gold Frame', description: 'An owned equippable fixture.', category: 'profile_cosmetic', rarity: 'rare', price_cents: null, currency: 'USD', metadata: { slot: 'profile_frame' }, active: true }, { sku: 'qa-card', title: 'Fixture Collectible', description: 'An owned collectible fixture.', category: 'collectible', rarity: 'rare', price_cents: null, currency: 'USD', metadata: {}, active: true }]);
+        if (path.endsWith('/rpc/bk_store_character_purchases')) {
+          return respond(isGuest ? [] : [{ sku: 'bkf-kickflip' }]);
+        }
+        if (path.endsWith('/ball_knower_entitlements') && searchParams.get('source') === 'eq.purchase') return respond([]);
         if (path.endsWith('/ball_knower_entitlements')) return respond(['qa-frame', 'qa-card'].map(sku => ({ sku, source: 'test', granted_at: timestamp, expires_at: null, auth_user_id: userId })));
         if (path.endsWith('/ball_knower_locker')) return respond({ auth_user_id: userId, equipped_profile_frame: equipped });
         if (path.endsWith('/ball_knower_pass_progress')) return respond({ auth_user_id: userId, season: '2026', xp: 321, level: 4, premium_unlocked: false, claimed_free: [], claimed_premium: [] });
@@ -81,16 +107,27 @@ try {
         const body = path === '/api/media' ? { tracks: [], introUrl: null } : path === '/api/nfl-news' ? { available: true, fetchedAt: timestamp, provider: 'Explicit test fixture', articles: [{ id: 'fixture-news', url: 'https://example.invalid/news', headline: 'Profile visual regression news fixture', source: 'Test fixture', image: null }] } : { ok: true };
         return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
       });
-      await page.addInitScript(({ session, user }) => {
+      await page.addInitScript(({ session, user, checkGameCharacter }) => {
+        if (checkGameCharacter) localStorage.setItem('bk-game-athlete-v1', JSON.stringify({ character: '', position: 'RB', heightInches: 75, weightLbs: 245 }));
         localStorage.setItem('sb-gpnboygoosrmeydwjpvk-auth-token', JSON.stringify(session));
         localStorage.setItem('ballknower_user_v1', JSON.stringify({ id: user.id, name: user.user_metadata.name, email: user.email || '', isAnonymous: user.is_anonymous, avatarUrl: '', createdAt: user.created_at }));
         localStorage.setItem('ball-knower-team-setup-v2', 'complete');
         localStorage.setItem('ball-knower-intro-completed-v1', '2');
         localStorage.setItem('ball-knower-favorite-team', 'Philadelphia Eagles');
         localStorage.setItem('ball-knower-intro-sound-v1', 'off');
-      }, { session, user });
+      }, { session, user, checkGameCharacter: engine === 'chromium' && width === 430 });
       await page.goto(base, { waitUntil: 'domcontentloaded' });
       await page.locator('.bk-home-stadium').waitFor();
+      const badgeOffer = page.getByRole('dialog', { name: 'You’re in the First 1,000', exact: true });
+      if (badgeEligible) {
+        await badgeOffer.waitFor();
+        const acceptBox = await badgeOffer.getByRole('button', { name: 'Accept Badge' }).boundingBox();
+        assert.ok(acceptBox?.height >= 44 && acceptBox.x >= 0 && acceptBox.x + acceptBox.width <= width);
+        await badgeOffer.locator('img').evaluate(image => image.decode());
+        await badgeOffer.getByRole('button', { name: 'Later' }).click();
+        await badgeOffer.waitFor({ state: 'detached' });
+        assert.equal(badgeClaims, 0, 'Later must leave the offer unclaimed');
+      }
       // Font loading and WebKit's deferred layout must settle before measuring the baseline.
       await page.evaluate(async () => { await document.fonts.ready; await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))); });
       const homeBrandSize = await page.getByRole('button', { name: 'Ball Knower home', exact: true }).locator('h1').evaluate(element => { element.getBoundingClientRect(); return getComputedStyle(element).fontSize; });
@@ -99,6 +136,9 @@ try {
       for (const button of await page.getByRole('button', { name: 'Profile', exact: true }).all()) { if (await button.isVisible()) { await button.click(); break; } }
       const profile = page.getByTestId('locker-profile');
       await profile.waitFor();
+      assert.equal(await page.locator('header[data-profile-chrome="true"]').count(), 1);
+      await page.locator('.bk-profile-brand-art').evaluate(image => image.decode());
+      assert.equal(await page.locator('nav[aria-label="Primary navigation"]').getAttribute('data-profile-chrome'), 'true');
       const guide = page.getByRole('dialog', { name: 'Make every game count.', exact: true });
       await guide.waitFor();
       assert.equal(await guide.getByRole('navigation', { name: 'Profile guide topics' }).getByRole('button').count(), 9);
@@ -106,8 +146,47 @@ try {
       assert.ok(await guide.getByRole('heading', { name: 'Verified activity & receipts', exact: true }).isVisible());
       await page.keyboard.press('Escape');
       await guide.waitFor({ state: 'detached' });
+      if (engine === 'chromium' && (width === 430 || isGuest)) {
+        const gameCharacter = profile.locator('.bk-profile-game-character');
+        await gameCharacter.getByText('My Player', { exact: true }).waitFor();
+        await gameCharacter.getByRole('button', { name: 'Switch character', exact: true }).click();
+        const picker = page.getByRole('dialog', { name: 'Switch game character', exact: true });
+        await picker.getByText('Purchase a Store character to play as them.').waitFor();
+        const character = picker.getByRole('combobox', { name: 'Character', exact: true });
+        assert.equal(await character.locator('option[value="bkf-phantom"]').evaluate(option => option.disabled), true);
+        assert.equal(await character.locator('option[value="bkf-kickflip"]').evaluate(option => option.disabled), isGuest);
+        if (isGuest) {
+          await picker.getByRole('button', { name: 'Cancel', exact: true }).click();
+        } else {
+          await character.selectOption('bkf-kickflip');
+          await picker.getByRole('button', { name: 'Save game character', exact: true }).click();
+          await gameCharacter.getByText('BKF Kickflip', { exact: true }).waitFor();
+          assert.deepEqual(await page.evaluate(() => JSON.parse(localStorage.getItem('bk-game-athlete-v1'))),
+            { character: 'bkf-kickflip', position: 'RB', heightInches: 75, weightLbs: 245 });
+        }
+        console.log('PASS Profile game character picker', engine, width, isGuest ? 'guest purchase lock' : 'saved purchased character and build');
+      }
       assert.equal(await page.evaluate(() => localStorage.getItem('bk-guide-profile-v1')), 'seen');
       await page.getByRole('heading', { name: 'Profile', exact: true }).waitFor();
+      const foundingBadge = profile.getByRole('button', { name: 'First 1,000', exact: true });
+      assert.equal(await foundingBadge.count(), 0, 'Profile must withhold the badge until it is accepted');
+      if (badgeEligible) {
+        await profile.getByRole('button', { name: 'Claim First 1,000 Badge' }).click();
+        await badgeOffer.getByRole('button', { name: 'Accept Badge' }).click();
+        await badgeOffer.getByRole('alert').waitFor();
+        assert.equal(await foundingBadge.count(), 0, 'A failed claim must leave the badge unclaimed');
+        await badgeOffer.getByRole('button', { name: 'Accept Badge' }).click();
+        await foundingBadge.waitFor();
+        const badgeBox = await foundingBadge.boundingBox();
+        assert.ok(badgeBox?.height >= 44 && badgeBox.x >= 0 && badgeBox.x + badgeBox.width <= width);
+        await foundingBadge.click();
+        const badgeDetails = page.getByRole('dialog', { name: 'First 1,000', exact: true });
+        await badgeDetails.getByText('One of the first 1,000 players to join Ball Knower.').waitFor();
+        await badgeDetails.getByRole('button', { name: 'Close' }).click();
+      } else {
+        assert.equal(await badgeOffer.count(), 0);
+        assert.equal(await profile.getByRole('button', { name: 'Claim First 1,000 Badge' }).count(), 0);
+      }
       const help = page.getByRole('button', { name: 'How it works', exact: true });
       await help.click();
       await guide.waitFor();
@@ -256,6 +335,44 @@ try {
       assert.equal(await page.getByRole('button', { name: 'Ball Knower home', exact: true }).locator('h1').evaluate(element => getComputedStyle(element).fontSize), homeBrandSize, 'Profile cosmetics must not leak into Home');
       assert.equal(await page.getByRole('button',{name:'Ball Knower home',exact:true}).locator('h1').evaluate(el=>getComputedStyle(el).backgroundImage),'none','Profile atlas must not leak into Home');
       console.log('PASS restored Home header',engine,width,homeBrandSize);
+      assert.equal(await page.locator('header[data-profile-chrome="true"]').count(), 0);
+      if (engine === 'chromium' && width === 430) {
+        await page.evaluate(() => localStorage.setItem('ballknower_solo_my_player_v2', JSON.stringify({
+          version: 1, stage: 'creator', position: 'WR', name: 'Showcase Fixture', number: 7,
+        })));
+        await page.emulateMedia({ reducedMotion: 'no-preference' });
+        const profileButtons = await page.getByRole('button', { name: 'Profile', exact: true }).all();
+        for (const button of profileButtons) { if (await button.isVisible()) { await button.click(); break; } }
+        const showcase = page.getByRole('region', { name: 'Player showcase' });
+        await showcase.locator('[data-render-state="ready"]').waitFor({ timeout: 30000 });
+        const gameCharacter = showcase.locator('.bk-profile-game-character');
+        await gameCharacter.getByText('BKF Kickflip', { exact: true }).waitFor();
+        await gameCharacter.getByRole('button', { name: 'Switch character', exact: true }).click();
+        const picker = page.getByRole('dialog', { name: 'Switch game character', exact: true });
+        await picker.getByRole('combobox', { name: 'Character', exact: true }).selectOption({ label: 'My Player' });
+        await picker.getByRole('button', { name: 'Save game character', exact: true }).click();
+        await gameCharacter.getByText('My Player', { exact: true }).waitFor();
+        assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('bk-game-athlete-v1')).character), '');
+        console.log('PASS Profile game character persisted across navigation and switched back to My Player');
+        assert.match(await page.locator('.bk-profile-hero-title').evaluate(el => getComputedStyle(el).backgroundImage), /profile-legacy-lockup/);
+        const stageBox = await showcase.locator('.bk-athlete-profile-showcase').boundingBox();
+        assert.ok(stageBox && Math.abs(stageBox.width / stageBox.height - 1.3) < .06);
+        await page.screenshot({ path: `${output}/chromium-430-profile-reference.png`, fullPage: true });
+        assert.equal(await showcase.getByRole('button', { name: 'Walkout', exact: true }).count(), 0);
+        await showcase.getByRole('button', { name: 'Rotate athlete right' }).click();
+        await showcase.getByRole('button', { name: 'Close-up', exact: true }).click();
+        await showcase.locator('[data-view="head"]').waitFor();
+        await showcase.getByRole('button', { name: 'Full body', exact: true }).click();
+        await showcase.locator('[data-view="body"]').waitFor();
+        await showcase.getByRole('button', { name: 'Show equipped fit' }).click();
+        await showcase.getByRole('button', { name: 'Hide shared fit' }).click();
+        await showcase.getByText('Your fit is now private.', { exact: true }).waitFor();
+        assert.equal(sharedFit, null);
+        await page.emulateMedia({ reducedMotion: 'reduce' });
+        await showcase.getByRole('group', { name: 'Athlete details' }).getByRole('button', { name: 'Trainers', exact: true }).click();
+        await showcase.locator('[data-view="trainers"]').waitFor();
+        await showcase.screenshot({ path: `${output}/chromium-430-athlete-showcase.png` });
+      }
       assert.deepEqual(crashes, []);
       results.push({ engine, width, geometry, visual, ratings: 6, initialTrophies: 6, extendedTrophies: 7, photoCrop: 'passed', xpZeroAndRollover: 'passed', refreshRecovery: 'passed', collectionAndEquip: 'passed', source: 'isolated network fixtures', physicalIphone: false });
       await context.close();

@@ -9,12 +9,17 @@ const detailFrames={
   trainers:{target:.125,distance:1.02,width:1.1,lift:.25},
 };
 
-export async function createCreatorScene(host:HTMLElement,initial:any,showroom=false){
-  const renderer=createDrillRenderer(T.WebGLRenderer,{alpha:true,powerPreference:'low-power'});
-  renderer.setPixelRatio(Math.min(devicePixelRatio||1,showroom?2.5:2));
+export async function createCreatorScene(host:HTMLElement,initial:any,showroom=false,profileMotion=false){
+  const mobileShowroom = showroom && typeof window !== 'undefined' &&
+    (window.matchMedia('(max-width: 768px)').matches || window.matchMedia('(pointer: coarse)').matches);
+  const renderer=createDrillRenderer(T.WebGLRenderer,{
+    alpha:true, antialias:!mobileShowroom, powerPreference:'low-power'
+  });
+  renderer.setPixelRatio(mobileShowroom || profileMotion ? 1 : Math.min(devicePixelRatio||1,showroom?1.5:2));
   renderer.outputColorSpace=T.SRGBColorSpace;
   renderer.toneMapping=T.ACESFilmicToneMapping;
-  renderer.toneMappingExposure=showroom?1.17:1.35;
+  const goldShowroom = showroom && initial.wardrobe?.top === 'top-gold-standard';
+  renderer.toneMappingExposure=goldShowroom?1.42:profileMotion?1.15:showroom?1.17:1.35;
   renderer.domElement.setAttribute('aria-label','Interactive 3D athlete');
   host.appendChild(renderer.domElement);
   const scene=new T.Scene(),camera=new T.PerspectiveCamera(32,1,.05,30);
@@ -22,10 +27,22 @@ export async function createCreatorScene(host:HTMLElement,initial:any,showroom=f
   const key=new T.DirectionalLight(showroom?0xffd1a2:0xffead0,showroom?3.8:3);key.position.set(showroom?2:3,showroom?5:4,showroom?3:5);scene.add(key);
   const rim=new T.DirectionalLight(showroom?0xffbd79:0x9dcfff,showroom?3.35:3);rim.position.set(-3,2,-3);scene.add(rim);
   const fill=new T.DirectionalLight(0xffffff,showroom?1.35:1);fill.position.set(-3,1,4);scene.add(fill);
+  if(profileMotion){
+    key.position.set(2,3,5);key.intensity=3.4;key.color.set(0xffead3);
+    rim.position.set(-2,3,-2);rim.intensity=2.8;rim.color.set(0xffbd70);
+    fill.position.set(-2,1.6,4);fill.intensity=1.65;
+  }
+  if (goldShowroom) {
+    // Softer gold-specific lighting keeps face highlights and irises readable
+    // without changing the original GLB's geometry or clothing textures.
+    scene.add(new T.AmbientLight(0xffedcf,.9));
+    const front=new T.DirectionalLight(0xffffff,2.1);
+    front.position.set(0,3,6);scene.add(front);
+  }
   const floor=showroom
     ?new T.Mesh(new T.PlaneGeometry(6,6),new T.ShadowMaterial({opacity:.37,depthWrite:false}))
     :new T.Mesh(new T.CylinderGeometry(.7,.72,.035,64),new T.MeshStandardMaterial({color:0x19242b,roughness:.7,metalness:.25}));
-  floor.position.y=showroom?-.014:-.045;scene.add(floor);
+  floor.position.y=showroom?-.014:-.045;floor.visible=!profileMotion;scene.add(floor);
   const trim=showroom?new T.Mesh(new T.RingGeometry(.52,.525,96),new T.MeshBasicMaterial({color:0xd0a767,transparent:true,opacity:.66,depthWrite:false,side:T.DoubleSide})):null;
   let ticks:T.LineSegments<T.BufferGeometry,T.LineBasicMaterial>|undefined;
   if(trim){
@@ -38,12 +55,14 @@ export async function createCreatorScene(host:HTMLElement,initial:any,showroom=f
     }
     ticks=new T.LineSegments(new T.BufferGeometry().setFromPoints(points),new T.LineBasicMaterial({color:0xc6a36c,transparent:true,opacity:.66,depthWrite:false}));
     scene.add(ticks);
-    renderer.shadowMap.enabled=true;renderer.shadowMap.type=T.PCFShadowMap;
-    key.castShadow=true;key.shadow.mapSize.set(1024,1024);
-    key.shadow.camera.left=key.shadow.camera.bottom=-1.3;
-    key.shadow.camera.right=key.shadow.camera.top=1.3;
-    key.shadow.normalBias=.02;key.target.position.y=.85;scene.add(key.target);
-    floor.receiveShadow=true;
+    if (!mobileShowroom) {
+      renderer.shadowMap.enabled=true;renderer.shadowMap.type=T.PCFShadowMap;
+      key.castShadow=true;key.shadow.mapSize.set(1024,1024);
+      key.shadow.camera.left=key.shadow.camera.bottom=-1.3;
+      key.shadow.camera.right=key.shadow.camera.top=1.3;
+      key.shadow.normalBias=.02;key.target.position.y=.85;scene.add(key.target);
+      floor.receiveShadow=true;
+    }
   }
   const gold = initial.wardrobe?.top === 'top-gold-standard';
   const isSample = showroom && initial.showroomSample;
@@ -58,7 +77,7 @@ export async function createCreatorScene(host:HTMLElement,initial:any,showroom=f
     }
     if(fullSample){
       root=fullSample;
-      renderer.domElement.dataset.showroomModel=gold?'gold-standard-athlete':'tunnel-fit-athlete';
+      renderer.domElement.dataset.showroomModel=gold?'gold-standard-athlete-natural-head':'tunnel-fit-athlete';
     }else{
       runner=await loadCombineRunner(initial,showroom,Boolean(fallback));
       root=runner.root;
@@ -73,21 +92,60 @@ export async function createCreatorScene(host:HTMLElement,initial:any,showroom=f
   scene.add(root);
   let angle=.16,disposed=false,view:CreatorView='body',athleteHeight=initial.heightInches||72;
   function draw(){if(!disposed)renderer.render(scene,camera);}
+  const reducedMotion=window.matchMedia('(prefers-reduced-motion: reduce)');
+  let visible=false,frame=0,previousFrame=0;
+  function animate(time:number){
+    frame=0;
+    if(disposed||!visible||document.hidden||reducedMotion.matches||!runner||renderer.getContext().isContextLost())return;
+    if(previousFrame&&time-previousFrame<30){frame=requestAnimationFrame(animate);return;}
+    const dt=previousFrame?Math.min(.06,(time-previousFrame)/1000):.04;
+    previousFrame=time;
+    runner.pose(0,0,false,1,0,true,dt);
+    draw();
+    frame=requestAnimationFrame(animate);
+  }
+  function syncAnimation(){
+    if(!profileMotion)return;
+    cancelAnimationFrame(frame);frame=0;previousFrame=0;
+    if(reducedMotion.matches){
+      if(runner)runner.poseCreator(currentProfile);
+      root.rotation.y=angle;draw();
+      return;
+    }
+    if(visible&&!document.hidden)frame=requestAnimationFrame(animate);
+  }
+  let currentProfile=initial;
   function resize(){
     const width=host.clientWidth,height=host.clientHeight;if(!width||!height)return;
-    renderer.setSize(width,height,false);camera.aspect=width/height;
+    if(profileMotion){
+      const ratio=Math.min(devicePixelRatio||1,2,Math.sqrt(800_000/(width*height)));
+      if(renderer.getPixelRatio()!==ratio)renderer.setPixelRatio(ratio);
+    }
+    renderer.setSize(width,height,false);frameCamera(width,height);
+  }
+  function frameCamera(width:number,height:number){
+    camera.aspect=width/height;
     const scale=athleteHeight/72,head=1.72*scale;
-    if(view==='head'){camera.position.set(0,head+.06*scale,Math.max(showroom?.78:1.18,.72/camera.aspect)*scale);camera.lookAt(0,head-.06*scale,0);}
+    if(profileMotion&&view==='head'){
+      camera.position.set(0,head+.07*scale,Math.max(1.22,.77/camera.aspect)*scale);
+      camera.lookAt(0,head-.14*scale,0);
+    }
+    else if(view==='head'){camera.position.set(0,head+.06*scale,Math.max(showroom?.78:1.18,.72/camera.aspect)*scale);camera.lookAt(0,head-.06*scale,0);}
     else if(view!=='body'){
       const {target,distance,width,lift}=detailFrames[view];
       camera.position.set(0,(target+lift)*scale,Math.max(distance,width/camera.aspect)*scale);
       camera.lookAt(0,target*scale,0);
+    }
+    else if(profileMotion){
+      camera.position.set(0,1.14*scale,Math.max(3.42,1.58/camera.aspect)*scale);
+      camera.lookAt(0,.94*scale,0);
     }
     else if(showroom){camera.position.set(0,1.23*scale,Math.max(3.58,1.74/camera.aspect)*scale);camera.lookAt(0,.96*scale,0);}
     else{camera.position.set(0,1.07,Math.max(3.9,1.9/camera.aspect));camera.lookAt(0,1.02,0);}
     camera.updateProjectionMatrix();draw();
   }
   function update(profile:any){
+    currentProfile=profile;
     athleteHeight=profile.heightInches||72;
     if(runner){runner.setAthlete(profile);runner.poseCreator(profile);fallback?.fitHands(root);}
     root.rotation.y=angle;resize();
@@ -97,9 +155,24 @@ export async function createCreatorScene(host:HTMLElement,initial:any,showroom=f
   const observer=new ResizeObserver(resize);observer.observe(host);resize();
   // Mobile appearance controls scroll the canvas out of view. Redraw when it
   // returns, including browsers that discard offscreen WebGL compositor tiles.
-  const visibility=new IntersectionObserver(entries=>{if(entries.some(entry=>entry.isIntersecting))requestAnimationFrame(draw);});
+  const visibility=new IntersectionObserver(([entry])=>{
+    visible=Boolean(entry?.isIntersecting);
+    if(visible)draw();
+    syncAnimation();
+  });
+  if(profileMotion){
+    document.addEventListener('visibilitychange',syncAnimation);
+    reducedMotion.addEventListener('change',syncAnimation);
+  }
   visibility.observe(host);
-  return {update,rotate,capturePortrait(){
+  return {update,rotate,captureDetail(next:CreatorView){
+    const previousView=view,previousAngle=angle,ratio=renderer.getPixelRatio();
+    try{
+      view=next;root.rotation.y=.16;
+      renderer.setPixelRatio(1);renderer.setSize(100,100,false);frameCamera(100,100);
+      return renderer.domElement.toDataURL('image/png');
+    }finally{view=previousView;root.rotation.y=previousAngle;renderer.setPixelRatio(ratio);resize();}
+  },capturePortrait(){
     const previousView=view,previousAngle=angle,ratio=renderer.getPixelRatio();
     try{
       view='head';angle=.16;root.rotation.y=angle;
@@ -107,8 +180,11 @@ export async function createCreatorScene(host:HTMLElement,initial:any,showroom=f
       const scale=athleteHeight/72;camera.position.set(0,1.78*scale,1.3*scale);camera.lookAt(0,1.60*scale,0);camera.updateProjectionMatrix();draw();
       return renderer.domElement.toDataURL('image/png');
     }finally{view=previousView;angle=previousAngle;root.rotation.y=angle;renderer.setPixelRatio(ratio);resize();}
-  },setView(next:CreatorView){view=next;resize();},dispose(){
-    if(disposed)return;disposed=true;observer.disconnect();visibility.disconnect();
+  },setView(next:CreatorView){
+    view=next;resize();
+  },dispose(){
+    if(disposed)return;disposed=true;observer.disconnect();visibility.disconnect();cancelAnimationFrame(frame);
+    document.removeEventListener('visibilitychange',syncAnimation);reducedMotion.removeEventListener('change',syncAnimation);
     const geometries=new Set<T.BufferGeometry>(),materials=new Set<T.Material>(),textures=new Set<T.Texture>();
     scene.traverse(object=>{const mesh=object as T.Mesh;if(mesh.geometry)geometries.add(mesh.geometry);for(const material of Array.isArray(mesh.material)?mesh.material:[mesh.material])if(material){materials.add(material);for(const value of Object.values(material))if(value instanceof T.Texture)textures.add(value);}});
     runner?.dispose();for(const geometry of geometries)geometry.dispose();for(const material of materials)material.dispose();for(const texture of textures)texture.dispose();key.shadow.dispose();releaseDrillRenderer(renderer);

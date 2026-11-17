@@ -1,3 +1,4 @@
+import {gameCharacterAppearance} from './gameAthleteAppearance';
 import {MyPlayerArtwork} from './MyPlayerArtwork';
 import {dressMyAthlete} from './athleteWardrobe';
 import {usePlayerOutfit} from './usePlayerOutfit';
@@ -33,7 +34,7 @@ export function MyPlayerDraftCombine({profile,onResult,onDraft,storyMode=false,o
  const records=cleanDraftCombine(profile.combinePerformance).results;
  const required=requiredDraftDrills(profile.position),complete=required.filter(drill=>records[drill]).length;
  const result=calculatePlayedCombine(profile.position,profile.combinePerformance);
- const athlete=useMemo(()=>{const identity=careerAthleteIdentity(profile);return dressMyAthlete({...combineAthlete({id:'my-player-user',name:profile.name,position:profile.position,speed:profile.speed,grade:profile.overall}),...identity.build,jerseyNumber:profile.number,cosmeticIdentityId:`my-player-${identity.id}`,athleteAppearance:identity.appearance,careerStrength:profile.power},'workout',outfit);},[profile,outfit]);
+ const athlete=useMemo(()=>{const identity=careerAthleteIdentity(profile);return dressMyAthlete({...gameCharacterAppearance(),...combineAthlete({id:'my-player-user',name:profile.name,position:profile.position,speed:profile.speed,grade:profile.overall}),...identity.build,jerseyNumber:profile.number,cosmeticIdentityId:`my-player-${identity.id}`,athleteAppearance:identity.appearance,careerStrength:profile.power},'workout',outfit);},[profile,outfit]);
  return <section className="rounded-[2rem] border border-white/10 bg-[#10151d] p-4 sm:p-7" aria-label="My Player draft Combine">
   <MyPlayerArtwork scene="training"/>
   <div className="flex items-center gap-3 text-[var(--bk-team-accent)]"><Dumbbell/><span className="text-[10px] font-black tracking-[.25em]">PLAYABLE DRAFT COMBINE</span></div>

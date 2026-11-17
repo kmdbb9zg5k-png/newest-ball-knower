@@ -65,12 +65,49 @@ try {
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1), false);
     await page.screenshot({ path: artifacts + '/featured-' + width + '.png' });
 
-    assert.equal(await store.locator('.bk-store-product').count(), 5, 'Store opens with YoungBoy and Frostbite among featured cards');
+    assert.equal(await store.locator('.bk-store-product').count(), 8, 'Store features The Phantom, YoungBoy, Frostbite and existing drops');
     await store.getByRole('button', { name: /Chrome Grip Gloves/ }).getByText('$0.99', { exact: true }).waitFor();
     const landingCategories = store.getByRole('group', { name: 'Shop categories', exact: true });
     await landingCategories.getByRole('button', { name: 'Tunnel Fits', exact: true }).click();
-    assert.equal(await store.locator('.bk-store-product').count(), 5, 'Tunnel Fits includes YoungBoy and Frostbite');
+    assert.equal(await store.locator('.bk-store-product').count(), 8, 'Tunnel Fits includes Phantom, Outlaw, Kickflip and existing collections');
     await landingCategories.getByRole('button', { name: 'All', exact: true }).click();
+
+
+    {
+      const goldCard=store.locator('[data-store-product="gold-standard"]');
+      assert.equal(await goldCard.locator('.bk-store-gold-poster img').count(),1,'Gold Standard card has full portrait cover');
+      assert.ok((await goldCard.locator('img').getAttribute('src')).includes('gold_standard_outfit_pack.png'),'Updated Gold Standard cover is on Store card');
+      await goldCard.click();
+      const gold=page.getByRole('dialog',{name:'Gold Standard',exact:true});
+      await gold.getByRole('heading',{name:'Gold Standard',exact:true}).waitFor();
+      const tabs=gold.getByRole('group',{name:'Product view'});
+      assert.equal(await tabs.getByRole('button').count(),3,'Gold Standard has exactly three views');
+      const posterTab=tabs.getByRole('button',{name:'Full poster'});
+      const realTab=tabs.getByRole('button',{name:'Realistic view'});
+      const modelTab=tabs.getByRole('button',{name:'3D preview'});
+      assert.equal(await posterTab.getAttribute('aria-pressed'),'true');
+      assert.ok((await gold.locator('.bkf-drop-hero img').getAttribute('src')).includes('gold_standard_outfit_pack.png'),'Gold Standard opens on full poster');
+      await realTab.click();
+      assert.ok((await gold.locator('.bkf-drop-hero img').getAttribute('src')).includes('golden_bk_tracksuit_athlete.png'),'Realistic full-body view is the second tab');
+      await modelTab.click();
+      const goldLive=gold.locator('[data-athlete-live-preview]');
+      const goldCanvas=goldLive.locator('canvas[data-showroom-model="gold-standard-athlete-natural-head"]');
+      await goldCanvas.waitFor({timeout:30000});
+      await gold.locator('[data-athlete-live-preview][data-render-state="ready"]').waitFor();
+      const pixelRatio = await goldCanvas.evaluate(canvas => {
+        const rect = canvas.getBoundingClientRect();
+        return rect.width ? canvas.width / rect.width : Infinity;
+      });
+      assert.ok(pixelRatio <= (mobile ? 1.12 : 1.6), 'Gold Standard showroom limits GPU framebuffer resolution');
+      assert.equal(await gold.getByText('Standard showcase character · Not your saved player').count(),1);
+      assert.equal(await gold.getByText('My Player',{exact:true}).count(),0);
+      assert.equal(await goldLive.getByRole('group',{name:'Outfit detail views'}).getByRole('button').count(),4,'Gold Standard displays only outfit detail views');
+      assert.equal(await goldLive.getByRole('button',{name:'Face'}).count(),0,'Do not offer the poor-quality face close-up');
+      await goldLive.getByRole('button',{name:'Rotate right'}).click();
+      await gold.getByText('$2.99',{exact:true}).waitFor();
+      await gold.getByRole('button',{name:'Close product'}).click();
+      await gold.waitFor({state:'hidden'});
+    }
 
     const readSave = () => page.evaluate(() => ({
       athlete: localStorage.getItem('ballknower_solo_my_player_v2'),
@@ -95,25 +132,35 @@ try {
       await store.locator('[data-store-product="bkf-youngboy"]').click();
       const youngBoy=page.getByRole('dialog',{name:'BKF YoungBoy',exact:true});
       await youngBoy.getByRole('heading',{name:'BKF YoungBoy'}).waitFor();
-      const photos=youngBoy.getByRole('button',{name:'Product photos',exact:true});
-      const tryOn=youngBoy.getByRole('button',{name:'3D try-on',exact:true});
-      assert.equal(await photos.getAttribute('aria-pressed'),'true');
-      assert.equal(await tryOn.getAttribute('aria-pressed'),'false');
+      const card=store.locator('[data-store-product="bkf-youngboy"]');
+      assert.equal(await card.locator('.bk-store-youngboy-poster img').count(),1,'YoungBoy Store card uses full portrait poster');
+      const views=youngBoy.getByRole('group',{name:'Product view'});
+      assert.equal(await views.getByRole('button').count(),3,'YoungBoy has exactly three views');
+      const poster=views.getByRole('button',{name:'Full poster'});
+      const realistic=views.getByRole('button',{name:'Realistic view'});
+      const tryOn=views.getByRole('button',{name:'3D preview'});
+      const hero=youngBoy.locator('.bkf-drop-hero');
+      assert.equal(await poster.getAttribute('aria-pressed'),'true','YoungBoy opens full poster by default');
+      assert.equal(await hero.getAttribute('data-bkf-photo'),'poster');
       assert.equal(await youngBoy.locator('.bkf-drop-includes li').count(),6);
       assert.equal(await youngBoy.getByText('Coming Soon',{exact:true}).count(),1);
-      const cover=youngBoy.locator('.bkf-drop-hero > img');
+      const cover=hero.locator('img');
       await cover.evaluate(img=>img.decode());
-      assert.ok(await cover.evaluate(img=>img.naturalWidth>100),'Approved BKF YoungBoy cover art loads');
+      assert.ok(await cover.evaluate(img=>img.naturalWidth>100),'Approved YoungBoy full poster loads');
+      await realistic.click();
+      assert.equal(await realistic.getAttribute('aria-pressed'),'true');
+      assert.ok((await hero.locator('img').getAttribute('src')).includes('Xh-J82kvc_xaAQT6S_pUO_USEo0H0r.png'),'YoungBoy original photoreal image is used');
       await tryOn.click();
       await youngBoy.locator('[data-bkf-rig-preview="youngboy"] canvas').waitFor();
-      const rigPreview = youngBoy.locator('[data-bkf-rig-preview="youngboy"]');
-      assert.equal(await rigPreview.getAttribute('data-bkf-pose'), 'a-pose', 'YoungBoy uses the upright A-pose');
-      assert.equal(await rigPreview.getByRole('group', { name: 'Select stance' }).count(), 0, 'Stance selector is removed');
-      assert.equal(await rigPreview.getByRole('button', { name: /Signature crouch|Original A-pose/ }).count(), 0, 'Old pose buttons are gone');
-      assert.equal(await rigPreview.getByRole('button', { name: 'Rotate left' }).count(), 1, '3D rotation remains available');
-      assert.equal(await tryOn.getAttribute('aria-pressed'),'true');
-      await youngBoy.getByRole('button',{name:'Product photos',exact:true}).click();
-      assert.equal(await photos.getAttribute('aria-pressed'),'true');
+      const rigPreview=youngBoy.locator('[data-bkf-rig-preview="youngboy"]');
+      assert.equal(await rigPreview.getAttribute('data-bkf-pose'),'a-pose');
+      assert.equal(await rigPreview.getByRole('group',{name:'Select stance'}).count(),0);
+      assert.equal(await rigPreview.getByRole('button',{name:/Signature crouch|Original A-pose/}).count(),0);
+      assert.equal(await rigPreview.getByRole('button',{name:'Rotate left'}).count(),1);
+      assert.equal(await youngBoy.getByText('Standard showcase character · Not your saved player').count(),1);
+      assert.equal(await youngBoy.getByText('My Player',{exact:true}).count(),0);
+      await poster.click();
+      assert.equal(await poster.getAttribute('aria-pressed'),'true');
       await youngBoy.getByRole('button',{name:'Close product'}).click();
       await youngBoy.waitFor({state:'hidden'});
       assert.deepEqual(await readSave(),before,'Previewing YoungBoy never purchases or equips items');
@@ -122,14 +169,25 @@ try {
       await frostbite.getByRole('heading', { name: 'BKF Frostbite', exact: true }).waitFor();
       assert.equal(await frostbite.getByText('Coming Soon', { exact: true }).count(), 1);
 
+
       const storePoster = store.locator('[data-store-product="frostbite"] .bk-store-frostbite-poster img');
-      assert.ok((await storePoster.getAttribute('src')).includes('3CD98264-BD29-4D30-9FAE-8EE444BB6E92.jpeg'), 'The Store features Frostbite poster artwork');
-      const hero = frostbite.locator('.bkf-drop-hero');
-      assert.ok((await hero.locator('img').getAttribute('src')).includes('ByU6fl61.png'), 'Frostbite detail still shows the realistic full-body look');
-      assert.equal(await frostbite.getByRole('group', { name: 'Frostbite product photos' }).count(), 0, 'Bulky photo gallery removed');
-      assert.equal(await frostbite.getByText('Cover art', { exact: true }).count(), 0, 'No cover art label');
-      const frostbiteTryOn = frostbite.getByRole('button', { name: '3D try-on', exact: true });
+      assert.ok((await storePoster.getAttribute('src')).includes('3CD98264-BD29-4D30-9FAE-8EE444BB6E92.jpeg'), 'Frostbite poster appears in main Store card');
+      const productView = frostbite.getByRole('group', { name: 'Product view' });
+      assert.equal(await productView.getByRole('button').count(), 3, 'Frostbite has exactly three views');
+      assert.equal(await frostbite.getByText('My Player', { exact: true }).count(), 0, 'No misleading My Player tab');
+      const fullPoster = productView.getByRole('button', { name: 'Full poster' });
+      const realisticView = productView.getByRole('button', { name: 'Realistic view' });
+      const frostbiteTryOn = productView.getByRole('button', { name: '3D preview' });
+      const frostbiteHero = frostbite.locator('.bkf-drop-frostbiteHero');
+      assert.equal(await fullPoster.getAttribute('aria-pressed'), 'true', 'Poster opens by default');
+      assert.equal(await frostbiteHero.getAttribute('data-bkf-photo'), 'poster');
+      assert.ok((await frostbiteHero.locator('img').getAttribute('src')).includes('3CD98264-BD29-4D30-9FAE-8EE444BB6E92.jpeg'), 'Full poster is initially displayed');
+      await realisticView.click();
+      assert.equal(await realisticView.getAttribute('aria-pressed'), 'true');
+      assert.ok((await frostbiteHero.locator('img').getAttribute('src')).includes('ByU6fl61.png'), 'Realistic view is second');
       await frostbiteTryOn.click();
+      assert.equal(await frostbiteTryOn.getAttribute('aria-pressed'), 'true');
+      assert.equal(await frostbite.getByText('Standard showcase character · Not your saved player').count(), 1, '3D view is clearly a showcase character');
       const frostbiteRig = frostbite.locator('[data-bkf-rig-preview="frostbite"]');
       await frostbiteRig.locator('canvas').waitFor();
       assert.equal(await frostbiteRig.getAttribute('data-bkf-pose'), 'a-pose');
@@ -138,6 +196,38 @@ try {
       await frostbite.getByRole('button', { name: 'Close product' }).click();
       await frostbite.waitFor({ state: 'hidden' });
       assert.deepEqual(await readSave(), before, 'Frostbite preview never changes a player or purchases an item');
+    }
+
+    // Phantom: poster, realistic catalog photo and independent 360-degree model.
+    {
+      const phantomCard=store.locator('[data-store-product="bkf-phantom"]');
+      assert.equal(await phantomCard.count(),1,'The Phantom is a featured Store character');
+      assert.ok((await phantomCard.locator('img').getAttribute('src')).includes('ZV1i2C4x_u3pGyWgsReKS_7OOQNTpM.png'));
+      await phantomCard.click();
+      const phantom=page.getByRole('dialog',{name:'The Phantom',exact:true});
+      await phantom.getByRole('heading',{name:'The Phantom',exact:true}).waitFor();
+      const views=phantom.getByRole('group',{name:'Product view'});
+      assert.equal(await views.getByRole('button').count(),3,'The Phantom offers full poster, realistic photo and 3D preview');
+      assert.equal(await views.getByRole('button',{name:'Full poster'}).getAttribute('aria-pressed'),'true');
+      const artwork=phantom.locator('.bkf-drop-hero img');
+      assert.ok((await artwork.getAttribute('src')).includes('ZV1i2C4x_u3pGyWgsReKS_7OOQNTpM.png'));
+      await artwork.evaluate(image=>image.decode());
+      await views.getByRole('button',{name:'Realistic view'}).click();
+      assert.ok((await artwork.getAttribute('src')).includes('aEW__qpU6k2Ik8P7TywbO_lUUJVFfQ.png'));
+      await artwork.evaluate(image=>image.decode());
+      assert.equal(await phantom.getByText('Coming Soon',{exact:true}).count(),1,'Phantom cannot be bought before equip/ownership is ready');
+      assert.equal(await phantom.locator('.bkf-drop-includes li').count(),6);
+      if(width===390){
+        await views.getByRole('button',{name:'3D preview'}).click();
+        const character=phantom.locator('[data-character-model*="LwJJTnq5TIJ6S9RsHOcW0_model.glb"]');
+        await character.waitFor();
+        await character.locator('canvas').waitFor({timeout:90000});
+        await phantom.locator('[data-character-model][data-render-state="ready"]').waitFor({timeout:90000});
+        await character.getByRole('button',{name:'Rotate right'}).click();
+        await phantom.getByText('Standard showcase character · Not your saved player').waitFor();
+      }
+      await phantom.getByRole('button',{name:'Close product'}).click();
+      await phantom.waitFor({state:'hidden'});
     }
 
     await store.getByRole('button', { name: 'View All', exact: true }).click();
@@ -155,7 +245,7 @@ try {
     }
 
     const cards = catalog.locator('.bk-store-product');
-    const counts = { All: 11, 'Game Gear': 3, 'Tunnel Fits': 5, Profile: 2, Celebrations: 1, Franchise: 1, Bundles: 8 };
+    const counts = { All: 14, 'Game Gear': 3, 'Tunnel Fits': 8, Profile: 2, Celebrations: 1, Franchise: 1, Bundles: 11 };
     for (const [category, count] of Object.entries(counts)) {
       const filter = categories.getByRole('button', { name: category, exact: true });
       await filter.click();

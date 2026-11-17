@@ -1,17 +1,31 @@
 import Stripe from 'stripe';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import { cartProducts, cleanCart, STORE_WEARABLES } from '../storeCart.js';
+import { cartProducts, cleanCart, OUTFIT_PRICES, STORE_CHARACTER_IDS, STORE_WEARABLES, type StorePrices } from '../storeCart.js';
 import { CLOTHING_SLOTS } from '../playerWardrobe.js';
 import { CommerceError, runtimeCommerce, verifiedOutfit } from './lockerCommerce.js';
 const fail = (status: number, message: string): never => { throw new CommerceError(status, message); };
 const ORIGIN = 'https://ballknowerofficial.com';
 const idOf = (v: any): string | null => typeof v === 'string' ? v : v?.id || null;
-export type StoreItem = { id: string; name: string; amount: number };
+export type StoreItem = { id: string; name: string; amount: number; kind?: 'character' };
 export type StoreOrder = { id: string; user_id: string; mode: 'test' | 'live'; provider: 'stripe' | 'paypal'; items: StoreItem[]; amount: number; provider_id: string | null; payment_id: string | null; status: string; created_at: string };
-export function storeItems(raw: unknown): StoreItem[] {
+export function storeItems(raw: unknown, prices: StorePrices = OUTFIT_PRICES): StoreItem[] {
   const ids = cleanCart(raw);
-  if (!Array.isArray(raw) || !ids.length || ids.length !== raw.length || raw.length > 20) fail(400, 'Choose available outfits, once each.');
-  return cartProducts(ids).map(p => ({ id: p.id, name: p.name, amount: p.priceCents }));
+  if (!Array.isArray(raw) || !ids.length || ids.length !== raw.length || raw.length > 20 || ids.some(id => !Object.hasOwn(prices, id))) fail(400, 'Choose available Store items, once each.');
+  return cartProducts(ids).map(p => ({ id: p.id, name: p.name, amount: prices[p.id],
+    ...(STORE_CHARACTER_IDS.includes(p.id) ? { kind: 'character' as const } : {}),
+  }));
+}
+function characterPrices(mode: 'live' | 'test', raw?: string): StorePrices {
+  if (!raw) return mode === 'test' ? Object.fromEntries(STORE_CHARACTER_IDS.map(id => [id, 100])) : {};
+  try {
+    const values = JSON.parse(raw);
+    return Object.fromEntries(STORE_CHARACTER_IDS.flatMap(id => {
+      const price = values?.[id];
+      return Number.isSafeInteger(price) && price >= 50 && price <= 99999999 ? [[id, price]] : [];
+    }));
+  } catch {
+    return {};
+  }
 }
 export function storeConfig(env: Record<string,string|undefined>) {
   const mode = env.STORE_COMMERCE_MODE;
@@ -19,10 +33,11 @@ export function storeConfig(env: Record<string,string|undefined>) {
   const key = env.STORE_STRIPE_KEY || '';
   const stripe = new RegExp(`^[sr]k_${mode}_`).test(key) && !!env.STORE_STRIPE_ACCOUNT && !!env.STORE_STRIPE_WEBHOOK_SECRET?.startsWith('whsec_');
   const paypal = !!env.STORE_PAYPAL_CLIENT_ID && !!env.STORE_PAYPAL_SECRET && !!env.STORE_PAYPAL_WEBHOOK_ID && !!env.STORE_PAYPAL_MERCHANT_ID;
-  const buyers = (env.STORE_TEST_BUYERS || '').split(',').filter(Boolean);
+  const buyers = (env.STORE_TEST_BUYERS || '').split(',').map(id=>id.trim()).filter(Boolean);
   if ((!stripe && !paypal) || (mode === 'test' && !buyers.length)) return null;
   return { mode, stripe, paypal, key, stripeAccount: env.STORE_STRIPE_ACCOUNT!, stripeWebhook: env.STORE_STRIPE_WEBHOOK_SECRET!, buyers,
-    paypalClient: env.STORE_PAYPAL_CLIENT_ID!, paypalSecret: env.STORE_PAYPAL_SECRET!, paypalWebhook: env.STORE_PAYPAL_WEBHOOK_ID!, paypalMerchant: env.STORE_PAYPAL_MERCHANT_ID! };
+    paypalClient: env.STORE_PAYPAL_CLIENT_ID!, paypalSecret: env.STORE_PAYPAL_SECRET!, paypalWebhook: env.STORE_PAYPAL_WEBHOOK_ID!, paypalMerchant: env.STORE_PAYPAL_MERCHANT_ID!,
+    prices: { ...OUTFIT_PRICES, ...characterPrices(mode, env.STORE_CHARACTER_PRICES) } };
 }
 export function verifyStripeOrder(order: StoreOrder, session: Stripe.Checkout.Session, lines: Stripe.ApiList<Stripe.LineItem>, payment: Stripe.PaymentIntent | null) {
   if (session.livemode !== (order.mode === 'live') || session.mode !== 'payment' || session.metadata?.store_order !== order.id || session.client_reference_id !== order.user_id || (order.provider_id && session.id !== order.provider_id) || session.amount_total !== order.amount || session.currency !== 'usd' || lines.has_more || lines.data.length !== order.items.length) fail(409, 'Order verification failed.');
@@ -98,7 +113,7 @@ export function makeStoreCommerce(db: SupabaseClient, config: NonNullable<Return
     const previous = config.mode === 'test' && legacy?.config.buyers.includes(user) ? await legacy.commerce.state(user) : null;
     const wearables = [...owned.flatMap(id => STORE_WEARABLES[id] || []), ...(previous?.owned || [])];
     const saved = result(await db.from('bk_store_outfits').select('outfit').eq('user_id', user).eq('mode', config.mode).maybeSingle());
-    return { available: true, wearables, outfit: saved ? verifiedOutfit(saved.outfit, wearables) : previous?.outfit || null, prices: previous?.prices || {}, mode: config.mode, stripe: config.stripe, paypal: config.paypal, owned: [...new Set(verified.filter(o => o.status === 'paid').flatMap(o => o.items.map(i => i.id)))], pending: verified.some(o => o.status === 'pending') };
+    return { available: true, wearables, outfit: saved ? verifiedOutfit(saved.outfit, wearables) : previous?.outfit || null, prices: previous?.prices || {}, mode: config.mode, stripe: config.stripe, paypal: config.paypal, catalogPrices: config.prices, owned, pending: verified.some(o => o.status === 'pending') };
   }
   return { stripe, config, find, reconcile, paypal, settle,
     async authenticate(token: string) {
@@ -126,7 +141,7 @@ export function makeStoreCommerce(db: SupabaseClient, config: NonNullable<Return
     },
     async checkout(user: string, raw: unknown, provider: string) {
       if (!['stripe','paypal'].includes(provider) || !config[provider]) fail(503, 'This payment method is not connected yet.');
-      const items = storeItems(raw);
+      const items = storeItems(raw, config.prices);
       await state(user); // Reconcile previous orders before reserving the next cart.
       let order = result(await db.rpc('bk_store_begin', { p_user: user, p_mode: config.mode, p_provider: provider, p_items: items, p_amount: items.reduce((n, i) => n + i.amount, 0) })) as StoreOrder;
       // Never reuse expired provider idempotency windows after an ambiguous network failure.

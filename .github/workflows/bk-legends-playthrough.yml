@@ -1,0 +1,41 @@
+name: BK Legends playthrough
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/bk-legends-playthrough.yml'
+      - 'scripts/bk-legends-playthrough.mjs'
+      - 'BKLegends.tsx'
+      - 'bkLegends.ts'
+      - 'public/play-moment-3d/**'
+      - 'public/play-moment-3d-preview.html'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  playthrough:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 65
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npx --no-install playwright install --with-deps chromium
+      - run: node --import tsx scripts/bk-legends-check.ts
+      - run: npm run build
+      - name: Play campaign challenges in order
+        timeout-minutes: 60
+        env:
+          BK_LEGENDS_ROUNDS: ${{ github.event.pull_request.head.ref == 'codex/bk-legends' && '10' || '3' }}
+        run: node --import tsx scripts/bk-legends-playthrough.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: bk-legends-playthrough
+          path: artifacts/bk-legends-playthrough/
+          if-no-files-found: ignore

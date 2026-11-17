@@ -7,9 +7,13 @@ export default async function handler(req: any, res: any) {
   if (!store) return res.status(req.method === 'GET' ? 200 : 503).json({ stripe: false, paypal: false, owned: [], error: 'Payments are not open yet. Your cart is saved.' });
   try {
     const token = String(req.headers.authorization || '').replace(/^Bearer /, '');
-    if (req.method === 'GET' && !token) return res.status(200).json({ mode: store.config.mode, stripe: store.config.mode === 'live' && store.config.stripe, paypal: store.config.mode === 'live' && store.config.paypal, owned: [] });
+    if (req.method === 'GET' && !token) return res.status(200).json({ mode: store.config.mode, stripe: store.config.mode === 'live' && store.config.stripe, paypal: store.config.mode === 'live' && store.config.paypal, catalogPrices: store.config.mode === 'live' ? store.config.prices : {}, owned: [] });
+    if (req.method === 'GET' && req.query?.catalog === '1') {
+      if (store.config.mode === 'test') await store.authenticate(token);
+      return res.status(200).json({ catalogPrices: store.config.prices });
+    }
     const user = await store.authenticate(token);
-    if (req.method === 'GET') return res.status(200).json(await store.state(user));
+    if (req.method === 'GET') return res.status(200).json({ ...await store.state(user), signedIn: true });
     const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
     if (body?.action === 'equip') return res.status(200).json(await store.equip(user, body.outfit));
     if (body?.action === 'restore') return res.status(200).json(await store.state(user));

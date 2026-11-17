@@ -2,9 +2,15 @@
 
 Shoppers can add Tunnel Fit and Gold Standard to one persistent cart, remove items, and check out once. These are the two collections with implemented wearable mappings; all other concept/catalog products retain previews. One copy per account. Existing $1 private Locker fixtures remain separate.
 
+## Playable characters
+
+The same cart accepts the two supported outfits and characters with gameplay rigs. The server snapshots item type and cents on each order. Only paid live character lines unlock Profile and gameplay. Refunds and disputes remove access. Sandbox payments verify the receipt without granting gameplay access on the live account.
+
+`STORE_CHARACTER_PRICES` is a server environment variable containing a JSON object from approved character SKUs to their USD price in integer cents. Without a configured live price a character remains preview-only. Test mode gives allowlisted buyers a $1.00 test price per playable character unless a test price map is configured. Check both migrations with `scripts/store-cart-database-check.sql` in a rollback transaction.
+
 ## Deployment and activation
 
-Payment routes fail closed until explicitly configured. This PR does not activate live charging. Apply `supabase/migrations/20261110164332_store_cart_orders.sql` before enabling the service. Use the existing Supabase server secret. Configure secrets as sensitive server-only Vercel variables, never in VITE variables or source.
+Payment routes fail closed until explicitly configured. This PR does not activate live charging. Apply `supabase/migrations/20261110164332_store_cart_orders.sql` and `supabase/migrations/20261117014000_store_character_purchases.sql` in that order before enabling the service. Use the existing Supabase server secret. Configure secrets as sensitive server-only Vercel variables, never in VITE variables or source.
 
 - `STORE_COMMERCE_MODE`: `test` first; `live` only after full provider tests.
 - `STORE_TEST_BUYERS`: comma-separated authenticated user UUIDs for private tests.

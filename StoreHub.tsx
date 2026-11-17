@@ -1,29 +1,52 @@
-import { lazy, Suspense, useEffect, useRef, useState } from 'react';
-import { Archive, ArrowLeft, Box as BoxIcon, ChevronRight, Crown, Image as ImageIcon, Shirt, Trophy, X } from 'lucide-react';
+import { usePurchasedCharacters } from './usePurchasedCharacters';
+import { lazy, Suspense, useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { Archive, ArrowLeft, Box as BoxIcon, ChevronRight, Crown, Image as ImageIcon, Shirt, X } from 'lucide-react';
 import { DEFAULT_ATHLETE_APPEARANCE } from './athleteAppearance';
 import { recommendedAthleteBuild } from './athleteBuild';
 import { readAthletePassport, type AthletePassport } from './athletePassport';
 import GameGearPreview from './GameGearPreview';
 import { sanitizeGameGear } from './playerGameGear';
 import { readOutfit } from './playerWardrobe';
+import { readLockerState, refreshLocker, subscribeLocker } from './lockerCommerceClient';
 import {
-  BLACKOUT_KIT, STORE_CATEGORIES, STORE_PRODUCTS,
-  storeImage, storePrice, type StoreCategory, type StoreFilter, type StoreProduct,
+  STORE_CATEGORIES, STORE_PRODUCTS,
+  practiceAsset, storeImage, storePrice, type StoreCategory, type StoreFilter, type StoreProduct,
 } from './storeCatalog';
 import StoreCart, { useStoreCart } from './StoreCart';
+import { formatStoreAmount, STORE_WEARABLES } from './storeCart';
 import './store.css';
 import './bkf-drop.css';
 
 const AthleteLivePreview = lazy(() => import('./AthleteLivePreview'));
 const StoreRewards = lazy(() => import('./StoreRewards'));
+const HelmetShop = lazy(() => import('./HelmetShop'));
+const JerseyShop = lazy(() => import('./JerseyShop'));
+const PantsShop = lazy(() => import('./PantsShop'));
+const CleatShop = lazy(() => import('./CleatShop'));
+const AccessoriesShop = lazy(() => import('./AccessoriesShop'));
+const StoreLandingShowcase = lazy(() => import('./StoreLandingShowcase'));
+const GameFitsShop = lazy(() => import('./GameFitsShop'));
+
+
 const BKFYoungBoyPose = lazy(() => import('./BKFYoungBoyPose'));
+const StoreCharacterPreview = lazy(() => import('./StoreCharacterPreview'));
 const BKFFrostbitePose = lazy(() => import('./BKFFrostbitePose'));
 
-type StorePage = 'featured' | 'catalog' | 'rewards';
+type StorePage = 'featured' | 'catalog' | 'rewards' | 'previews';
 type Selection = { product: StoreProduct };
-const campaignCards = ['tunnel-fit', 'gold-standard', 'bkf-youngboy', 'frostbite', 'chrome-grip'].map(id => STORE_PRODUCTS.find(product => product.id === id)!);
+type ShopDepartment = 'featured' | 'game-fits' | 'characters' | 'clothing' | 'helmets' | 'jerseys' | 'pants' | 'cleats' | 'accessories' | 'all';
+const departments = [
+  { id: 'featured', label: 'Featured' }, { id: 'game-fits', label: 'Game Fits' }, { id: 'characters', label: 'Characters' },
+  { id: 'clothing', label: 'Clothing' }, { id: 'helmets', label: 'Helmets' }, { id: 'jerseys', label: 'Jerseys' }, { id: 'pants', label: 'Pants' }, { id: 'cleats', label: 'Cleats' }, { id: 'accessories', label: 'Accessories' },
+  { id: 'all', label: 'All Items' },
+] as const;
+const isCharacter = (product: StoreProduct) => product.department !== 'clothing' && (product.posterOnly || Boolean(product.showcase) || ['bkf-youngboy', 'frostbite'].includes(product.id));
+const characterProducts = STORE_PRODUCTS.filter(isCharacter);
+const previewPacks = STORE_PRODUCTS.filter(product => !isCharacter(product) && product.categories.includes('bundles'));
+const clothingProducts = STORE_PRODUCTS.filter(product => product.categories.includes('tunnel-fits') && !isCharacter(product) && product.id !== 'ink-pack');
+
 const tunnelPhotos = [
-  { file: 'tunnel-look', label: 'Full outfit', alt: 'Athlete wearing the graphite Tunnel Fit in a stadium tunnel' },
+  { file: 'tunnel-look', label: 'Full outfit', alt: 'Athlete wearing the graphite Gray Standard in a stadium tunnel' },
   { file: 'tunnel-hoodie', label: 'Hoodie detail', alt: 'Graphite fleece, warm gold drawcord tips and chest embroidery' },
   { file: 'tunnel-sweats', label: 'Sweats detail', alt: 'Graphite jogger pocket and stitching' },
   { file: 'tunnel-trainers', label: 'Trainer detail', alt: 'Slate trainer with a mesh upper and layered sole' },
@@ -33,13 +56,16 @@ const goldPhotos = [
   { file: 'gold-standard', label: 'Full outfit', alt: 'Gold Standard tracksuit on the detailed showroom athlete' },
 ] as const;
 
-function ProductCard({ product, onOpen }: { product: StoreProduct; onOpen: (product: StoreProduct) => void }) {
+function ProductCard({ product, onOpen, price }: { product: StoreProduct; onOpen: (product: StoreProduct) => void; price?: number }) {
   return <button className="bk-store-product" type="button" data-store-product={product.id} onClick={() => onOpen(product)}>
-    {product.id === 'frostbite' ? <span className="bk-store-frostbite-poster"><img src={storeImage('frostbite')} alt="" loading="lazy" decoding="async"/></span> : <img src={storeImage(product.id === 'tunnel-fit' ? 'tunnel-kit' : product.id)} alt="" loading="lazy" decoding="async"/>}
+    <span className={"bk-store-card-art" + (product.showcase || isCharacter(product) || product.id === 'gold-standard' || product.id === 'tunnel-fit' ? ' bk-store-card-art--portrait' : '')}>
+      <img src={storeImage(product.id === 'tunnel-fit' ? 'tunnel-look' : product.id === 'gold-standard' ? 'gold-standard-realistic' : product.id)} alt="" loading="lazy" decoding="async"
+        onError={event => { const fallback = product.showcase?.look ?? storeImage(product.id); if (event.currentTarget.getAttribute('src') !== fallback) event.currentTarget.src = fallback; }}/>
+    </span>
     <span className="bk-store-product-text">
       <strong>{product.name}</strong>
       <span>{product.summary}</span>
-      <b>{storePrice(product)}</b>
+      <b>{price ? formatStoreAmount(price) : storePrice(product)}{!price && (product.priceCents > 0 || product.proposedCoins) && <small> proposed</small>}</b>
     </span>
   </button>;
 }
@@ -66,22 +92,32 @@ function TryOnPreview({ athlete, preview }: { athlete: AthletePassport | null; p
   };
   return <Suspense fallback={<p className="bk-store-preview-loading" role="status">Preparing your athlete…</p>}>
     <AthleteLivePreview profile={profile} previewOutfit={outfit} showroom={preview.outfit.top === 'top-tunnel-fit' || preview.outfit.top === 'top-gold-standard'}
+      fallbackImage={preview.outfit.top === 'top-gold-standard' ? storeImage('gold-standard-realistic') : undefined}
+      hideFaceDetail={preview.outfit.top === 'top-gold-standard'}
       />
   </Suspense>;
 }
 
 const FROSTBITE_PREVIEW_FALLBACK = 'https://v3b.fal.media/files/b/0ab1eab2/PuPh4vtWpnfEVTwvd_xXM_preview.png';
 
-function BKFConceptDialog({ product, onClose }: { product: StoreProduct; onClose: () => void }) {
+function BKFConceptDialog({ product, onClose, cartPrice, inCart, onAdd, onCart }: {
+  product: StoreProduct; onClose: () => void; cartPrice?: number;
+  inCart: boolean; onAdd: () => void; onCart: () => void;
+}) {
   const dialog = useRef<HTMLDialogElement>(null);
+  const playable = Boolean(practiceAsset(product));
+  const { owned, loading } = usePurchasedCharacters(playable);
+  const showcase = product.showcase;
+  const has3d = !showcase || Boolean(showcase.model);
   const isFrostbite = product.id === 'frostbite';
-  const [view, setView] = useState<'photos' | '3d'>('photos');
-  const [art, setArt] = useState(() => storeImage(isFrostbite ? 'frostbite-look' : product.id));
+  const isGold = product.id === 'gold-standard';
+  const [view, setView] = useState<'poster' | 'realistic' | '3d'>('poster');
+  const [art, setArt] = useState(() => storeImage(product.id));
   useEffect(() => {
     const node = dialog.current;
     if (node && !node.open) node.showModal();
   }, []);
-  return <dialog ref={dialog} className={'bk-store-dialog bkf-drop-modal' + (isFrostbite ? ' bkf-drop-modal--frostbite' : '')}
+  return <dialog ref={dialog} className={'bk-store-dialog bkf-drop-modal' + (showcase ? ' bkf-drop-modal--character bkf-drop-modal--' + showcase.theme : isFrostbite ? ' bkf-drop-modal--frostbite' : isGold ? ' bkf-drop-modal--gold' : '')}
     aria-labelledby="bkf-drop-title" data-bkf-collection={product.id}
     onClose={onClose} onClick={event => { if (event.target === event.currentTarget) event.currentTarget.close(); }}>
     <div className="bkf-drop-shell">
@@ -90,40 +126,62 @@ function BKFConceptDialog({ product, onClose }: { product: StoreProduct; onClose
         <button type="button" className="bkf-drop-close" aria-label="Close product" onClick={() => dialog.current?.close()}><X size={25} aria-hidden="true"/></button>
       </header>
       <div className="bkf-drop-heading">
-        <p>{isFrostbite ? 'Icebound Concept Collection' : 'Streetwear Concept Collection'}</p>
-        <h2 id="bkf-drop-title" className="bkf-drop-title"><span>BKF</span> {isFrostbite ? 'Frostbite' : 'YoungBoy'}</h2>
+        <p>{showcase ? showcase.collection : isGold ? 'Gold Standard Outfit Collection' : isFrostbite ? 'Icebound Concept Collection' : 'Streetwear Concept Collection'}</p>
+        <h2 id="bkf-drop-title" className="bkf-drop-title">{showcase ? product.name : isGold ? <>Gold <span>Standard</span></> : <><span>BKF</span> {isFrostbite ? 'Frostbite' : 'YoungBoy'}</>}</h2>
       </div>
-      <div className="bkf-drop-tabs" role="group" aria-label="Product view">
-        <button type="button" aria-pressed={view === 'photos'} onClick={() => setView('photos')}><ImageIcon size={18} aria-hidden="true"/> Product photos</button>
-        <button type="button" aria-pressed={view === '3d'} onClick={() => setView('3d')}><BoxIcon size={18} aria-hidden="true"/> 3D try-on</button>
+
+      <div className={"bkf-drop-tabs" + (has3d ? " bkf-drop-tabs--triple" : "")} role="group" aria-label="Product view">
+        <button type="button" aria-pressed={view === 'poster'} onClick={() => { setArt(storeImage(product.id)); setView('poster'); }}>Full poster</button>
+        <button type="button" aria-pressed={view === 'realistic'} onClick={() => { setArt(showcase?.look ?? storeImage(isGold ? 'gold-standard-realistic' : isFrostbite ? 'frostbite-look' : 'bkf-youngboy-look')); setView('realistic'); }}>{showcase?.pose ?? (product.id === 'bk-femme' ? 'A-pose' : 'Realistic view')}</button>
+        {has3d && <button type="button" aria-pressed={view === '3d'} onClick={() => setView('3d')}><BoxIcon size={16} aria-hidden="true"/> 3D preview</button>}
       </div>
-      <div className="bkf-drop-hero" data-bkf-display={view}>
-        {view === 'photos'
-          ? <img src={art} alt={isFrostbite
-            ? 'Frostbite realistic full-body look wearing a silver-white puffer jacket, white mask, chain, cargo pants and boots'
-            : 'BKF YoungBoy original luxury black-and-gold artwork: masked athlete crouching in a black hoodie, gold chain and watch, baggy brown cargos and tan boots'}
-            onError={() => {
-              const fallback = isFrostbite ? FROSTBITE_PREVIEW_FALLBACK : '/store/bkf-youngboy.svg';
-              if (art !== fallback) setArt(fallback);
-            }}/>
+      <div className="bkf-drop-hero" data-bkf-display={view === '3d' ? '3d' : 'photos'} data-bkf-photo={view === '3d' ? undefined : view}>
+        {view !== '3d'
+          ? <img src={art} alt={view === 'poster'
+              ? (showcase ? 'Full ' + product.name + ' promotional outfit poster' : isGold ? 'Full Gold Standard black-and-gold outfit collection poster' : isFrostbite ? 'Full Frostbite promotional poster with icy outfit and collection details' : 'Full BKF YoungBoy black-and-gold outfit poster')
+              : (showcase ? 'Realistic full-body ' + product.name + ' showcase character' : isGold ? 'Realistic standing Gold Standard sample athlete in metallic gold jacket and black-gold trainers' : isFrostbite ? 'Realistic standing Frostbite showroom model in silver puffer, white mask, cargo pants and boots' : 'Realistic standing BKF YoungBoy showroom model with black ski mask, hoodie, gold chain, brown cargos and tan work boots')}
+              onError={() => {
+                const fallback = showcase ? (view === 'realistic' ? storeImage(product.id) : showcase.look) : isGold
+                  ? (view === 'realistic' ? '/store/gold-standard.webp' : storeImage('gold-standard-realistic'))
+                  : isFrostbite
+                    ? (view === 'realistic' ? FROSTBITE_PREVIEW_FALLBACK : storeImage('frostbite-look'))
+                    : (view === 'realistic' ? '/store/bkf-youngboy-cover.webp' : '/store/bkf-youngboy.svg');
+                if (art !== fallback) setArt(fallback);
+              }}/>
           : <Suspense fallback={<div className="bkf-drop-load" role="status">Preparing {product.name}'s 3D showroom…</div>}>
-              {isFrostbite ? <BKFFrostbitePose/> : <BKFYoungBoyPose/>}
+              {showcase ? (showcase.model ? <StoreCharacterPreview name={product.name} model={showcase.model} look={showcase.look}/> : null) : isGold && product.tryOn ? <div className="bkf-gold-showroom-3d"><TryOnPreview athlete={null} preview={product.tryOn}/></div> : isFrostbite ? <BKFFrostbitePose/> : <BKFYoungBoyPose/>}
             </Suspense>}
       </div>
-      <p className="bkf-drop-description">{isFrostbite
+      {view === '3d' && <p className="bkf-showroom-model-note">Standard showcase character · Not your saved player</p>}
+      <p className="bkf-drop-description">{showcase ? product.description : isGold
+        ? 'A metallic-gold and black tracksuit with matching joggers and black-and-gold trainers. Preview the entire look on our standard showcase athlete.'
+        : isFrostbite
         ? 'Glacier-white puffer. White knit shiesty mask. Iced silver chain and watch. Loose ice-gray cargos and white high-top boots. One seriously cold streetwear look.'
         : 'Black shiesty mask. Heavy gold chain. Diamond-style watch. Oversized black hoodie, baggy brown cargos and tan boots. One signature streetwear look.'}</p>
       <div className="bkf-drop-includes">
         <h3><span>Included</span></h3>
         <ul>{product.includes.map(item=><li key={item}>{item}</li>)}</ul>
       </div>
+      {playable && (owned.has(product.id)
+        ? <a className="bk-store-button" href={`/combine.html?drill=dash&character=${encodeURIComponent(product.id)}`}>Run the 40 as {product.name}</a>
+        : <p className="bkf-showroom-model-note">{loading ? 'Checking character purchases…' : 'Purchase required to play'}</p>)}
+      {cartPrice && (Object.hasOwn(STORE_WEARABLES, product.id) || (playable && !owned.has(product.id))) &&
+        <button className="bk-store-button bk-store-button-gold" type="button" onClick={inCart ? onCart : onAdd}>
+          {inCart ? 'View cart' : 'Add to cart'}
+        </button>}
       <footer className="bkf-drop-footer">
-        <button type="button" className="bkf-drop-cta" onClick={() => setView(view === 'photos' ? '3d' : 'photos')}>
-          <BoxIcon size={21} aria-hidden="true"/>{view === 'photos' ? 'Preview in 3D' : isFrostbite ? 'View product photos' : 'View cover art'}
+        <button type="button" className="bkf-drop-cta" onClick={() => {
+          if (!has3d && showcase) {
+            const next = view === 'poster' ? 'realistic' : 'poster';
+            setArt(next === 'poster' ? storeImage(product.id) : showcase.look); setView(next);
+          } else if (view === '3d') { setArt(storeImage(product.id)); setView('poster'); }
+          else setView('3d');
+        }}>
+          {has3d ? <BoxIcon size={21} aria-hidden="true"/> : <ImageIcon size={21} aria-hidden="true"/>}{!has3d ? (view === 'poster' ? 'View A-pose' : 'View full poster') : view === '3d' ? 'View full poster' : 'Preview in 3D'}
         </button>
-        <div><strong>Coming Soon</strong><span>Concept Collection</span></div>
+        <div><strong>{cartPrice ? formatStoreAmount(cartPrice) : 'Coming Soon'}</strong><span>{cartPrice ? (playable ? 'Playable character' : 'Outfit') : 'Concept Collection'}</span></div>
       </footer>
-      <p className="bkf-drop-disclaimer">3D is a prototype. Wearable items and checkout are not available yet.</p>
+      <p className="bkf-drop-disclaimer">{playable ? 'A verified purchase unlocks this character for games.' : isGold ? 'Equip this outfit from My Locker after purchase.' : 'Photo collection · Coming soon.'}</p>
     </div>
   </dialog>;
 }
@@ -152,17 +210,17 @@ function ProductDialog({ selection, onClose }: { selection: Selection; onClose: 
             <div className="bk-store-try-on-label"><Shirt size={15} aria-hidden="true"/> <strong>{athlete ? athlete.name : 'Sample athlete'}</strong> <span>Try-on preview</span></div>
             <TryOnPreview athlete={athlete} preview={product.tryOn}/>
           </div>
-        : <img className="bk-store-detail-art" src={storeImage(product.id)} alt={product.summary}/>}
+        : <img className={"bk-store-detail-art" + (product.posterOnly ? " bk-store-detail-art--poster" : "")} src={storeImage(product.id)} alt={product.summary}/>}
       <p className="bk-store-detail-description">{product.description}</p>
       <h3>Included</h3>
       <ul className="bk-store-includes">{product.includes.map(item => <li key={item}>{item}</li>)}</ul>
       <div className="bk-store-dialog-actions">
         {(product.tryOn || product.id === 'bkf-youngboy') && <button type="button" className="bk-store-button" onClick={() => setTrying(value => !value)}>{trying ? 'View product art' : product.id === 'bkf-youngboy' ? 'Preview in 3D' : 'Try on'}</button>}
         <div className="bk-store-price-status">
-          <strong>{storePrice(product)}</strong><span>{product.id === 'bkf-youngboy' ? 'Concept collection' : 'Planned price'}</span>
+          <strong>{storePrice(product)}</strong><span>{product.posterOnly ? 'Proposed pack price' : product.id === 'bkf-youngboy' ? 'Concept collection' : 'Planned price'}</span>
         </div>
       </div>
-      <p className="bk-store-purchase-status">{product.id === 'bkf-youngboy' ? 'Concept preview · Wearable 3D garments and checkout are not available yet.' : 'Catalog preview · Checkout opens at launch.'}</p>
+      <p className="bk-store-purchase-status">{product.posterOnly ? 'Artwork preview · 3D, wearables, purchases and gifting are not available yet.' : product.id === 'bkf-youngboy' ? 'Concept preview · Wearable 3D garments and checkout are not available yet.' : 'Catalog preview · Checkout opens at launch.'}</p>
     </div>
   </dialog>;
 }
@@ -266,15 +324,24 @@ function TunnelProductPage({ product, onBack, inCart, onAdd, onCart }: { product
 }
 
 export default function StoreHub({ initialCategory, onOpenLocker, onOpenGauntlet }: {
-  initialCategory?: StoreCategory;
+  initialCategory?: StoreCategory | 'characters';
   onOpenLocker: () => void;
   onOpenGauntlet: () => void;
 }) {
+  const [shuffledCharacters] = useState(() => {
+    const products = [...characterProducts];
+    for (let index = products.length - 1; index > 0; index--) {
+      const target = Math.floor(Math.random() * (index + 1));
+      [products[index], products[target]] = [products[target], products[index]];
+    }
+    return products;
+  });
+  const [department, setDepartment] = useState<ShopDepartment>(initialCategory === 'characters' ? 'characters' : initialCategory ? 'all' : 'featured');
   const cart = useStoreCart();
   const [cartOpen, setCartOpen] = useState(() => new URLSearchParams(window.location.search).has('store_checkout'));
   const cartDialog = cartOpen ? <StoreCart cart={cart} onClose={() => setCartOpen(false)}/> : null;
   const [page, setPage] = useState<StorePage>(initialCategory ? 'catalog' : 'featured');
-  const [filter, setFilter] = useState<StoreFilter>(initialCategory ?? 'all');
+  const [filter, setFilter] = useState<StoreFilter>(initialCategory === 'characters' ? 'all' : initialCategory ?? 'all');
   const [selection, setSelection] = useState<Selection | null>(null);
   const [tunnelProduct, setTunnelProduct] = useState<StoreProduct | null>(null);
   const store = useRef<HTMLElement>(null);
@@ -282,6 +349,16 @@ export default function StoreHub({ initialCategory, onOpenLocker, onOpenGauntlet
   const title = useRef<HTMLHeadingElement>(null);
   const viewAll = useRef<HTMLButtonElement>(null);
   const navigated = useRef(false);
+
+  const canReviewPreviews = useSyncExternalStore(subscribeLocker, readLockerState).mode === 'grant';
+  useEffect(() => { void refreshLocker(); }, []);
+  useEffect(() => {
+    if (page === 'previews' && !canReviewPreviews) {
+      setSelection(null);
+      setTunnelProduct(null);
+      setPage('featured');
+    }
+  }, [page, canReviewPreviews]);
 
   function openPage(next: StorePage) {
     navigated.current = true;
@@ -294,6 +371,13 @@ export default function StoreHub({ initialCategory, onOpenLocker, onOpenGauntlet
     (page === 'featured' ? viewAll.current : title.current)?.focus({ preventScroll: true });
   }, [page]);
 
+  // Department navigation can keep the same page state, so also reset the
+  // scroll position when opening a premium collection from deep in the Store.
+  useEffect(() => {
+    if (!navigated.current) return;
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+  }, [department]);
+
   useEffect(() => {
     if (tunnelProduct || !returnToCard.current) return;
     const { id, top } = returnToCard.current;
@@ -303,7 +387,7 @@ export default function StoreHub({ initialCategory, onOpenLocker, onOpenGauntlet
   }, [tunnelProduct]);
 
   const showProduct = (product: StoreProduct) => {
-    if (product.id === 'tunnel-fit' || product.id === 'gold-standard') {
+    if (product.id === 'tunnel-fit') {
       returnToCard.current = { id: product.id, top: window.scrollY };
       setTunnelProduct(product);
     } else {
@@ -311,63 +395,113 @@ export default function StoreHub({ initialCategory, onOpenLocker, onOpenGauntlet
     }
   };
   const matchingProducts = filter === 'all' ? STORE_PRODUCTS : STORE_PRODUCTS.filter(product => product.categories.includes(filter));
-  const heading = page === 'featured' ? 'Store' : page === 'catalog' ? 'Shop the Store' : 'Earn Free Gear';
+  const heading = page === 'featured' ? 'BK Store' : page === 'catalog' ? 'Shop the Store' : page === 'previews' ? 'Preview Collection' : 'Earn Free Gear';
 
   const categoryButtons = <div className="bk-store-filters" role="group" aria-label="Shop categories">
     {[{ id: 'all', label: 'All' } as const, ...STORE_CATEGORIES].map(category =>
       <button type="button" key={category.id} aria-pressed={filter === category.id} onClick={() => setFilter(category.id)}>{category.label}</button>)}
   </div>;
 
+  if (department === 'game-fits' && page !== 'rewards') return <Suspense fallback={<p role="status">Loading game fits…</p>}>
+    <GameFitsShop onNavigate={next => {
+      if (next === 'coins') { setDepartment('featured'); openPage('rewards'); }
+      else if (next === 'bundles') { setDepartment('all'); setFilter('bundles'); openPage('catalog'); }
+      else { setDepartment(next); setFilter('all'); openPage('featured'); }
+    }}/>
+  </Suspense>;
+  if (department === 'helmets' && page !== 'rewards') return <Suspense fallback={<p role="status">Loading helmet collection…</p>}>
+    <HelmetShop onNavigate={next => {
+      if (next === 'coins') { setDepartment('featured'); openPage('rewards'); }
+      else if (next === 'cleats') { setDepartment('cleats'); setFilter('all'); openPage('featured'); }
+      else if (next === 'bundles') { setDepartment('all'); setFilter('bundles'); openPage('catalog'); }
+      else { setDepartment(next); setFilter('all'); openPage('featured'); }
+    }}/>
+  </Suspense>;
+  if (department === 'jerseys' && page !== 'rewards') return <Suspense fallback={<p role="status">Loading jersey collection…</p>}>
+    <JerseyShop onNavigate={next => {
+      if (next === 'coins') { setDepartment('featured'); openPage('rewards'); }
+      else if (next === 'cleats') { setDepartment('cleats'); setFilter('all'); openPage('featured'); }
+      else if (next === 'bundles') { setDepartment('all'); setFilter('bundles'); openPage('catalog'); }
+      else { setDepartment(next); setFilter('all'); openPage('featured'); }
+    }}/>
+  </Suspense>;
+  if (department === 'pants' && page !== 'rewards') return <Suspense fallback={<p role="status">Loading pants collection…</p>}>
+    <PantsShop onNavigate={next => {
+      if (next === 'coins') { setDepartment('featured'); openPage('rewards'); }
+      else if (next === 'cleats') { setDepartment('cleats'); setFilter('all'); openPage('featured'); }
+      else if (next === 'bundles') { setDepartment('all'); setFilter('bundles'); openPage('catalog'); }
+      else { setDepartment(next); setFilter('all'); openPage('featured'); }
+    }}/>
+  </Suspense>;
+  if (department === 'cleats' && page !== 'rewards') return <Suspense fallback={<p role="status">Loading cleat collection…</p>}>
+    <CleatShop onNavigate={next => {
+      if (next === 'coins') { setDepartment('featured'); openPage('rewards'); }
+      else if (next === 'bundles') { setDepartment('all'); setFilter('bundles'); openPage('catalog'); }
+      else { setDepartment(next); setFilter('all'); openPage('featured'); }
+    }}/>
+  </Suspense>;
+  if (department === 'accessories' && page !== 'rewards') return <Suspense fallback={<p role="status">Loading accessory collection…</p>}>
+    <AccessoriesShop onNavigate={next => {
+      if (next === 'coins') { setDepartment('featured'); openPage('rewards'); }
+      else if (next === 'bundles') { setDepartment('all'); setFilter('bundles'); openPage('catalog'); }
+      else { setDepartment(next); setFilter('all'); openPage('featured'); }
+    }}/>
+  </Suspense>;
   if (tunnelProduct) return <><TunnelProductPage product={tunnelProduct} onBack={() => setTunnelProduct(null)} inCart={cart.ids.includes(tunnelProduct.id)} onAdd={() => cart.add(tunnelProduct.id)} onCart={() => setCartOpen(true)}/>{cartDialog}</>;
 
-  return <section className="bk-store" ref={store} aria-labelledby="bk-store-title">
-    {page !== 'featured' && <button className="bk-store-back" type="button" onClick={() => openPage('featured')}><ArrowLeft size={17} aria-hidden="true"/> Back to Store</button>}
+  return <section className="bk-store bk-store-locker-shop" data-store-page={page} data-store-department={department} ref={store} aria-label="Store">
+    {page !== 'featured' && <button className="bk-store-back" type="button" onClick={() => { setDepartment('featured'); openPage('featured'); }}><ArrowLeft size={17} aria-hidden="true"/> Back to Store</button>}
     <header className="bk-store-header">
-      <h1 id="bk-store-title" ref={title} tabIndex={-1}>{heading}</h1>
-      <button type="button" className="bk-store-button" onClick={() => setCartOpen(true)}>Cart ({cart.ids.length})</button>
+      <div><span className="bk-store-brand">Ball Knower</span><h1 id="bk-store-title" ref={title} tabIndex={-1}>{heading}</h1></div>
       <button type="button" className="bk-store-button bk-store-locker" onClick={onOpenLocker}><Archive size={17} aria-hidden="true"/> My Locker</button>
     </header>
 
-    {page === 'featured' && <>
-      <section className="bk-store-featured" aria-labelledby="bk-store-featured-title">
-        <img className="bk-store-hero-art" src={storeImage('campaign-blackout')} alt="" fetchPriority="high"/>
-        <div className="bk-store-featured-copy">
-          <span className="bk-store-kicker">Featured Drop</span>
-          <h2 id="bk-store-featured-title">Blackout<br/>Gear Kit</h2>
-          <div className="bk-store-featured-actions">
-            <button className="bk-store-button bk-store-button-gold" type="button" onClick={() => showProduct(BLACKOUT_KIT)}>Explore Drop</button>
-          </div>
-        </div>
-      </section>
-      {categoryButtons}
-      <section aria-labelledby="bk-store-shop-title" className="bk-store-shop">
-        <header className="bk-store-shop-header">
-          <h2 id="bk-store-shop-title">Shop the Store</h2>
-          <button ref={viewAll} className="bk-store-button bk-store-view-all" type="button" onClick={() => openPage('catalog')}>
-            View All <ChevronRight size={17} aria-hidden="true"/>
-          </button>
-        </header>
-        <div className="bk-store-grid">{(filter === 'all' ? campaignCards : matchingProducts).map(product => <ProductCard key={product.id} product={product} onOpen={showProduct}/>)}</div>
-      </section>
-      <button className="bk-store-reward-link" type="button" onClick={() => openPage('rewards')}>
-        <Trophy size={25} aria-hidden="true"/><span><strong>Earn Free Gear</strong><small>Combine &amp; Gauntlet rewards</small></span><ChevronRight size={20} aria-hidden="true"/>
-      </button>
-    </>}
+    <div className="bk-store-cart-entry"><button type="button" className="bk-store-button" onClick={() => setCartOpen(true)}>Cart ({cart.ids.length})</button></div>
+    {page !== 'rewards' && <div className="bk-store-departments" role="group" aria-label="Shop departments">
+      {departments.map(item => <button key={item.id} type="button" aria-pressed={page !== 'previews' && department === item.id}
+        onClick={() => { setDepartment(item.id); setFilter('all'); setPage(item.id === 'all' ? 'catalog' : 'featured'); }}>{item.label}</button>)}
+      {canReviewPreviews && <button type="button" aria-pressed={page === 'previews'} onClick={() => { setDepartment('featured'); openPage('previews'); }}>My Previews</button>}
+    </div>}
+    {page === 'featured' && department === 'featured' && <Suspense fallback={<p role="status">Loading cinematic BK Store…</p>}>
+      <StoreLandingShowcase
+        onNavigate={next => { setDepartment(next); setFilter('all'); openPage('featured'); }}
+        onProduct={showProduct}
+        onCatalog={nextFilter => { setDepartment('all'); setFilter(nextFilter ?? 'all'); openPage('catalog'); }}
+        onRewards={() => { setDepartment('featured'); openPage('rewards'); }}
+      />
+    </Suspense>}
+    {page === 'featured' && department !== 'featured' && [
+      { id: 'clothing', title: 'Build your tunnel fit', kicker: 'Off-field style', products: clothingProducts },
+      { id: 'characters', title: 'Meet the characters', kicker: 'Character drops', products: shuffledCharacters },
+    ].filter(group => department === group.id).map(group => <section key={group.id} aria-labelledby={'bk-store-' + group.id + '-title'} className="bk-store-shop">
+      <span className="bk-store-kicker">{group.kicker}</span>
+      <header className="bk-store-shop-header"><h2 id={'bk-store-' + group.id + '-title'}>{group.title}</h2></header>
+      <div className="bk-store-grid">{group.products.map(product => <ProductCard key={product.id} product={product} onOpen={showProduct} price={cart.prices[product.id]}/>)}</div>
+    </section>)}
+    {page === 'featured' && department !== 'featured' && <button ref={viewAll} className="bk-store-button bk-store-view-all" type="button" onClick={() => { setDepartment('all'); setFilter('all'); openPage('catalog'); }}>View All Items <ChevronRight size={17} aria-hidden="true"/></button>}
 
-    {page === 'catalog' && <div className="bk-store-catalog">
+        {page === 'catalog' && <div className="bk-store-catalog">
       <p className="bk-store-intro">Find game-day gear, tunnel outfits, profile packs, and more. Pick an item to see what comes with it.</p>
       {categoryButtons}
       <p className="bk-store-count" role="status">{matchingProducts.length} {matchingProducts.length === 1 ? 'item' : 'items'} · Catalog preview</p>
       <div className="bk-store-grid bk-store-catalog-grid" aria-label="Catalog products">
-        {matchingProducts.map(product => <ProductCard key={product.id} product={product} onOpen={showProduct}/>)}
+        {matchingProducts.map(product => <ProductCard key={product.id} product={product} onOpen={showProduct} price={cart.prices[product.id]}/>)}
       </div>
+    </div>}
+
+    {page === 'previews' && canReviewPreviews && <div className="bk-store-catalog">
+      <p className="bk-store-intro">Review the packs and characters in development. Open any card to see its included items and available previews.</p>
+      {[{ title: 'Characters', products: characterProducts }, { title: 'Packs', products: previewPacks }].map(group => <section className="bk-store-shop" key={group.title} aria-label={group.title}>
+        <header className="bk-store-shop-header"><h2>{group.title}</h2></header>
+        <div className="bk-store-grid">{group.products.map(product => <ProductCard key={product.id} product={product} onOpen={showProduct} price={cart.prices[product.id]}/>)}</div>
+      </section>)}
     </div>}
 
     {page === 'rewards' && <Suspense fallback={<p role="status">Loading gear rewards…</p>}>
       <StoreRewards onOpenLocker={onOpenLocker} onOpenGauntlet={onOpenGauntlet}/>
     </Suspense>}
 
+    {selection && (page !== 'previews' || canReviewPreviews) && ((selection.product.showcase || selection.product.id === 'bkf-youngboy' || selection.product.id === 'frostbite' || selection.product.id === 'gold-standard') ? <BKFConceptDialog product={selection.product} onClose={() => setSelection(null)} cartPrice={cart.prices[selection.product.id]} inCart={cart.ids.includes(selection.product.id)} onAdd={() => cart.add(selection.product.id)} onCart={() => setCartOpen(true)}/> : <ProductDialog selection={selection} onClose={() => setSelection(null)}/>)}
     {cartDialog}
-    {selection && ((selection.product.id === 'bkf-youngboy' || selection.product.id === 'frostbite') ? <BKFConceptDialog product={selection.product} onClose={() => setSelection(null)}/> : <ProductDialog selection={selection} onClose={() => setSelection(null)}/>)}
   </section>;
 }

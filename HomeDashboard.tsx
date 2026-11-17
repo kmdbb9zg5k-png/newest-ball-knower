@@ -13,10 +13,12 @@ import { HomeStadiumHero } from './HomeStadiumHero';
 import { HomeMatchups } from './HomeMatchups';
 import { HomeSoloFeature } from './HomeSoloFeature';
 import { HomeMiniGamesFeature } from './HomeMiniGamesFeature';
+import { HomeJourneyFeature } from './HomeJourneyFeature';
 import { buildHomeActivity, homeFeaturedActivity, homeLeagueAction, homeLeaguePhase, homeRatingTier, type HomeActivity } from './homeDashboardState';
 import './homeBroadcast.css';
 import './homeLayout.css';
 import './homePolish.css';
+import './homeStadiumImpact.css';
 import { ModeHelp } from './ModeHelp';
 
 const FantasySettingsHub = lazy(() => import('./FantasySettingsHub').then(module => ({ default: module.FantasySettingsHub })));
@@ -115,28 +117,26 @@ function HomeSession({ onOpenCreateLeague, onOpenJoinLeague, onSelectLeague, onN
     return () => document.removeEventListener('keydown', dismiss);
   }, [leagueMenuOpen]);
 
-  const nextAction = <section className="bk-home-current-league" aria-label="Your next action" style={{ background: `linear-gradient(115deg,${teamTheme.primary}32,#0b1016 72%)` }}>
-      <div className="bk-home-league-top"><p><Flag size={15} aria-hidden="true"/>{primaryLeague ? 'Continue your league' : 'Your next move'}</p>
+  const nextAction = primaryLeague && <section className="bk-home-current-league" aria-label="Your next action" style={{ background: `linear-gradient(115deg,${teamTheme.primary}32,#0b1016 72%)` }}>
+      <div className="bk-home-league-top"><p><Flag size={15} aria-hidden="true"/>Continue your league</p>
         {leagues.length > 0 && <button type="button" ref={changeButton} aria-label="Change league" aria-expanded={leagueMenuOpen} aria-controls={leaguePickerId} onClick={() => setLeagueMenuOpen(value => !value)}>Change<ChevronDown size={15} aria-hidden="true"/></button>}
       </div>
       {leagueMenuOpen && <div id={leaguePickerId} className="bk-home-league-options" role="region" aria-label="Choose a league">
         {leagues.map(league => <button type="button" key={league.id} aria-pressed={league.id === primaryLeague?.id} onClick={() => { setActiveLeagueId(league.id); setLeagueMenuOpen(false); changeButton.current?.focus(); }}><span>{league.name}</span><small>{league.members.length}/{league.maxMembers} managers</small></button>)}
         <div><button type="button" onClick={() => { setLeagueMenuOpen(false); onOpenCreateLeague(); }}>Create League</button><button type="button" onClick={() => { setLeagueMenuOpen(false); onOpenJoinLeague(); }}>Join League</button></div>
       </div>}
-      {primaryLeague ? <>
         <div className="bk-home-league-name"><h2>{primaryLeague.name}</h2><span>{homeLeaguePhase(primaryLeague)}</span></div>
         <p className="bk-home-league-meta">{primaryLeague.members.length}/{primaryLeague.maxMembers} managers{Number.isInteger(myPick) && Number(myPick) > 0 ? ` · Your draft position: #${myPick}` : ''}</p>
         <p className="bk-home-league-theme">{teamTheme.abbr === 'BK' ? 'Ball Knower theme' : `${teamTheme.name} theme`}</p>
         {scheduledDraft && <p className="bk-home-league-meta">Draft · {scheduledDraft}</p>}
         <button type="button" className="bk-home-league-cta" onClick={openPrimaryLeague}>{action!.label}<ArrowRight size={18} aria-hidden="true"/></button>
-      </> : <div className="bk-home-league-empty"><h2>Your game starts here.</h2><p>Play a quick game, build a career or run a league with friends.</p><button type="button" className="bk-home-league-cta" onClick={() => onNavigate('play')}>Explore Play<ArrowRight size={18} aria-hidden="true"/></button><div><button type="button" onClick={onOpenCreateLeague}>Create League</button><button type="button" onClick={onOpenJoinLeague}>Join League</button></div></div>}
     </section>;
 
-  return <div className="bk-home-dashboard bk-home-broadcast bk-home-clean mx-auto max-w-5xl pb-5 pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] sm:pb-8 sm:pl-[max(1.5rem,env(safe-area-inset-left))] sm:pr-[max(1.5rem,env(safe-area-inset-right))]">
+  return <div className="bk-home-dashboard bk-home-broadcast bk-home-clean bk-home-stadium-impact mx-auto max-w-5xl pb-5 pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] sm:pb-8 sm:pl-[max(1.5rem,env(safe-area-inset-left))] sm:pr-[max(1.5rem,env(safe-area-inset-right))]">
     <div className="bk-home-introduction"><div><p>Your game. Your legacy.</p><h1>{primaryLeague ? 'Welcome back.' : 'Welcome to Ball Knower.'}</h1></div><ModeHelp mode="home" autoOpen={false}/></div>
     <div className={`bk-home-opening${primaryLeague ? '' : ' bk-home-opening--single'}`}>
     <HomeStadiumHero/>
-    {primaryLeague && nextAction}
+    {nextAction}
     </div>
     <HomeMatchups leagues={leagues} currentUser={currentUser} onSelectLeague={onSelectLeague} onViewMemberLocker={onViewMemberLocker} onOpenSettings={() => setSettingsOpen(true)}/>
 
@@ -155,7 +155,11 @@ function HomeSession({ onOpenCreateLeague, onOpenJoinLeague, onSelectLeague, onN
     <div className="bk-home-discover-heading"><div><p>Make your next play</p><h2>A whole football world.</h2></div><button type="button" onClick={() => onNavigate('play')}>Explore Play<ArrowRight size={16} aria-hidden="true"/></button></div>
     <div className="bk-home-play-promos"><HomeSoloFeature onOpen={() => onNavigate('solo')}/>
     <HomeMiniGamesFeature onOpenFootball={()=>onNavigate('football')}/></div>
-    {!primaryLeague && nextAction}
+    <HomeJourneyFeature onNavigate={onNavigate}/>
+    <button type="button" className="bk-home-legends-cover" onClick={() => onNavigate('legends')}>
+      <img src="/images/bk-legends-cover.webp" width={1440} height={810} alt="" decoding="async"/>
+      <span>Play BK Legends <ArrowRight size={18} aria-hidden="true"/></span>
+    </button>
 
     {featured && <section className="bk-home-featured" aria-labelledby="home-featured-heading">
       <h3 id="home-featured-heading" className="bk-home-section-title">Featured</h3>

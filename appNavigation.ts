@@ -13,6 +13,7 @@ export type PrimaryDestination = typeof PRIMARY_DESTINATIONS[number]['tab'];
 
 /** Every secondary screen remains reachable without opening an account menu. */
 export const SECONDARY_DESTINATIONS = [
+  { tab: 'legends', label: 'BK Legends', detail: 'Build a squad and play Road to Legend', group: 'Play' },
   { tab: 'solo', label: 'Solo careers', detail: 'Build a franchise, agency or player career', group: 'Play' },
   { tab: 'football', label: 'Online football', detail: 'Challenge a friend or find an opponent', group: 'Play' },
   { tab: 'challenges', label: 'Trivia', detail: 'Test your football knowledge', group: 'Play' },
@@ -26,7 +27,7 @@ export const SECONDARY_DESTINATIONS = [
 
 export function primaryDestinationForTab(tab: AppTab): PrimaryDestination {
   if (['lobby', 'draft', 'simulation', 'fantasy'].includes(tab)) return 'fantasy';
-  if (['play', 'solo', 'football', 'challenges', 'sportsbook'].includes(tab)) return 'play';
+  if (['play', 'legends', 'solo', 'football', 'challenges', 'sportsbook'].includes(tab)) return 'play';
   if (['locker', 'wardrobe'].includes(tab)) return 'locker';
   if (tab === 'community') return 'community';
   if (tab === 'store') return 'store';

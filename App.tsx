@@ -1,5 +1,6 @@
 import {completeInviteJoin,watchInviteInteraction} from './inviteNavigation';
 import LockerAccountSync from './LockerAccountSync';
+import {First1000BadgeProvider} from './First1000Badge';
 import {wantsNewsStrip} from './broadcastFocus';
 import React,{lazy,Suspense,useCallback,useEffect,useRef,useState} from 'react';
 import {BallKnowerProvider,useBallKnower} from './BallKnowerContext';
@@ -24,6 +25,7 @@ import type {StoreCategory} from './storeCatalog';
 
 const PushNotificationBridge=lazy(()=>import('./PushNotificationBridge'));
 const AuthModal=lazy(()=>import('./AuthModal').then(module=>({default:module.AuthModal})));
+const BKLegends=lazy(()=>import('./BKLegends'));
 const PlayHub=lazy(()=>import('./PlayHub').then(module=>({default:module.PlayHub})));
 const HomeDashboard=lazy(()=>import('./HomeDashboard').then(module=>({default:module.HomeDashboard})));
 const SoloMode=lazy(()=>import('./SoloMode').then(module=>({default:module.SoloMode})));
@@ -47,7 +49,7 @@ const PartnersPage=lazy(()=>import('./PartnersPage').then(module=>({default:modu
 const FootballArenaScreen=lazy(()=>import('./FootballArenaScreen'));
 const CommunityHub=lazy(()=>import('./CommunityHub').then(module=>({default:module.CommunityHub})));
 
-export type AppTab='play'|'football'|'home'|'solo'|'news'|'fantasy'|'sportsbook'|'legacy'|'challenges'|'community'|'ask'|'store'|'locker'|'wardrobe'|'partners'|'lobby'|'draft'|'simulation';
+export type AppTab='play'|'legends'|'football'|'home'|'solo'|'news'|'fantasy'|'sportsbook'|'legacy'|'challenges'|'community'|'ask'|'store'|'locker'|'wardrobe'|'partners'|'lobby'|'draft'|'simulation';
 
 const INTRO_COMPLETED_KEY='ball-knower-intro-completed-v1';
 // Version 1 completed onboarding. Version 2 also acknowledges the restored opening.
@@ -61,16 +63,25 @@ function BallKnowerApp(){
   const {activeLeague,currentUser,setActiveLeagueId,toastMessage,joinLeague}=useBallKnower();
   const {setIntroActive}=useSoundtrack();
   const setIntroActiveRef=useRef(setIntroActive);
-  const [currentTab,setCurrentTabState]=useState<AppTab>(()=>new URLSearchParams(window.location.search).has('store_checkout')?'store':new URLSearchParams(window.location.search).has('locker_checkout')?'wardrobe':new URLSearchParams(window.location.search).get('footballH2H')==='1'?'football':'home');
+  const [currentTab,setCurrentTabState]=useState<AppTab>(()=>{
+    const params = new URLSearchParams(window.location.search);
+    if (params.has('store_checkout')) return 'store';
+    if (params.has('locker_checkout')) return 'wardrobe';
+    if (params.get('footballH2H') === '1') return 'football';
+    return params.get('storeCharacters') === '1' ? 'store' : 'home';
+  });
   const navigationRevision=useRef(0);
   const setCurrentTab=useCallback((next:React.SetStateAction<AppTab>)=>{navigationRevision.current++;setCurrentTabState(next);},[]);
-  useEffect(()=>{const url=new URL(location.href);if(url.searchParams.has('footballH2H')){url.searchParams.delete('footballH2H');history.replaceState(history.state,'',url.pathname+url.search+url.hash);}},[]);
+  useEffect(()=>{const url=new URL(location.href);if(url.searchParams.has('footballH2H')||url.searchParams.has('storeCharacters')){url.searchParams.delete('footballH2H');url.searchParams.delete('storeCharacters');history.replaceState(history.state,'',url.pathname+url.search+url.hash);}},[]);
   const tabHistory=useRef<AppTab[]>([]);
   const goToTab=useCallback((tab:AppTab)=>{setCurrentTab(current=>{if(current===tab)return current;tabHistory.current.push(current);if(tabHistory.current.length>24)tabHistory.current.shift();return tab})},[]);
   const goBack=useCallback(()=>{setCurrentTab(current=>{let previous=tabHistory.current.pop();while(previous===current)previous=tabHistory.current.pop();return previous||'home'})},[]);
   const [fantasyView,setFantasyView]=useState<'leagues'|'cheatsheet'>('leagues');
   const [soloExperience,setSoloExperience]=useState<SoloExperience>('hub');
-  const [storeEntry,setStoreEntry]=useState<{category?:StoreCategory;revision:number}>({revision:0});
+  const [storeEntry,setStoreEntry]=useState<{category?: StoreCategory | 'characters'; revision:number}>(()=>({
+    category: new URLSearchParams(window.location.search).get('storeCharacters') === '1' ? 'characters' : undefined,
+    revision: 0,
+  }));
   const [isAuthOpen,setIsAuthOpen]=useState(false);
   const [isLaunchAuth,setIsLaunchAuth]=useState(false);
   const [isCreateLeagueOpen,setIsCreateLeagueOpen]=useState(false);
@@ -132,7 +143,10 @@ function BallKnowerApp(){
   const returnToGameModes=()=>{const url=new URL(location.href);url.searchParams.set('miniGames','1');history.replaceState(history.state,'',url.pathname+url.search+url.hash);goToTab('home');};
   const showProductChrome=!isIntroOpen&&!showFavoriteTeam&&!isLaunchAuth;
 
-  return <div data-tab={currentTab} className="bk-app-shell relative min-h-[100dvh] overflow-x-clip text-white font-sans antialiased selection:bg-[var(--bk-team-accent)]/30 selection:text-[var(--bk-team-accent)]">
+  return <First1000BadgeProvider
+    userId={currentUser && !currentUser.isAnonymous ? currentUser.id : undefined}
+    canPrompt={showProductChrome && !isAuthOpen && !isCreateLeagueOpen && !isJoinLeagueOpen && !isDatabaseModalOpen && !launchPanel}
+  ><div data-tab={currentTab} className="bk-app-shell relative min-h-[100dvh] overflow-x-clip text-white font-sans antialiased selection:bg-[var(--bk-team-accent)]/30 selection:text-[var(--bk-team-accent)]">
     <Suspense fallback={null}><PushNotificationBridge onOpen={(target:PushTarget)=>{setActiveLeagueId(target.leagueId);goToTab(pushTargetTab(target));}}/></Suspense>
     <div className="bk-cinematic-image" aria-hidden="true"/>
     <div className="bk-team-watermark fixed inset-0 z-[2] pointer-events-none overflow-hidden" aria-hidden="true">{FAVORITE_NFL_TEAM_BRANDING_ENABLED&&<div className="absolute -right-[22vw] top-[15vh] h-[72vw] w-[72vw] max-h-[900px] max-w-[900px] opacity-[.035] sm:opacity-[.045]" style={{filter:`drop-shadow(0 0 70px ${favoriteTheme.secondary}55)`}}><img src={teamLogoUrl(favoriteTheme.abbr)} alt="" className="h-full w-full object-contain"/></div>}<div className="absolute inset-y-0 right-0 w-[46vw] opacity-25" style={{background:`radial-gradient(circle at 100% 38%,${favoriteTheme.primary}55,transparent 64%)`}}/><div className="absolute inset-x-0 top-0 h-px" style={{background:`linear-gradient(90deg,transparent,${favoriteTheme.secondary}88,transparent)`}}/></div>
@@ -142,6 +156,7 @@ function BallKnowerApp(){
       {currentTab==='home'&&<Suspense fallback={<ScreenFallback/>}><HomeDashboard teamTheme={favoriteTheme} onNavigate={navigateToTab} onOpenCheatSheet={openCheatSheet} onOpenCreateLeague={()=>setIsCreateLeagueOpen(true)} onOpenJoinLeague={()=>setIsJoinLeagueOpen(true)} onSelectLeague={handleSelectLeague} onViewMemberLocker={openMemberLocker}/></Suspense>}
       <Suspense fallback={<ScreenFallback/>}>
         {currentTab==='play'&&<PlayHub onNavigate={navigateToTab}/>}
+        {currentTab==='legends'&&<BKLegends key={currentUser?.id??'guest'} owner={currentUser?.id??'guest'} onBack={goBack}/>}
         {currentTab==='solo'&&<SoloMode initialExperience={soloExperience} onShopGear={openGearStore}/>}
         {currentTab==='news'&&<NewsHub/>}
         {currentTab==='fantasy'&&<FantasyHub view={fantasyView} onViewChange={setFantasyView} onOpenCreateLeague={()=>setIsCreateLeagueOpen(true)} onOpenJoinLeague={()=>setIsJoinLeagueOpen(true)} onSelectLeague={handleSelectLeague}/>}
@@ -172,7 +187,7 @@ function BallKnowerApp(){
     {isDatabaseModalOpen&&<Suspense fallback={null}>{isMobileDraftViewport?<MobileRosterBrowser isOpen={isDatabaseModalOpen} onClose={()=>setIsDatabaseModalOpen(false)}/>:<DatabaseVerificationModal isOpen={isDatabaseModalOpen} onClose={()=>setIsDatabaseModalOpen(false)}/>}</Suspense>}
     {toastMessage&&<div className="fixed bottom-[calc(5.5rem+env(safe-area-inset-bottom))] left-4 right-4 z-50 flex items-center gap-2.5 rounded-xl border border-[#D9B43B]/50 bg-[#121212] px-4 py-3 text-xs font-bold text-white shadow-2xl backdrop-blur-md sm:left-auto sm:right-6 md:bottom-[max(1.5rem,env(safe-area-inset-bottom))]"><CheckCircle2 className="h-4 w-4 shrink-0 text-[#D9B43B]"/><span>{toastMessage}</span></div>}
     <LaunchCenter panel={launchPanel} onClose={()=>setLaunchPanel(null)}/>
-  </div>;
+  </div></First1000BadgeProvider>;
 }
 
 export default function App(){return <AppErrorBoundary><CloudSyncProvider><LockerAccountSync/><SoundtrackProvider><BallKnowerProvider><BallKnowerApp/></BallKnowerProvider></SoundtrackProvider></CloudSyncProvider></AppErrorBoundary>}

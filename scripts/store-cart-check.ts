@@ -1,12 +1,24 @@
 import assert from 'node:assert/strict';
 import { cleanCart, cartTotal } from '../storeCart';
 import { storeConfig, storeItems, verifyStripeOrder, verifyPayPalOrder, type StoreOrder } from '../server/storeCommerce';
-assert.deepEqual(cleanCart(['gold-standard','tunnel-fit','tunnel-fit','frostbite',null,'__proto__']), ['gold-standard','tunnel-fit']);
+assert.deepEqual(cleanCart(['gold-standard','tunnel-fit','tunnel-fit','frostbite','bfk-dee',null,'__proto__']), ['frostbite','gold-standard','tunnel-fit']);
 assert.equal(cartTotal(['gold-standard','tunnel-fit']),598);
 for(const input of [null,[],['frostbite'],['tunnel-fit','tunnel-fit'],[{id:'tunnel-fit',amount:1}]]) assert.throws(()=>storeItems(input));
 const items=storeItems(['tunnel-fit','gold-standard']);
 assert.equal(items.reduce((s,i)=>s+i.amount,0),598);
 const env={STORE_COMMERCE_MODE:'test',STORE_STRIPE_KEY:'rk_test_fixture',STORE_STRIPE_ACCOUNT:'acct_fixture',STORE_STRIPE_WEBHOOK_SECRET:'whsec_fixture',STORE_TEST_BUYERS:'buyer'};
+const testConfig = storeConfig(env)!;
+assert.equal(testConfig.prices.frostbite, 100);
+assert.deepEqual(storeItems(['frostbite','gold-standard'], testConfig.prices).map(({id,kind,amount})=>[id,kind,amount]), [
+  ['frostbite','character',100], ['gold-standard',undefined,299],
+]);
+const liveEnv = {...env, STORE_COMMERCE_MODE:'live', STORE_STRIPE_KEY:'rk_live_fixture'};
+assert.equal(storeConfig(liveEnv)!.prices.frostbite, undefined);
+const liveConfig = storeConfig({...liveEnv, STORE_CHARACTER_PRICES:JSON.stringify({frostbite:499,'bfk-dee':799,'bkf-kickflip':0,'bk-femme':'999'})})!;
+assert.equal(liveConfig.prices.frostbite, 499);
+assert.equal(liveConfig.prices['bfk-dee'], undefined);
+assert.throws(()=>storeItems(['bkf-kickflip'],liveConfig.prices));
+assert.throws(()=>storeItems(['bk-femme'],liveConfig.prices));
 assert(storeConfig(env));assert.equal(storeConfig({}),null);assert.equal(storeConfig({...env,STORE_TEST_BUYERS:''}),null);assert.equal(storeConfig({...env,STORE_STRIPE_KEY:'rk_live_fixture'}),null);
 const order:StoreOrder={id:'order',user_id:'buyer',mode:'test',provider:'stripe',items,amount:598,provider_id:'cs_1',payment_id:null,status:'pending',created_at:new Date().toISOString()};
 const session:any={id:'cs_1',livemode:false,mode:'payment',metadata:{store_order:'order'},client_reference_id:'buyer',amount_total:598,currency:'usd',status:'complete',payment_status:'paid',payment_intent:'pi_1'};

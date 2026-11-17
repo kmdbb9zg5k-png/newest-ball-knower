@@ -1,0 +1,78 @@
+.bk-game-fits,.bk-game-fit-preview{--bk-fit-gold:#edc169;color:#f8f5ea;font-family:Arial,Helvetica,sans-serif}
+.bk-game-fits *,.bk-game-fit-preview *{box-sizing:border-box}
+.bk-game-fits button,.bk-game-fit-preview button,.bk-game-fits select{color:inherit;cursor:pointer;touch-action:manipulation}
+.bk-game-fits button:focus-visible,.bk-game-fit-preview button:focus-visible,.bk-game-fits select:focus-visible{outline:3px solid #ffe08b;outline-offset:3px}
+.bk-game-fit-preview{padding:18px 12px 16px;margin:24px 0;border:1px solid #deab4f73;border-radius:16px;background:radial-gradient(ellipse at 85% 0%,#bd853426,transparent 48%),#0d0c11;box-shadow:0 12px 34px #0008}
+.bk-game-fit-preview-head{display:flex;align-items:end;justify-content:space-between;gap:11px;padding:0 2px 13px}
+.bk-game-fit-eyebrow{display:flex;align-items:center;gap:5px;color:#ecbd6c;letter-spacing:.11em;font-size:11px;font-weight:900;text-transform:uppercase}
+.bk-game-fit-preview h2{margin:6px 0 3px;font:italic 900 clamp(26px,5.8vw,44px)/.95 "BK Store Display",Impact,Arial,sans-serif}
+.bk-game-fit-preview-head p{margin:6px 0 0;color:#c4bdaf;font-size:12px}
+.bk-game-fit-preview-head>button{display:flex;align-items:center;gap:6px;white-space:nowrap;color:#ffd98f;font-size:12px;font-weight:850;text-transform:uppercase}
+.bk-game-fit-preview-scroll{display:flex;gap:10px;overflow-x:auto;overscroll-behavior-x:contain;scroll-snap-type:x mandatory;scrollbar-width:thin;padding:1px 1px 10px}
+.bk-game-fit-preview-card{flex:0 0 clamp(147px,27vw,200px);scroll-snap-align:start;overflow:hidden;min-width:0;text-align:left;background:#131318;border:1px solid color-mix(in srgb,var(--bk-fit-color) 62%,#111);border-radius:12px;box-shadow:inset 0 1px #fff1}
+.bk-game-fit-preview-card .bk-game-fit-art{height:168px}
+.bk-game-fit-preview-label{display:grid;gap:3px;padding:9px 10px 11px}
+.bk-game-fit-preview-label strong{font-size:clamp(12px,2.6vw,16px);text-transform:uppercase}
+.bk-game-fit-preview-label small{font-size:11px;color:var(--bk-fit-color);text-transform:capitalize}
+.bk-game-fit-disclaimer{display:block;margin:9px 2px 0;font-size:10px;color:#a9a3a0;line-height:1.5}
+.bk-game-fit-art{position:relative;isolation:isolate;width:100%;height:100%;min-height:132px;overflow:hidden;background:radial-gradient(ellipse at 50% 47%,color-mix(in srgb,var(--bk-fit-color) 37%,transparent),transparent 58%),linear-gradient(145deg,#201c1b,#09090d 72%)}
+.bk-game-fit-art:after{content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(0deg,#08080975,transparent 25%);z-index:2}
+.bk-game-fit-light{position:absolute;inset:0;background:repeating-linear-gradient(105deg,transparent 0 33px,#fff2 34px,#fff0 35px),radial-gradient(ellipse at center,#ffffff10,transparent 70%);opacity:.3}
+.bk-game-fit-art img{position:absolute;display:block;object-fit:contain;filter:drop-shadow(0 4px 9px #000d);pointer-events:none}
+.bk-game-fit-jersey{z-index:2;width:62%;height:61%;top:11%;left:23%}
+.bk-game-fit-helmet{z-index:3;width:42%;height:35%;top:0;left:0}
+.bk-game-fit-pants{z-index:1;width:54%;height:59%;top:41%;left:27%}
+.bk-game-fit-cleat{z-index:4;width:39%;height:28%;bottom:0;right:0}
+.bk-game-fit-art--large{min-height:260px}
+.bk-game-fits{background:#09090d;border:1px solid #a7874b52;border-radius:15px;width:100%;max-width:1510px;margin:0 auto 20px;overflow:hidden}
+.bk-game-fits-shell{display:grid;grid-template-columns:minmax(130px,170px) minmax(0,1fr) minmax(235px,315px);gap:12px;padding:13px}
+.bk-game-fits-sidebar{display:grid;align-content:start;gap:4px}
+.bk-game-fits-brand,.bk-game-fits-nav{display:flex;align-items:center;gap:9px;text-align:left;border:1px solid transparent;border-radius:8px;padding:10px}
+.bk-game-fits-brand{margin-bottom:9px;background:#1a1710;color:#ffdc85!important;font-weight:900}
+.bk-game-fits-nav{font-size:12px;font-weight:800;text-transform:uppercase;min-height:43px;color:#ddd!important}
+.bk-game-fits-nav[aria-current="page"]{background:linear-gradient(100deg,#8f671d,#33270f);border-color:#f2be51;color:#ffdf8d!important}
+.bk-game-fits-main{min-width:0}
+.bk-game-fits-back{display:none}
+.bk-game-fits-banner{position:relative;display:flex;align-items:center;min-height:175px;overflow:hidden;border:1px solid #bb934571;border-radius:13px;background:radial-gradient(ellipse at 80% 30%,#76561d66,transparent 50%),linear-gradient(110deg,#121012,#08080c)}
+.bk-game-fits-banner div{z-index:1;padding:21px;max-width:65%}
+.bk-game-fits-banner span{display:flex;align-items:center;gap:6px;color:#e8bc65;font-weight:900;font-size:13px}
+.bk-game-fits-banner h1{font:italic 900 clamp(34px,5vw,65px)/.9 "BK Store Display",Impact,sans-serif;margin:8px 0}
+.bk-game-fits-banner p{margin:0;color:#f4ce7c;font-size:11px;letter-spacing:.1em;font-weight:800}
+.bk-game-fits-banner img{position:absolute;right:0;top:-13%;width:47%;height:127%;object-fit:contain}
+.bk-game-fits-toolbar{display:flex;justify-content:space-between;gap:9px;align-items:center;margin:13px 0}
+.bk-game-fits-filters{display:flex;flex-wrap:wrap;gap:5px}
+.bk-game-fits-filters button,.bk-game-fits-toolbar select{min-height:38px;border:1px solid #94805f63;border-radius:99px;background:#1a1717;padding:7px 12px;text-transform:capitalize;font-size:11px;font-weight:800}
+.bk-game-fits-filters button[aria-pressed="true"]{background:linear-gradient(110deg,#ffdf86,#ac7728);border-color:#f7da91;color:#160e04}
+.bk-game-fits-toolbar select{border-radius:8px;max-width:120px;min-width:85px}
+.bk-game-fits-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}
+.bk-game-fits-card{min-width:0;overflow:hidden;text-align:left;border-radius:11px;border:1px solid color-mix(in srgb,var(--bk-fit-color) 45%,#24252a);background:#17171b}
+.bk-game-fits-card[aria-pressed="true"]{box-shadow:0 0 0 2px var(--bk-fit-color),0 0 20px color-mix(in srgb,var(--bk-fit-color) 40%,transparent)}
+.bk-game-fits-card .bk-game-fit-art{height:160px}
+.bk-game-fits-card-info{display:grid;gap:4px;padding:10px}
+.bk-game-fits-tier,.bk-game-fits-detail-tier{text-transform:uppercase;font-size:10px;font-weight:900;letter-spacing:.06em;color:var(--bk-fit-color)}
+.bk-game-fits-card-info strong{font-size:14px;line-height:1.1;text-transform:uppercase}
+.bk-game-fits-card-info small{color:#c3bab1;font-size:10px}
+.bk-game-fits-price{display:flex;align-items:center;gap:3px;color:#f1c874;font-weight:900;font-size:12px}
+.bk-game-fits-price small{margin-left:3px;font-weight:500}
+.bk-game-fits-detail{min-width:0;border:1px solid #98794766;border-radius:12px;background:linear-gradient(155deg,#1e1a16,#0d0d11 55%);padding:13px}
+.bk-game-fits-detail-top h2{margin:6px 0;font:italic 900 clamp(29px,3.6vw,45px)/.9 "BK Store Display",Impact,sans-serif;text-transform:uppercase}
+.bk-game-fits-detail-top small{color:#cfc5b0}
+.bk-game-fits-detail-tier{display:flex;gap:6px;align-items:center}
+.bk-game-fits-detail-image{position:relative;margin:12px 0;overflow:hidden;border:1px solid #c09a4c70;border-radius:10px}
+.bk-game-fits-detail-image .bk-game-fit-art{height:275px}
+.bk-game-fit-prev,.bk-game-fit-next{position:absolute;top:48%;width:32px;height:34px;display:grid;place-items:center;background:#000a;border-radius:6px;z-index:7}
+.bk-game-fit-prev{left:4px}.bk-game-fit-next{right:4px}
+.bk-game-fits-description{font-size:12px;line-height:1.55;color:#e0d9cc}
+.bk-game-fits-detail h3{margin:16px 0 9px;font-size:12px;text-transform:uppercase}
+.bk-game-fits-parts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.bk-game-fits-parts button{min-width:0;border:1px solid #a881443d;border-radius:7px;background:#151518;overflow:hidden}
+.bk-game-fits-parts img{width:100%;height:70px;object-fit:contain}
+.bk-game-fits-parts span{display:flex;align-items:center;justify-content:center;gap:2px;font-size:10px;padding:4px 2px}
+.bk-game-fits-proposed{display:grid;gap:3px;margin-top:15px;padding:12px;border:1px solid #c69e548c;border-radius:9px;text-align:center}
+.bk-game-fits-proposed span{display:flex;justify-content:center;align-items:center;gap:6px;color:#ffda83;font-size:17px;font-weight:900}
+.bk-game-fits-proposed small{font-size:10px;color:#c5ba9f}
+.bk-game-fits-coming{display:flex;align-items:center;justify-content:center;gap:7px;background:linear-gradient(110deg,#ffdf8c,#a87d2e);color:#1c1004;font-weight:900;text-transform:uppercase;padding:12px;border-radius:8px;margin:10px 0}
+@media(max-width:1100px){.bk-game-fits-shell{grid-template-columns:minmax(0,1fr) minmax(235px,300px)}.bk-game-fits-sidebar{display:none}.bk-game-fits-back{display:flex;align-items:center;gap:7px;min-height:39px;color:#e6c275!important}.bk-game-fits-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:700px){.bk-game-fits-shell{grid-template-columns:minmax(0,1fr);padding:10px}.bk-game-fits-detail{margin-top:15px}.bk-game-fits-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.bk-game-fits-card .bk-game-fit-art{height:166px}.bk-game-fits-detail-image .bk-game-fit-art{height:300px}.bk-game-fits-banner{min-height:155px}.bk-game-fits-detail{padding:13px}.bk-game-fits-parts{grid-template-columns:repeat(5,minmax(0,1fr))}.bk-game-fits-parts img{height:75px}}
+@media(max-width:390px){.bk-game-fit-preview-card{flex-basis:145px}.bk-game-fits-card-info{padding:7px}.bk-game-fits-card-info strong{font-size:12px}.bk-game-fits-toolbar{align-items:stretch;flex-wrap:wrap}.bk-game-fits-toolbar select{width:100%}}
+@media(prefers-reduced-motion:reduce){.bk-game-fit-preview-scroll{scroll-behavior:auto}}

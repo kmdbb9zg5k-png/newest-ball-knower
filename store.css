@@ -169,11 +169,16 @@
 .bk-store-product img { width: 100%; aspect-ratio: 1.72; object-fit: cover; }
 
 /* Frostbite poster is the Store card, framed in ice rather than cropped. */
-.bk-store-product .bk-store-frostbite-poster{display:block;position:relative;overflow:hidden;width:100%;aspect-ratio:1.72;background:radial-gradient(ellipse at 50% 45%,#376989 0%,#10283d 58%,#06111f 100%);}
-.bk-store-shop .bk-store-product .bk-store-frostbite-poster{aspect-ratio:1.42;}
+.bk-store-product .bk-store-concept-poster{display:block;position:relative;overflow:hidden;width:100%;aspect-ratio:4/5;}
+.bk-store-product .bk-store-frostbite-poster{background:radial-gradient(ellipse at 50% 45%,#376989 0%,#10283d 58%,#06111f 100%);}
+.bk-store-product .bk-store-youngboy-poster{background:radial-gradient(ellipse at 45% 45%,#533616 0%,#24170e 55%,#090706 100%);}
+.bk-store-product .bk-store-gold-poster{background:radial-gradient(ellipse at 50% 40%,#4a320c,#1b1209 62%,#080706 100%);}
+.bk-store-shop .bk-store-product .bk-store-concept-poster{aspect-ratio:4/5;}
 .bk-store-product .bk-store-frostbite-poster::before{content:"";position:absolute;inset:0;background:linear-gradient(90deg,#83d7fa22,transparent 28%,transparent 72%,#83d7fa22);pointer-events:none;}
-.bk-store-product .bk-store-frostbite-poster img,.bk-store-shop .bk-store-product .bk-store-frostbite-poster img{position:relative;display:block;width:100%;height:100%;aspect-ratio:auto;object-fit:contain;object-position:center;}
+.bk-store-product .bk-store-concept-poster img,.bk-store-shop .bk-store-product .bk-store-concept-poster img{position:relative;display:block;width:100%;height:100%;aspect-ratio:auto;object-fit:contain;object-position:center;}
 .bk-store-product[data-store-product="frostbite"]{border-color:#7fcdec70;}
+.bk-store-product[data-store-product="bkf-youngboy"]{border-color:#c99d5570;}
+.bk-store-product[data-store-product="gold-standard"]{border-color:#e7c17880;}
 
 .bk-store-product-text { display: grid; gap: 3px; padding: 8px 10px 10px; line-height: 1.25; }
 .bk-store-product strong { font-size: clamp(13px, 3.5vw, 21px); font-weight: 850; }
@@ -591,6 +596,81 @@ body:has(.bk-tunnel-showroom[open]) { overflow: hidden; }
   .bk-tunnel-showroom .bk-athlete-3d-stage { min-height: 235px; }
 }
 
+/* Locker storefront: full-body collection cards and a scrollable department rail. */
+.bk-store-locker-shop { background: #0d0e12; border-radius: 22px; padding-top: 22px; }
+.bk-store-locker-shop[data-store-page="featured"] {
+  background-image:
+    linear-gradient(180deg, #0d0e1226, #0d0e124d 48%, #0d0e12 95%),
+    url('/store/locker-stadium-tunnel.webp');
+  background-position: center top;
+  background-repeat: no-repeat;
+  background-size: 100% clamp(290px, 66.67vw, 654px), max(100%, 435px) auto;
+}
+.bk-store-brand { display: block; color: var(--store-gold); font-size: 13px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; margin-bottom: 8px; }
+.bk-store-locker-shop .bk-store-header h1 { font-family: inherit; font-style: normal; font-size: clamp(28px, 7vw, 46px); line-height: 1.1; }
+.bk-store-locker-shop .bk-store-header { margin-bottom: 20px; }
+.bk-store-departments { display:flex; gap:8px; overflow-x:auto; padding:4px 2px 12px; margin-bottom:12px; scrollbar-width:thin; }
+.bk-store-departments button { flex:0 0 auto; min-height:44px; border:1px solid #ffffff40; border-radius:999px; padding:8px 16px; color:#b8b8bf; font-weight:800; font-size:15px; }
+.bk-store-departments button[aria-pressed="true"] { background:#f7f7f8; border-color:#f7f7f8; color:#101115; }
+.bk-store-locker-shop .bk-store-featured { border-radius:18px; }
+.bk-store-locker-shop .bk-store-shop { margin:28px 0; }
+.bk-store-locker-shop .bk-store-shop > .bk-store-kicker { margin-bottom:12px; font-size:13px; letter-spacing:.04em; }
+.bk-store-locker-shop .bk-store-shop-header { margin-bottom:16px; }
+.bk-store-locker-shop .bk-store-shop-header h2 { font-family:inherit; font-style:normal; text-transform:none; font-size:clamp(22px,5.5vw,32px); line-height:1.15; }
+.bk-store-locker-shop .bk-store-grid { gap:12px; }
+.bk-store-locker-shop .bk-store-product { padding:7px; border:1px solid #ffffff0b; background:#202126; border-radius:14px; }
+.bk-store-locker-shop .bk-store-card-art { display:block; width:100%; aspect-ratio:3/4; overflow:hidden; border-radius:10px; background:#15161a; }
+.bk-store-locker-shop .bk-store-card-art img { display:block; width:100%; height:100%; aspect-ratio:auto; object-fit:contain; }
+.bk-store-locker-shop .bk-store-product-text { gap:7px; padding:12px 3px 5px; }
+.bk-store-locker-shop .bk-store-product strong { text-transform:uppercase; font-size:clamp(15px,3.9vw,24px); line-height:1.12; overflow-wrap:anywhere; }
+.bk-store-locker-shop .bk-store-product b { font-size:clamp(13px,3.5vw,19px); }
+.bk-store-locker-shop .bk-store-product b small { font-size:.8em; font-weight:500; }
+@media (min-width:768px) { .bk-store-locker-shop { padding:28px; } .bk-store-locker-shop .bk-store-grid { grid-template-columns:repeat(3,minmax(0,1fr)); gap:18px; } }
+
+.bk-store-locker-shop .bk-store-card-art:not(.bk-store-card-art--portrait) { aspect-ratio: 4/3; }
+
+/* Match Gray Standard's full-height portrait framing to Gold Standard. */
+.bk-store-locker-shop [data-store-product="tunnel-fit"] .bk-store-card-art img { object-fit:cover; object-position:50% 50%; }
+
+.bk-store-detail-art--poster { aspect-ratio: auto; height: auto; object-fit: contain; }
+
+/* Match Nicki's clean cover framing to the other character packs. */
+.bk-store-locker-shop [data-store-product="bk-femme"] .bk-store-card-art {
+  aspect-ratio: 3 / 4;
+}
+
+.bkf-drop-modal--nicki .bkf-drop-hero[data-bkf-photo="poster"] { aspect-ratio: 3 / 4; }
+.bkf-drop-modal--nicki .bkf-drop-hero[data-bkf-photo="realistic"] { aspect-ratio: 1696 / 2528; }
+
+/* Dee's photo-only collection retains the complete supplied cover and A-pose. */
+.bk-store-locker-shop [data-store-product="bfk-dee"] .bk-store-card-art { aspect-ratio: 1122 / 1402; }
+.bkf-drop-modal.bkf-drop-modal--dee .bkf-drop-hero[data-bkf-photo="poster"] { aspect-ratio: 1122 / 1402; }
+.bkf-drop-modal.bkf-drop-modal--dee .bkf-drop-hero[data-bkf-photo="realistic"] { aspect-ratio: 1312 / 1199; }
+
+
+/* Premium landing page, inspired by the approved equipment collections. */
+.bk-store-locker-shop[data-store-department="featured"]{background:#0b0c10;padding-top:18px}
+.bk-store-locker-shop[data-store-department="featured"] .bk-store-header{margin-bottom:14px;align-items:center}
+.bk-store-locker-shop[data-store-department="featured"] .bk-store-header h1{font-family:"BK Store Display",Impact,"Arial Narrow",sans-serif;font-style:italic;font-size:clamp(32px,7vw,52px);text-transform:uppercase;letter-spacing:.01em}
+.bk-store-locker-shop[data-store-department="featured"] .bk-store-brand{color:#ecc46e}
+.bk-store-locker-shop[data-store-department="featured"] .bk-store-departments{padding-bottom:12px;margin-bottom:7px}
+.bk-store-locker-shop[data-store-department="featured"] .bk-store-departments button[aria-pressed="true"]{background:linear-gradient(130deg,#ffe2a0,#b88a36);border-color:#f1c464;color:#1b1205}
+.bk-store-locker-shop[data-store-department="featured"] .bk-store-featured--secondary{min-height:clamp(190px,34vw,310px);margin:25px 0 28px;border-color:#d8ad5e63}
+.bk-store-locker-shop[data-store-department="featured"] .bk-store-featured--secondary h2{font-size:clamp(28px,6vw,66px)}
+.bk-store-locker-shop[data-store-department="featured"] .bk-store-featured--secondary .bk-store-featured-copy{padding:clamp(15px,3vw,30px)}
+.bk-store-locker-shop[data-store-department="featured"] .bk-store-shop{margin:22px 0 29px}
+.bk-store-locker-shop[data-store-department="featured"] .bk-store-shop > .bk-store-kicker{color:#ecc46e;letter-spacing:.12em}
+.bk-store-locker-shop[data-store-department="featured"] .bk-store-shop-header h2{font-size:clamp(23px,5vw,38px);font-weight:900}
+.bk-store-locker-shop[data-store-department="featured"] .bk-store-product{border-color:#cfb17335;background:linear-gradient(160deg,#24242b,#17181e);box-shadow:0 5px 17px #0007;transition:border-color .18s,transform .18s}
+.bk-store-locker-shop[data-store-department="featured"] .bk-store-product:hover{border-color:#f0ca78a6;transform:translateY(-2px)}
+.bk-store-locker-shop[data-store-department="featured"] .bk-store-product b{color:#f3c774}
+@media(max-width:520px){.bk-store-locker-shop[data-store-department="featured"] .bk-store-shop{margin:20px 0 24px}.bk-store-locker-shop[data-store-department="featured"] .bk-store-product{border-radius:12px;padding:5px}.bk-store-locker-shop[data-store-department="featured"] .bk-store-card-art{border-radius:9px}.bk-store-locker-shop[data-store-department="featured"] .bk-store-product-text{padding:10px 4px 7px}.bk-store-locker-shop[data-store-department="featured"] .bk-store-product strong{font-size:clamp(13px,4vw,17px)}.bk-store-locker-shop[data-store-department="featured"] .bk-store-featured--secondary{min-height:200px}}
+
+/* Dedicated cinematic Store Home takes over the approved first fold. */
+.bk-store-locker-shop[data-store-page="featured"][data-store-department="featured"]{width:min(100%,1320px);padding:8px max(8px,env(safe-area-inset-right)) 28px max(8px,env(safe-area-inset-left));background:#08090e}
+.bk-store-locker-shop[data-store-page="featured"][data-store-department="featured"]>.bk-store-header,
+.bk-store-locker-shop[data-store-page="featured"][data-store-department="featured"]>.bk-store-departments{display:none}
+
 /* Cart stays reachable on small screens and inside the full product page. */
 .bk-store-header { flex-wrap: wrap; gap: 12px; }
 .bk-cart-dialog { width: min(580px, calc(100vw - 24px)); max-height: calc(100dvh - 24px); overflow-y: auto; }
@@ -604,3 +684,6 @@ body:has(.bk-tunnel-showroom[open]) { overflow: hidden; }
 .bk-cart-dialog button { min-height: 44px; white-space: normal; }
 .bk-cart-dialog button:disabled { opacity: .45; cursor: not-allowed; }
 .bk-cart-empty { padding: 24px 0; }
+
+.bk-store-cart-entry { display:flex; justify-content:flex-end; margin:0 0 10px; }
+.bk-store-cart-entry button { min-height:44px; }

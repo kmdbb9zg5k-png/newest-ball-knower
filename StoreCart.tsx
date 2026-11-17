@@ -3,19 +3,41 @@ import { Capacitor } from '@capacitor/core';
 import { ShoppingBag, X } from 'lucide-react';
 import { refreshLocker } from './lockerCommerceClient';
 import { supabase } from './supabase';
-import { CART_KEY, cartProducts, cartTotal, cleanCart } from './storeCart';
-import { storeImage, storePrice } from './storeCatalog';
+import { CART_KEY, cartProducts, cartTotal, cleanCart, formatStoreAmount, OUTFIT_PRICES, type StorePrices } from './storeCart';
+import { storeImage } from './storeCatalog';
 
 export function useStoreCart() {
   const [ids, setIds] = useState<string[]>(() => { try { return cleanCart(JSON.parse(localStorage.getItem(CART_KEY) || '[]')); } catch { return []; } });
   useEffect(() => { try { localStorage.setItem(CART_KEY, JSON.stringify(ids)); } catch { /* Cart remains usable in memory. */ } }, [ids]);
   useEffect(() => { const sync = (e: StorageEvent) => { if (e.key === CART_KEY) { try { setIds(cleanCart(JSON.parse(e.newValue || '[]'))); } catch { setIds([]); } } }; window.addEventListener('storage', sync); return () => window.removeEventListener('storage', sync); }, []);
-  return { ids, add: (id: string) => setIds(v => cleanCart([...v, id])), remove: (id: string) => setIds(v => v.filter(x => x !== id)), removeOwned: (owned: string[]) => setIds(v => v.filter(x => !owned.includes(x))) };
+  const [characterPrices, setCharacterPrices] = useState<StorePrices>({});
+  useEffect(() => {
+    if (Capacitor.isNativePlatform()) return;
+    let version = 0;
+    let timer: ReturnType<typeof setTimeout>;
+    function load() {
+      const current = ++version;
+      clearTimeout(timer);
+      setCharacterPrices({});
+      timer = setTimeout(() => {
+        void request(undefined, '?catalog=1').then(data => {
+          if (current === version) setCharacterPrices(data.catalogPrices || {});
+        }).catch(() => {});
+      }, 0);
+    }
+    const subscription = supabase?.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_IN' || event === 'SIGNED_OUT') load();
+    });
+    load();
+    return () => { version++; clearTimeout(timer); subscription?.data.subscription.unsubscribe(); };
+  }, []);
+  const prices = { ...OUTFIT_PRICES, ...characterPrices };
+  return { ids, prices, add: (id: string) => setIds(v => cleanCart([...v, id])), remove: (id: string) => setIds(v => v.filter(x => x !== id)), removeOwned: (owned: string[]) => setIds(v => v.filter(x => !owned.includes(x))) };
 }
-async function request(body?: unknown) {
+async function request(body?: unknown, query = '') {
   const session = (await supabase?.auth.getSession())?.data.session;
   if (body && (!session || session.user.is_anonymous)) throw new Error('Sign in to save purchases to your account, then return to your cart.');
-  const response = await fetch('/api/store-commerce', { method: body ? 'POST' : 'GET', headers: { ...(session ? { Authorization: `Bearer ${session.access_token}` } : {}), 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined, cache: 'no-store', signal: AbortSignal.timeout(30000) });
+  const response = await fetch('/api/store-commerce' + query, { method: body ? 'POST' : 'GET', headers: { ...(session && !session.user.is_anonymous ? { Authorization: `Bearer ${session.access_token}` } : {}), 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined, cache: 'no-store', signal: AbortSignal.timeout(30000) });
   const data = await response.json();
   if (!response.ok) throw new Error(data.error || 'Checkout is temporarily unavailable. Your cart is saved.');
   if ((await supabase?.auth.getSession())?.data.session?.user.id !== session?.user.id) throw new Error('Your account changed. Please reopen your cart.');
@@ -28,6 +50,7 @@ export default function StoreCart({ cart, onClose }: { cart: ReturnType<typeof u
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const native = Capacitor.isNativePlatform();
+  const unavailable = cart.ids.some(id => !status?.catalogPrices?.[id]);
   async function refresh() {
     const id = ++refreshId.current;
     setError('');
@@ -35,7 +58,18 @@ export default function StoreCart({ cart, onClose }: { cart: ReturnType<typeof u
     catch (e) { if (id === refreshId.current) setError(e instanceof Error ? e.message : 'Could not check purchases.'); }
   }
   useEffect(() => { dialog.current?.showModal(); if (!native) void refresh(); return () => { refreshId.current++; }; }, []);
-  useEffect(() => { const subscription = supabase?.auth.onAuthStateChange(() => { refreshId.current++; setStatus(null); queueMicrotask(() => { if (!native) void refresh(); }); }); return () => subscription?.data.subscription.unsubscribe(); }, []);
+  useEffect(() => {
+    if (native) return;
+    let timer: ReturnType<typeof setTimeout>;
+    const subscription = supabase?.auth.onAuthStateChange((event) => {
+      if (event !== 'SIGNED_IN' && event !== 'SIGNED_OUT') return;
+      refreshId.current++;
+      setStatus(null);
+      clearTimeout(timer);
+      timer = setTimeout(() => { void refresh(); }, 0);
+    });
+    return () => { clearTimeout(timer); subscription?.data.subscription.unsubscribe(); };
+  }, []);
   async function checkout(provider: 'stripe' | 'paypal') {
     if (busy) return;
     setBusy(true); setError('');
@@ -49,20 +83,22 @@ export default function StoreCart({ cart, onClose }: { cart: ReturnType<typeof u
   return <dialog ref={dialog} className="bk-store-dialog bk-cart-dialog" aria-labelledby="bk-cart-title" onClose={onClose}>
     <div className="bk-store-dialog-content">
       <header className="bk-store-dialog-header"><h2 id="bk-cart-title"><ShoppingBag size={24}/> Your cart</h2><button type="button" className="bk-store-icon-button" aria-label="Close cart" onClick={() => dialog.current?.close()}><X/></button></header>
-      <p>Digital outfits for your Ball Knower account. One of each is all you need.</p>
+      <p>Outfits and playable characters for your Ball Knower account.</p>
       {cartProducts(cart.ids).map(product => <div className="bk-cart-item" key={product.id}>
-        <img src={storeImage(product.id)} alt=""/><div><strong>{product.name}</strong><span>{storePrice(product)}</span></div>
+        <img src={storeImage(product.id)} alt=""/><div><strong>{product.name}</strong><span>{cart.prices[product.id] ? formatStoreAmount(cart.prices[product.id]) : 'Price unavailable'}</span></div>
         <button type="button" disabled={busy} className="bk-store-button" aria-label={`Remove ${product.name}`} onClick={() => cart.remove(product.id)}>Remove</button>
       </div>)}
-      {!cart.ids.length && <p className="bk-cart-empty">Your cart is empty. Explore the store to add an outfit.</p>}
-      <div className="bk-cart-total"><strong>Subtotal</strong><strong>${(cartTotal(cart.ids) / 100).toFixed(2)}</strong></div>
+      {!cart.ids.length && <p className="bk-cart-empty">Your cart is empty. Explore the Store to add an item.</p>}
+      <div className="bk-cart-total"><strong>Subtotal</strong><strong>{formatStoreAmount(cartTotal(cart.ids, cart.prices))}</strong></div>
       {native ? <p>Purchasing in the native app is not available yet.</p> : <>
-        {status?.owned?.length > 0 && <p role="status">Your verified outfits are ready in My Locker.</p>}
+        {status?.owned?.length > 0 && <p role="status">{status.mode === 'test' ? 'Test payment verified.' : 'Payment verified. Find outfits in My Locker and playable characters in Profile.'}</p>}
         {status?.mode === 'test' && <p role="status">Test checkout — no real money or live ownership.</p>}
-        {!status?.stripe && !status?.paypal && <p>{status ? 'Payments are not open yet. Your cart is saved for later.' : 'Checking checkout availability…'}</p>}
+        {status && (status.stripe || status.paypal) && !status.signedIn && <p>Sign in to check out and save purchases to your account.</p>}
+        {status?.signedIn && unavailable && <p>Remove items without a current price to continue.</p>}
+        {!status?.stripe && !status?.paypal && <p>{status ? 'Payments are not open yet. Your cart is saved for later.' : error ? 'Checkout is unavailable. Your cart is saved.' : 'Checking checkout availability…'}</p>}
         <div className="bk-cart-payment-actions">
-          <button type="button" className="bk-store-button bk-store-button-gold" disabled={busy || !cart.ids.length || !status?.stripe} onClick={() => checkout('stripe')}>{busy ? 'Opening checkout…' : 'Checkout · Card / Apple Pay / Google Pay'}</button>
-          <button type="button" className="bk-store-button" disabled={busy || !cart.ids.length || !status?.paypal} onClick={() => checkout('paypal')}>Checkout with PayPal</button>
+          <button type="button" className="bk-store-button bk-store-button-gold" disabled={busy || !cart.ids.length || unavailable || !status?.signedIn || !status?.stripe} onClick={() => checkout('stripe')}>{busy ? 'Opening checkout…' : 'Checkout · Card / Apple Pay / Google Pay'}</button>
+          <button type="button" className="bk-store-button" disabled={busy || !cart.ids.length || unavailable || !status?.signedIn || !status?.paypal} onClick={() => checkout('paypal')}>Checkout with PayPal</button>
         </div>
         <p className="bk-store-purchase-status">Available wallets appear on supported devices at checkout. Purchases unlock after payment is verified.</p>
         <button className="bk-store-button" type="button" disabled={busy} onClick={refresh}>Refresh purchases</button>

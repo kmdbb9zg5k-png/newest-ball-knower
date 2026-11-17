@@ -1,0 +1,194 @@
+/* BK Journey visual refresh (approved cinematic Daily Challenges design).
+   All rules scoped to the real BK Journey UI. The server remains authoritative for balances and claims. */
+.bk-journey-dialog{max-width:1240px;width:min(1240px,calc(100vw - 24px));border-color:#b7873c;box-shadow:0 0 0 1px #f5c46c55,0 24px 110px #000f;scrollbar-color:#bb8941 #0a0a0c;}
+.bk-journey-showcase{--bk-gold:#f2bf51;--bk-glow:#ffca62;--bk-dim:#b79861;color:#fff;background:radial-gradient(ellipse at 50% 23%,#33240c45,transparent 36%),linear-gradient(180deg,#030305,#070809 52%,#020304);}
+.bk-journey-showcase .bk-journey-header{position:relative;display:flex;min-height:92px;padding:13px 22px;gap:16px;background:#020304;border-bottom:1px solid #b88e454d;}
+.bk-journey-showcase .bk-journey-brand{flex:0 0 auto;gap:9px;font:italic 1000 clamp(19px,2.8vw,30px)/.83 Impact,'Arial Narrow',system-ui;letter-spacing:-.035em;color:#ffcf66;text-shadow:1px 2px 0 #75450b,0 0 19px #ffc05b35;}
+.bk-journey-showcase .bk-journey-brand>svg{width:clamp(27px,3vw,40px);height:clamp(27px,3vw,40px);stroke-width:2.5;filter:drop-shadow(0 0 7px #ffbb5366);}
+.bk-journey-showcase .bk-journey-level{display:flex;align-items:center;gap:10px;min-width:155px;width:min(290px,34%);margin-left:auto;}
+.bk-journey-showcase .bk-journey-level-badge{width:43px;height:46px;position:relative;display:grid;place-items:center;flex-shrink:0;background:linear-gradient(135deg,#291807,#050609);clip-path:polygon(50% 0,92% 24%,92% 74%,50% 100%,8% 74%,8% 24%);color:#f6bf4c;border:0;}
+.bk-journey-showcase .bk-journey-level-badge:before{content:'';position:absolute;inset:3px;clip-path:inherit;background:#060707;}
+.bk-journey-showcase .bk-journey-level-badge svg{position:absolute;top:3px;height:15px;width:15px;z-index:1;stroke-width:2.4;}
+.bk-journey-showcase .bk-journey-level-badge b{position:relative;top:8px;z-index:1;font:900 16px Impact,system-ui;text-shadow:0 0 9px #ffd47d;}
+.bk-journey-showcase .bk-journey-level-main{display:grid;grid-template-columns:1fr;gap:5px;flex:1;min-width:0;}
+.bk-journey-showcase .bk-journey-level-main>span{font:1000 17px Impact,system-ui;letter-spacing:.03em;}
+.bk-journey-showcase .bk-journey-level-track{height:13px;width:100%;border-radius:20px;overflow:hidden;background:#171b21;box-shadow:inset 0 2px 4px #000a;border:1px solid #272a30;}
+.bk-journey-showcase .bk-journey-level-fill{height:100%;border-radius:20px;background:linear-gradient(90deg,#a56b22,#ffd870);box-shadow:0 0 13px #ffc65796;transition:width .35s ease;}
+.bk-journey-showcase .bk-journey-level-main small{font:750 11px system-ui;white-space:nowrap;color:#ded8c8;text-align:right;}
+.bk-journey-showcase .bk-journey-wallet{margin:0;flex-shrink:0;display:flex;align-items:center;gap:12px;min-width:178px;border:1px solid #9b773a9b;border-radius:15px;padding:9px 11px;background:linear-gradient(150deg,#16130d,#07080a);box-shadow:inset 0 1px 0 #ffe0a321,0 3px 18px #0008;}
+.bk-journey-showcase .bk-journey-coin-emblem{width:42px;height:42px;flex-shrink:0;border:2px solid #e9ac43;border-radius:50%;display:grid;place-items:center;background:radial-gradient(circle at 35% 25%,#fff4a9,#f7bd4b 45%,#8c5214 100%);color:#67410a;box-shadow:0 0 0 3px #48300c,0 0 16px #fabe5f4d;}
+.bk-journey-showcase .bk-journey-coin-emblem svg{width:24px;height:24px;stroke-width:2.5;}
+.bk-journey-showcase .bk-journey-wallet>span:nth-child(2){display:grid;gap:1px;font:900 11px system-ui;color:#dbc7a0;white-space:nowrap;}
+.bk-journey-showcase .bk-journey-wallet strong{font:1000 25px/1 Impact,system-ui;color:#fff;}
+.bk-journey-showcase .bk-journey-wallet-more{margin-left:auto;display:grid;place-items:center;flex-shrink:0;width:34px;height:34px;padding:0;border:1px solid #bb975a;border-radius:50%;background:linear-gradient(145deg,#403728,#111214);color:#fff;font:300 29px/1 system-ui;}
+.bk-journey-showcase .bk-journey-dismiss{flex:0 0 auto;width:42px;height:42px;border:1px solid #98805f;background:#141315;opacity:.9;}
+.bk-journey-showcase .bk-journey-tabs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;padding:10px 21px 8px;background:#040405;border-bottom:1px solid #9a743a7d;}
+.bk-journey-showcase .bk-journey-tabs button{min-height:68px;flex-direction:column;gap:4px;border-radius:14px;color:#dcdde0;font:1000 clamp(11px,1.65vw,16px)/1.12 Impact,'Arial Narrow',system-ui;letter-spacing:.05em;}
+.bk-journey-showcase .bk-journey-tabs button svg{height:24px;width:24px;}
+.bk-journey-showcase .bk-journey-tabs button[aria-pressed="true"]{border:1.5px solid #edc062;box-shadow:0 0 16px #f8bc462c,inset 0 -3px 0 #ffda78;background:linear-gradient(135deg,#5e4218,#2a1c0b 62%,#0b0b0d);color:#f9d47d;}
+.bk-journey-showcase .bk-journey-hero{isolation:isolate;min-height:350px;display:flex;align-items:center;padding:43px 37px;border-bottom:1px solid #e2ac4a66;background:radial-gradient(circle at 76% 38%,#b6732b44,transparent 43%),#060609;overflow:hidden;}
+.bk-journey-showcase .bk-journey-hero>img{position:absolute;inset:0 0 0 auto;width:72%;height:100%;object-fit:cover;object-position:68% 34%;opacity:.95;filter:brightness(1.2) contrast(1.19) saturate(.84);z-index:-2;}
+.bk-journey-showcase .bk-journey-hero:before{content:'';position:absolute;inset:0;z-index:-1;background:linear-gradient(90deg,#030405f2 0%,#030405e3 32%,#0505069b 59%,#0b080830 100%),linear-gradient(0deg,#060607bd,transparent 30%,#6b421a23 85%,#0505067c);}
+.bk-journey-showcase .bk-journey-hero:after{content:'';position:absolute;inset:0;z-index:-1;pointer-events:none;background:radial-gradient(circle at 93% 20%,#ffd68392 0 1px,transparent 3px),radial-gradient(circle at 85% 15%,#ffe1a6a8 0 2px,transparent 4px),radial-gradient(circle at 77% 27%,#f0c47d66 0 1px,transparent 3px),linear-gradient(90deg,transparent 73%,#d59a4728 84%,transparent);background-size:77px 59px,91px 78px,65px 88px,100% 100%;mask-image:linear-gradient(90deg,transparent 50%,#000);}
+.bk-journey-showcase .bk-journey-stadium-lights{position:absolute;top:0;right:0;bottom:0;width:45%;pointer-events:none;box-shadow:inset 0 0 44px #d8a14a12;}
+.bk-journey-showcase .bk-journey-hero-copy{z-index:2;max-width:900px;flex:1;}
+.bk-journey-showcase .bk-journey-hero-copy p{margin:0;gap:11px;font:900 clamp(10px,1.4vw,15px) system-ui;letter-spacing:.29em;color:#fac963;text-shadow:0 1px 15px #ffcf7160;}
+.bk-journey-showcase .bk-journey-hero-copy p svg{filter:drop-shadow(0 0 7px #ffca65);}
+.bk-journey-showcase .bk-journey-hero-copy h2{display:flex;flex-wrap:wrap;gap:0 clamp(7px,1.4vw,21px);margin:15px 0 17px;max-width:890px;transform:skew(-8deg);font:italic 1000 clamp(47px,7vw,96px)/.92 Impact,'Arial Narrow',system-ui;letter-spacing:-.025em;background:none;color:#fff;overflow:visible;}
+.bk-journey-showcase .bk-journey-hero-copy h2 span{font-size:inherit;line-height:inherit;color:#fff;background:none;-webkit-text-fill-color:#fff;text-shadow:0 5px 0 #353032,0 8px 19px #000c;}
+.bk-journey-showcase .bk-journey-hero-copy h2 em{font-size:inherit;font-weight:1000;font-style:italic;line-height:inherit;background:linear-gradient(165deg,#fff1ac 0%,#f5c760 39%,#b8761b 84%);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;filter:drop-shadow(0 3px 0 #6b3f09) drop-shadow(0 8px 7px #0007);position:relative;}
+.bk-journey-showcase .bk-journey-hero-copy>span{font:700 clamp(13px,1.75vw,19px)/1.32 system-ui;color:#f9f1e8;text-transform:uppercase;text-shadow:0 3px 12px #000;}
+.bk-journey-showcase .bk-journey-hero-prize{z-index:3;align-self:flex-end;min-width:142px;display:grid;justify-items:center;gap:6px;margin:0 0 0 12px;padding:17px 13px;border:1px solid #edc06d;border-radius:16px;background:linear-gradient(155deg,#1b140bdb,#0a090aec);box-shadow:0 0 18px #f4bf6033;text-align:center;}
+.bk-journey-showcase .bk-journey-hero-prize>span{font:850 10px system-ui;letter-spacing:.08em;color:#ffdc8b;}
+.bk-journey-showcase .bk-journey-hero-prize>div{display:grid;justify-items:center;gap:3px;color:#f4bc51;}
+.bk-journey-showcase .bk-journey-hero-prize svg{height:41px;width:41px;filter:drop-shadow(0 0 12px #f7c04b66);}
+.bk-journey-showcase .bk-journey-hero-prize strong{font:1000 35px Impact,system-ui;color:#f7c568;text-shadow:0 0 13px #a9691f;}
+.bk-journey-showcase .bk-journey-hero-prize small{font:900 11px system-ui;color:#ecd6a8;}
+.bk-journey-showcase .bk-journey-body{display:grid;gap:24px;padding:24px 25px 28px;background:radial-gradient(ellipse at top,#2d210f2e,transparent 49%),#060709;}
+.bk-journey-showcase .bk-journey-intro{align-items:center;margin:0;}
+.bk-journey-showcase .bk-journey-intro>div:first-child>span{font:900 11px system-ui;letter-spacing:.13em;color:#e7b85d;}
+.bk-journey-showcase .bk-journey-intro h3{font:1000 clamp(24px,3.2vw,36px) Impact,system-ui;color:#fff;letter-spacing:.02em;margin-top:8px;}
+.bk-journey-showcase .bk-journey-completed{border-color:#c99d4a;border-radius:10px;background:#22180b;min-height:53px;padding:8px 13px;box-shadow:0 0 12px #bb8c2633;}
+.bk-journey-showcase .bk-journey-completed strong{font:1000 22px Impact,system-ui;color:#f8ce78;}
+.bk-journey-showcase .bk-journey-missions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:13px;}
+.bk-journey-showcase .bk-journey-mission{--bk-mission:#a841fb;--bk-mission-dim:#7428a5;position:relative;display:grid;grid-template-columns:66px minmax(0,1fr);grid-template-rows:minmax(0,1fr) auto;align-items:start;gap:12px;padding:16px 13px;min-height:260px;background:radial-gradient(ellipse at 0% 48%,color-mix(in srgb,var(--bk-mission) 11%,transparent),transparent 60%),linear-gradient(130deg,#111117 0%,#090b0f 100%);border:1px solid #caac6d;box-shadow:inset 0 1px #ffdda427,inset 0 -1px #f7ca6727,0 10px 20px #0008;border-radius:15px;}
+.bk-journey-showcase .bk-journey-mission--green{--bk-mission:#00ed9d;--bk-mission-dim:#007c57;}
+.bk-journey-showcase .bk-journey-mission--blue{--bk-mission:#00b7ff;--bk-mission-dim:#006aab;}
+.bk-journey-showcase .bk-journey-mission-icon{grid-column:1;grid-row:1;width:60px;height:60px;margin-top:7px;display:grid;place-items:center;border:2px solid var(--bk-mission);border-radius:50%;color:var(--bk-mission);background:radial-gradient(circle at 50% 50%,color-mix(in srgb,var(--bk-mission) 30%,transparent),#0d0a18 70%);box-shadow:0 0 13px var(--bk-mission),0 0 26px color-mix(in srgb,var(--bk-mission) 23%,transparent),inset 0 0 15px color-mix(in srgb,var(--bk-mission) 25%,transparent);}
+.bk-journey-showcase .bk-journey-mission-icon svg{height:36px;width:36px;stroke-width:2;filter:drop-shadow(0 0 6px var(--bk-mission));}
+.bk-journey-showcase .bk-journey-mission-copy{grid-column:2;grid-row:1;display:flex;flex-direction:column;align-items:flex-start;gap:8px;min-width:0;}
+.bk-journey-showcase .bk-journey-mission h4{font:italic 1000 clamp(17px,2vw,23px)/1 Impact,'Arial Narrow',system-ui;letter-spacing:.035em;color:#fff;margin:0;}
+.bk-journey-showcase .bk-journey-mission p{margin:0;color:#f4f2ec;font:500 12px/1.5 system-ui;min-height:39px;}
+.bk-journey-showcase .bk-journey-mission-reward{display:flex;flex-wrap:wrap;align-items:center;gap:6px;color:#ecc15c;font:900 10px/1.2 system-ui;}
+.bk-journey-showcase .bk-journey-mission-reward span{display:flex;align-items:center;gap:4px;white-space:normal;}
+.bk-journey-showcase .bk-journey-mission-reward svg{flex:0 0 15px;color:#f5c361;}
+.bk-journey-showcase .bk-journey-mission-reward i{width:1px;height:18px;background:#c2a46b88;}
+.bk-journey-showcase .bk-journey-progress-row{display:flex;align-items:center;gap:9px;width:100%;margin-top:auto;}
+.bk-journey-showcase .bk-journey-mission-track{flex:1;min-width:35px;height:12px;overflow:hidden;border:1px solid #595d67;border-radius:30px;background:#171c23;box-shadow:inset 0 2px 5px #0008;}
+.bk-journey-showcase .bk-journey-mission-progress{height:100%;border-radius:30px;background:linear-gradient(90deg,#bc842b,#ffdf76);box-shadow:0 0 9px #f8c96788;transition:width .3s ease;}
+.bk-journey-showcase .bk-journey-progress-row b{font:900 12px system-ui;color:#fff;white-space:nowrap;}
+.bk-journey-showcase .bk-journey-verified{color:#b9ae99;font:600 10px/1.3 system-ui;display:flex;align-items:flex-start;gap:4px;}
+.bk-journey-showcase .bk-journey-verified svg{flex-shrink:0;color:#d1ab5f;}
+.bk-journey-showcase .bk-journey-mission .bk-journey-play{grid-column:1/-1;grid-row:2;justify-self:stretch;min-height:42px;width:100%;display:flex;align-items:center;justify-content:center;gap:10px;padding:9px 14px;border:1px solid #ffdc82;border-radius:11px;background:linear-gradient(145deg,#fff0a7 0%,#e8b344 40%,#b98222 100%);box-shadow:inset 0 1px #fff4ccbb,0 5px 11px #0007;color:#171105;font:italic 1000 18px Impact,'Arial Narrow',system-ui;letter-spacing:.035em;}
+.bk-journey-showcase .bk-journey-play svg{width:21px;height:21px;stroke-width:3;}
+.bk-journey-showcase .bk-journey-milestones{position:relative;display:grid;gap:11px;padding:22px 19px;border:1px solid #a87b32a6;border-radius:16px;background:radial-gradient(ellipse at 65% 0%,#7c581b2b,transparent 55%),linear-gradient(110deg,#0c0b0c,#06070a);box-shadow:0 0 30px #c78c2521,inset 0 1px #e4b85c24;}
+.bk-journey-showcase .bk-journey-section-title{align-items:center;gap:10px;}
+.bk-journey-showcase .bk-journey-section-title h3{font:italic 1000 clamp(23px,3.3vw,33px)/1 Impact,system-ui;letter-spacing:.025em;color:#f9e4b0;}
+.bk-journey-showcase .bk-journey-section-title>span{font:700 10px system-ui;color:#dfc895;}
+.bk-journey-showcase .bk-journey-rail-intro{display:flex;justify-content:space-between;gap:12px;align-items:center;color:#f5cf78;font:900 12px/1.25 system-ui;}
+.bk-journey-showcase .bk-journey-rail-intro>b,.bk-journey-showcase .bk-journey-rail-intro b{font:1000 20px Impact,system-ui;}
+.bk-journey-showcase .bk-journey-rail-intro small{font:600 11px system-ui;color:#c6b496;}
+.bk-journey-showcase .bk-journey-rail{position:relative;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:9px;padding:10px 0 0;overflow:visible;}
+.bk-journey-showcase .bk-journey-rail:before{content:'';position:absolute;top:58px;left:8%;right:8%;height:4px;border-radius:4px;background:linear-gradient(90deg,#6f4816,#ffe193 46%,#94671e);box-shadow:0 0 16px #fbc35a83;pointer-events:none;}
+.bk-journey-showcase .bk-journey-checkpoint{background:transparent;border:0;box-shadow:none;gap:6px;padding:4px 3px 8px;min-height:194px;justify-content:flex-start;}
+.bk-journey-showcase .bk-journey-checkpoint-medal{position:relative;z-index:2;width:86px;height:86px;border:2px solid #fbc75a;background:radial-gradient(circle at 30% 20%,#7e4f15,#16110b 66%);box-shadow:0 0 0 5px #0c0b0b,0 0 18px #efbc56b5,0 0 32px #dea64340;color:#f9d579;flex:0 0 auto;}
+.bk-journey-showcase .bk-journey-checkpoint-medal svg{height:46px;width:46px;stroke-width:1.75;filter:drop-shadow(0 0 6px #f7c456);}
+.bk-journey-showcase .bk-journey-checkpoint.is-locked .bk-journey-checkpoint-medal{border-color:#777;background:radial-gradient(circle at top,#3b3735,#1e2024);color:#cac6c0;box-shadow:0 0 0 5px #090a0b,0 0 7px #aab1bf55;}
+.bk-journey-showcase .bk-journey-checkpoint.is-claimed .bk-journey-checkpoint-medal{border-color:#eebf5d;background:radial-gradient(circle,#8c601a,#14110b);color:#fff0a7;}
+.bk-journey-showcase .bk-journey-checkpoint strong{font:950 11px/1.23 system-ui;text-transform:uppercase;min-height:28px;color:#f6e8c8;}
+.bk-journey-showcase .bk-journey-checkpoint small{font:800 10px system-ui;color:#d7bc84;}
+.bk-journey-showcase .bk-journey-checkpoint>button{border-radius:18px;min-height:30px;margin-top:auto;font:900 10px system-ui;padding:4px 7px;background:#322209;color:#f2ce83;}
+.bk-journey-showcase .bk-journey-checkpoint.is-unlocked>button:not(:disabled){background:linear-gradient(115deg,#fff0aa,#d7a13f);color:#181108;box-shadow:0 0 12px #f7bf5380;}
+.bk-journey-showcase .bk-journey-legal{margin:3px 0 0;font:550 11px/1.5 system-ui;color:#bbb0a0;}
+.bk-journey-showcase .bk-journey-momentum{display:flex;align-items:center;gap:18px;min-height:78px;padding:16px 22px;border:1px solid #d8ae53a8;border-radius:15px;background:linear-gradient(110deg,#16100b,#040608 60%,#171009);box-shadow:inset 0 1px #ffe6af33,0 0 17px #dfa94b19;}
+.bk-journey-showcase .bk-journey-momentum-label{display:flex;align-items:center;gap:8px;padding-right:17px;border-right:1px solid #957040a8;white-space:nowrap;color:#fff;font:1000 16px Impact,system-ui;}
+.bk-journey-showcase .bk-journey-momentum-label svg{width:35px;height:35px;fill:#faac21;color:#ffcd5e;filter:drop-shadow(0 0 10px #f9a32277);}
+.bk-journey-showcase .bk-journey-momentum-fires{display:flex;gap:8px;}
+.bk-journey-showcase .bk-journey-momentum-fires svg{width:28px;height:30px;color:#6e6c6e;fill:#333232;}
+.bk-journey-showcase .bk-journey-momentum-fires svg.is-lit{color:#ffcf6d;fill:#ffac21;filter:drop-shadow(0 0 9px #ffb93c99);}
+.bk-journey-showcase .bk-journey-momentum>div{display:flex;flex-direction:column;gap:4px;flex:1;}
+.bk-journey-showcase .bk-journey-momentum strong{color:#f9d170;font:1000 16px Impact,system-ui;}
+.bk-journey-showcase .bk-journey-momentum small{color:#d0c8bc;font:550 11px/1.35 system-ui;}
+.bk-journey-showcase .bk-journey-momentum>button{color:#f5cd78;min-width:44px;min-height:44px;display:grid;place-items:center;border:0;}
+.bk-journey-showcase .bk-journey-momentum>button svg{height:26px;width:26px;}
+.bk-journey-showcase .bk-journey-footer{margin-top:4px;}
+.bk-journey-showcase .bk-journey-collection{padding:16px;border:1px solid #a47d3e;border-radius:14px;background:#0a0b0f;}
+.bk-journey-showcase .bk-journey-gift.is-owned{box-shadow:0 0 20px #d9a23b2c;}
+.bk-journey-showcase .bk-journey-status{background:#171106;border-color:#b9924a;}
+@media(max-width:1000px){
+ .bk-journey-showcase .bk-journey-missions{grid-template-columns:1fr;}
+ .bk-journey-showcase .bk-journey-mission{grid-template-columns:85px minmax(0,1fr) 105px;grid-template-rows:auto;gap:15px;align-items:center;min-height:155px;padding:15px 18px;}
+ .bk-journey-showcase .bk-journey-mission-icon{grid-row:1;grid-column:1;width:76px;height:76px;margin:0;}
+ .bk-journey-showcase .bk-journey-mission-copy{grid-row:1;grid-column:2;gap:6px;}
+ .bk-journey-showcase .bk-journey-mission h4{font-size:22px;}
+ .bk-journey-showcase .bk-journey-mission p{font-size:13px;min-height:0;}
+ .bk-journey-showcase .bk-journey-mission .bk-journey-play{grid-row:1;grid-column:3;width:100%;min-height:60px;}
+ .bk-journey-showcase .bk-journey-checkpoint-medal{height:72px;width:72px;}
+ .bk-journey-showcase .bk-journey-checkpoint-medal svg{height:36px;width:36px;}
+ .bk-journey-showcase .bk-journey-rail:before{top:49px;}
+}
+@media(max-width:720px){
+ .bk-journey-dialog{width:100vw;max-width:100vw;height:100dvh;max-height:100dvh;border:0;border-radius:0;}
+ .bk-journey-showcase .bk-journey-header{padding:8px 10px;min-height:75px;gap:9px;}
+ .bk-journey-showcase .bk-journey-brand{font-size:17px;}
+ .bk-journey-showcase .bk-journey-brand>svg{width:27px;height:27px;}
+ .bk-journey-showcase .bk-journey-level{min-width:0;width:auto;flex:1;gap:4px;}
+ .bk-journey-showcase .bk-journey-level-badge{display:none;}
+ .bk-journey-showcase .bk-journey-level-main{gap:3px;}
+ .bk-journey-showcase .bk-journey-level-main>span{font-size:13px;}
+ .bk-journey-showcase .bk-journey-level-main small{font-size:8px;letter-spacing:-.01em;}
+ .bk-journey-showcase .bk-journey-level-track{height:8px;}
+ .bk-journey-showcase .bk-journey-wallet{min-width:0;gap:5px;padding:6px;border-radius:10px;}
+ .bk-journey-showcase .bk-journey-coin-emblem{width:27px;height:27px;border-width:1px;box-shadow:0 0 0 2px #48300c;}
+ .bk-journey-showcase .bk-journey-coin-emblem svg{width:16px;height:16px;}
+ .bk-journey-showcase .bk-journey-wallet>span:nth-child(2){font-size:8px;}
+ .bk-journey-showcase .bk-journey-wallet strong{font-size:18px;}
+ .bk-journey-showcase .bk-journey-wallet-more{width:24px;height:24px;font-size:20px;}
+ .bk-journey-showcase .bk-journey-dismiss{width:34px;height:36px;border-radius:9px;}
+ .bk-journey-showcase .bk-journey-tabs{padding:7px 6px;gap:3px;}
+ .bk-journey-showcase .bk-journey-tabs button{font-size:10px;min-height:66px;gap:6px;padding:3px 2px;border-radius:11px;}
+ .bk-journey-showcase .bk-journey-tabs button svg{height:23px;width:23px;}
+ .bk-journey-showcase .bk-journey-hero{min-height:284px;padding:33px 16px 28px;align-items:center;}
+ .bk-journey-showcase .bk-journey-hero>img{width:94%;object-position:64% 37%;filter:brightness(1.15) contrast(1.15);}
+ .bk-journey-showcase .bk-journey-hero:before{background:linear-gradient(90deg,#040405f0 0%,#030404c2 49%,#03040433 100%),linear-gradient(0deg,#040405a1,transparent 45%);}
+ .bk-journey-showcase .bk-journey-hero-copy{padding-top:22px;}
+ .bk-journey-showcase .bk-journey-hero-copy h2{flex-direction:column;gap:5px;margin:12px 0 14px;font-size:clamp(42px,10vw,57px);line-height:.9;}
+ .bk-journey-showcase .bk-journey-hero-copy p{font-size:10px;letter-spacing:.18em;gap:5px;}
+ .bk-journey-showcase .bk-journey-hero-copy>span{font-size:11px;max-width:285px;line-height:1.45;}
+ .bk-journey-showcase .bk-journey-hero-prize{display:none;}
+ .bk-journey-showcase .bk-journey-body{padding:18px 14px 24px;gap:20px;}
+ .bk-journey-showcase .bk-journey-intro{gap:10px;}
+ .bk-journey-showcase .bk-journey-intro>div:first-child>span{font-size:10px;letter-spacing:.085em;}
+ .bk-journey-showcase .bk-journey-intro h3{font-size:24px;}
+ .bk-journey-showcase .bk-journey-completed{padding:7px;min-height:43px;}
+ .bk-journey-showcase .bk-journey-completed strong{font-size:19px;}
+ .bk-journey-showcase .bk-journey-missions{gap:12px;}
+ .bk-journey-showcase .bk-journey-mission{grid-template-columns:59px minmax(0,1fr) 67px;grid-template-rows:auto;min-height:159px;padding:13px 11px;gap:9px;border-radius:17px;}
+ .bk-journey-showcase .bk-journey-mission-icon{width:55px;height:55px;}
+ .bk-journey-showcase .bk-journey-mission-icon svg{height:30px;width:30px;}
+ .bk-journey-showcase .bk-journey-mission-copy{gap:5px;}
+ .bk-journey-showcase .bk-journey-mission h4{font-size:clamp(17px,4vw,21px);letter-spacing:.01em;}
+ .bk-journey-showcase .bk-journey-mission p{font-size:11px;line-height:1.35;}
+ .bk-journey-showcase .bk-journey-mission-reward{font-size:8.5px;gap:5px;}
+ .bk-journey-showcase .bk-journey-mission-reward svg{height:13px;width:13px;}
+ .bk-journey-showcase .bk-journey-mission-reward i{height:12px;}
+ .bk-journey-showcase .bk-journey-mission .bk-journey-play{min-height:61px;font-size:16px;border-radius:11px;display:flex;flex-direction:column;gap:4px;padding:8px 2px;}
+ .bk-journey-showcase .bk-journey-play svg{width:20px;height:20px;}
+ .bk-journey-showcase .bk-journey-verified{font-size:9px;line-height:1.2;}
+ .bk-journey-showcase .bk-journey-milestones{padding:17px 12px;gap:12px;}
+ .bk-journey-showcase .bk-journey-section-title h3{font-size:24px;}
+ .bk-journey-showcase .bk-journey-section-title>span{font-size:9px;}
+ .bk-journey-showcase .bk-journey-rail{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;gap:12px;padding:12px 10px 9px;margin:0 -12px;scrollbar-width:thin;scrollbar-color:#c69b4d #131313;}
+ .bk-journey-showcase .bk-journey-rail:before{top:55px;left:5%;right:5%;}
+ .bk-journey-showcase .bk-journey-checkpoint{flex:0 0 145px;scroll-snap-align:center;min-height:178px;}
+ .bk-journey-showcase .bk-journey-checkpoint-medal{width:75px;height:75px;}
+ .bk-journey-showcase .bk-journey-checkpoint strong{font-size:11px;}
+ .bk-journey-showcase .bk-journey-rail-intro b{font-size:18px;}
+ .bk-journey-showcase .bk-journey-momentum{padding:13px;gap:10px;flex-wrap:wrap;}
+ .bk-journey-showcase .bk-journey-momentum-label{font-size:15px;padding-right:10px;}
+ .bk-journey-showcase .bk-journey-momentum-label svg{height:26px;width:26px;}
+ .bk-journey-showcase .bk-journey-momentum-fires{gap:4px;}
+ .bk-journey-showcase .bk-journey-momentum-fires svg{height:25px;width:24px;}
+ .bk-journey-showcase .bk-journey-momentum>div{flex-basis:100%;padding-left:3px;order:4;}
+ .bk-journey-showcase .bk-journey-momentum>button{margin-left:auto;}
+}
+@media(max-width:375px){
+ .bk-journey-showcase .bk-journey-brand{font-size:15px;gap:3px;}
+ .bk-journey-showcase .bk-journey-brand>svg{width:23px;height:23px;}
+ .bk-journey-showcase .bk-journey-mission{grid-template-columns:50px minmax(0,1fr) 61px;gap:7px;padding:11px 8px;}
+ .bk-journey-showcase .bk-journey-mission-icon{height:47px;width:47px;}
+ .bk-journey-showcase .bk-journey-mission-icon svg{height:26px;width:26px;}
+ .bk-journey-showcase .bk-journey-mission-reward{font-size:8px;}
+ .bk-journey-showcase .bk-journey-mission p{font-size:10px;}
+}
+@media(prefers-reduced-motion:reduce){.bk-journey-showcase .bk-journey-level-fill,.bk-journey-showcase .bk-journey-mission-progress{transition:none;}}

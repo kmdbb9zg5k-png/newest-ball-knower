@@ -1,7 +1,8 @@
 import React from 'react';
-import { ArrowRight, Brain, Flag, Shield, Target } from 'lucide-react';
+import { ArrowRight, Brain, Flag, Shield, Target, Trophy } from 'lucide-react';
 import type { AppTab } from './App';
 import { HomeMiniGamesFeature } from './HomeMiniGamesFeature';
+import GameAthleteSetup from './GameAthleteSetup';
 import { ModeHelp } from './ModeHelp';
 import './homeLayout.css';
 import './playHub.css';
@@ -10,7 +11,11 @@ import './playSectionArt.css';
 export function PlayHub({ onNavigate }: { onNavigate: (tab: AppTab) => void }) {
   return <div className="bk-play-hub" data-testid="play-hub">
     <header className="bk-play-heading"><div><p>Make your next play</p><h1>Play your game.</h1><span>Quick games, long careers and a chance to prove you know ball.</span></div><ModeHelp mode="play" autoOpen={false}/></header>
+    <GameAthleteSetup/>
     <HomeMiniGamesFeature compact onOpenFootball={() => onNavigate('football')}/>
+    <button type="button" className="bk-play-legends" onClick={() => onNavigate('legends')}>
+      <Trophy aria-hidden="true"/><span><small>Build your squad</small><strong>BK Legends</strong><span>80 challenges on the Road to Legend.</span></span><ArrowRight aria-hidden="true"/>
+    </button>
     <section className="bk-play-choices" aria-label="Choose how to play">
       <button type="button" className="bk-play-careers" onClick={() => onNavigate('solo')}>
         <img src="/solo-mode-scenes/franchise-command.webp" alt="" width="306" height="342" loading="lazy"/>

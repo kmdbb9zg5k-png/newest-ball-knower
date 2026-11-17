@@ -1,51 +1,16 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
+import { ModalPortal } from './ModalPortal';
+import './soundtrackControl.css';
 import { useSoundtrack } from './SoundtrackContext';
-import { Volume2, VolumeX, Volume1, Play, Pause, SkipForward, SkipBack, Music, Disc3 } from 'lucide-react';
+import { Volume2, VolumeX, Volume1, Play, Pause, SkipForward, SkipBack, AudioLines, Disc3, Repeat1, Shuffle, X } from 'lucide-react';
 
 export const SoundtrackControl: React.FC = () => {
-  const {
-    isPlaying,
-    isMuted,
-    volume,
-    currentTrack,
-    currentTrackIndex,
-    allTracks,
-    toggleMute,
-    setVolume,
-    nextTrack,
-    prevTrack,
-    selectTrack,
-    play,
-    pause,
-    isIntroActive,
-  } = useSoundtrack();
-
+  const { isPlaying, isMuted, volume, currentTrack, toggleMute } = useSoundtrack();
   const [isOpen, setIsOpen] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
-  const panelButtonRef = useRef<HTMLButtonElement>(null);
-
-  // Close dropdown on outside click
-  useEffect(() => {
-    const handleOutsidePress = (e: PointerEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
-        setIsOpen(false);
-      }
-    };
-    const handleEscape=(event:KeyboardEvent)=>{if(event.key==='Escape'){setIsOpen(false);panelButtonRef.current?.focus();}};
-    if (isOpen) {
-      document.addEventListener('pointerdown', handleOutsidePress);
-      document.addEventListener('keydown',handleEscape);
-    }
-    return () => {
-      document.removeEventListener('pointerdown', handleOutsidePress);
-      document.removeEventListener('keydown',handleEscape);
-    };
-  }, [isOpen]);
-
   const volumePct = Math.round(volume * 100);
 
   return (
-    <div className="relative" ref={dropdownRef}>
+    <div className="relative">
       {/* Top-Right Speaker Control Pill Button */}
       <div className="flex items-center rounded-full bg-[#1A1A1A] border border-white/10 p-0.5 shadow-md">
         {/* Direct Mute / Unmute Button */}
@@ -76,11 +41,12 @@ export const SoundtrackControl: React.FC = () => {
         {/* Mini Waveform & Menu Trigger */}
         <button
           id="soundtrack-panel-toggle-btn"
-          ref={panelButtonRef}
           type="button"
           onClick={() => setIsOpen(open => !open)}
           aria-expanded={isOpen}
-          aria-controls="soundtrack-panel"
+          aria-haspopup="dialog"
+          aria-controls={isOpen ? "soundtrack-panel" : undefined}
+          aria-label="Soundtrack settings and tracks"
           className="flex h-8 w-8 shrink-0 touch-manipulation items-center justify-center rounded-full text-left transition-colors hover:bg-zinc-800/60 sm:h-auto sm:w-auto sm:gap-1.5 sm:px-2.5 sm:py-1"
           title="Soundtrack Settings & Tracks"
         >
@@ -106,164 +72,91 @@ export const SoundtrackControl: React.FC = () => {
         </button>
       </div>
 
-      {/* Expanded Audio Settings & Track Selection Popover */}
-      {isOpen && (
-        <div id="soundtrack-panel" className="absolute right-0 z-50 mt-2 w-[min(20rem,calc(100vw-1.5rem))] max-h-[calc(100dvh-6.5rem)] overflow-y-auto overscroll-contain rounded-lg border border-white/10 bg-[#121212] p-3.5 shadow-2xl animate-in fade-in slide-in-from-top-2 sm:w-80">
-          {/* Popover Header */}
-          <div className="flex items-center justify-between pb-2.5 border-b border-white/10">
-            <div className="flex items-center gap-2">
-              <Music className="h-4 w-4 text-[#D4AF37]" />
-              <div>
-                <h4 className="text-xs font-black uppercase text-white tracking-wider">BALL KNOWER SOUNDTRACK</h4>
-                <p className="text-[9px] text-zinc-500 font-bold uppercase">NFL DRAFT NIGHT ATMOSPHERE</p>
-              </div>
-            </div>
-            <button
-              type="button"
-              aria-label="Close soundtrack settings"
-              onClick={() => setIsOpen(false)}
-              className="text-zinc-500 hover:text-white text-xs font-bold px-1"
-            >
-              ✕
-            </button>
-          </div>
-
-          {/* Currently Playing Card */}
-          <div className="my-3 rounded-md bg-[#1A1A1A] border border-white/5 p-2.5">
-            <div className="flex items-center justify-between mb-1.5">
-              <span className="text-[9px] font-mono uppercase tracking-widest text-[#D4AF37] font-black">
-                {allTracks.length?`TRACK ${currentTrackIndex + 1} OF ${allTracks.length}`:'SOUNDTRACK UNAVAILABLE'}
-              </span>
-              <span className="text-[8px] font-bold uppercase px-1.5 py-0.2 bg-zinc-800 text-zinc-400 rounded-xs">
-                {currentTrack.mood}
-              </span>
-            </div>
-            <div className="text-xs font-black uppercase text-white tracking-wide truncate">
-              {currentTrack.title}
-            </div>
-            <div className="text-[10px] text-zinc-400 truncate mb-3">
-              {currentTrack.subtitle}
-            </div>
-
-            {/* Playback Controls */}
-            <div className="flex items-center justify-center gap-3 pt-1 border-t border-white/5">
-              <button
-                onClick={prevTrack}
-                disabled={!allTracks.length||isIntroActive}
-                className="p-1.5 rounded-full text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors cursor-pointer"
-                title="Previous Track"
-              >
-                <SkipBack className="h-4 w-4" />
-              </button>
-
-              {isPlaying ? (
-                <button
-                  onClick={pause}
-                  className="flex items-center justify-center h-8 w-8 rounded-full bg-[#D4AF37] text-black hover:bg-white transition-colors cursor-pointer shadow-md font-bold"
-                  title="Pause"
-                >
-                  <Pause className="h-4 w-4 fill-black" />
-                </button>
-              ) : (
-                <button
-                  onClick={play}
-                  disabled={!allTracks.length||isIntroActive}
-                  className="flex items-center justify-center h-8 w-8 rounded-full bg-[#D4AF37] text-black hover:bg-white transition-colors cursor-pointer shadow-md font-bold"
-                  title="Play"
-                >
-                  <Play className="h-4 w-4 fill-black ml-0.5" />
-                </button>
-              )}
-
-              <button
-                onClick={nextTrack}
-                disabled={!allTracks.length||isIntroActive}
-                className="p-1.5 rounded-full text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors cursor-pointer"
-                title="Next Track"
-              >
-                <SkipForward className="h-4 w-4" />
-              </button>
-            </div>
-          </div>
-
-          {/* Volume Slider Control */}
-          <div className="space-y-1.5 mb-3 px-1">
-            <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-wider text-zinc-400">
-              <span className="flex items-center gap-1">
-                {isMuted ? <VolumeX className="h-3 w-3 text-red-400" /> : <Volume2 className="h-3 w-3 text-[#D4AF37]" />}
-                <span>Volume</span>
-              </span>
-              <span className="font-mono text-[#D4AF37]">{isMuted ? 'Muted' : `${volumePct}%`}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <input
-                type="range"
-                aria-label="Soundtrack volume"
-                min="0"
-                max="100"
-                value={isMuted ? 0 : volumePct}
-                onChange={e => {
-                  const val = parseInt(e.target.value, 10) / 100;
-                  setVolume(val);
-                  if (isMuted && val > 0) {
-                    toggleMute();
-                  }
-                }}
-                className="w-full h-1.5 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-[#D4AF37]"
-              />
-            </div>
-            <div className="flex justify-between text-[8px] font-mono text-zinc-600">
-              <span>0%</span>
-              <span>22% (Atmospheric)</span>
-              <span>100%</span>
-            </div>
-          </div>
-
-          {/* Track Selection List */}
-          <div className="space-y-1 pt-2 border-t border-white/5">
-            <div className="text-[9px] font-black uppercase tracking-widest text-zinc-500 px-1 mb-1">
-              Select Soundtrack Theme:
-            </div>
-            <div className="max-h-[40dvh] overflow-y-auto space-y-1 pr-1 custom-scrollbar sm:max-h-36">
-              {allTracks.map((track, idx) => (
-                <button
-                  key={track.id}
-                  type="button"
-                  onClick={() => {
-                    selectTrack(idx);
-                    setIsOpen(false);
-                  }}
-                  className={`flex min-h-11 w-full touch-manipulation items-center justify-between rounded-sm px-2.5 py-2 text-left transition-colors ${
-                    currentTrackIndex === idx
-                      ? 'bg-[#D4AF37]/15 border border-[#D4AF37]/40 text-[#D4AF37]'
-                      : 'text-zinc-300 hover:bg-[#1A1A1A] hover:text-white border border-transparent'
-                  }`}
-                >
-                  <div className="flex items-center gap-2 truncate">
-                    <span className="font-mono text-[9px] text-zinc-500 font-bold">0{idx + 1}</span>
-                    <div className="truncate">
-                      <div className="text-[11px] font-black uppercase tracking-wide truncate">
-                        {track.title}
-                      </div>
-                      <div className="text-[8px] text-zinc-500 truncate">
-                        {track.mood} • {track.tempoBpm} BPM
-                      </div>
-                    </div>
-                  </div>
-                  {currentTrackIndex === idx && isPlaying && !isMuted && (
-                    <span className="h-2 w-2 rounded-full bg-[#D4AF37] animate-ping shrink-0" />
-                  )}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Footer note */}
-          <div className="mt-3 pt-2 border-t border-white/5 text-[9px] text-zinc-500 text-center font-mono uppercase">
-            Plays seamlessly across all draft screens & lobby
-          </div>
-        </div>
-      )}
+      {isOpen && <SoundtrackPanel onClose={() => setIsOpen(false)}/>}
     </div>
   );
 };
+
+function formatTime(seconds: number) {
+  const total = Math.floor(seconds);
+  return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, '0')}`;
+}
+
+function SoundtrackPanel({ onClose }: { onClose: () => void }) {
+  const {
+    isPlaying, isMuted, volume, currentTrack, currentTrackIndex, allTracks, setVolume,
+    nextTrack, prevTrack, selectTrack, play, pause, isIntroActive,
+    shuffle, repeat, toggleShuffle, toggleRepeat, observePosition, seek,
+  } = useSoundtrack();
+  const [position, setPosition] = useState({ elapsed: 0, duration: 0 });
+  const volumePct = isMuted ? 0 : Math.round(volume * 100);
+  const canPlay = allTracks.length > 0 && !isIntroActive;
+  const progress = position.duration ? Math.min(position.elapsed, position.duration) : 0;
+  useEffect(() => observePosition(setPosition), [observePosition]);
+  useEffect(() => {
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', closeOnEscape);
+    return () => document.removeEventListener('keydown', closeOnEscape);
+  }, [onClose]);
+
+  return <ModalPortal>
+    <div className="bk-soundtrack-scrim" onClick={event => { if (event.target === event.currentTarget) onClose(); }}>
+      <section id="soundtrack-panel" className="bk-soundtrack-sheet" role="dialog" aria-modal="true" aria-labelledby="soundtrack-heading">
+        <header className="bk-soundtrack-header">
+          <AudioLines aria-hidden="true"/>
+          <h2 id="soundtrack-heading">Ball Knower Soundtrack</h2>
+          <button type="button" onClick={onClose} aria-label="Close soundtrack settings"><X aria-hidden="true"/></button>
+        </header>
+        <div className="bk-soundtrack-now">
+          <img src="/atmosphere/soundtrack-cover.webp" width="320" height="320" alt=""/>
+          <div>
+            <span>Now playing</span>
+            <h3>{currentTrack.title}</h3>
+            <p>{currentTrack.subtitle}</p>
+          </div>
+        </div>
+        <div className="bk-soundtrack-progress">
+          <span>{formatTime(progress)}</span>
+          <input type="range" aria-label="Playback position" min="0" max={position.duration || 1}
+            step="any" value={progress} disabled={!position.duration}
+            aria-valuetext={formatTime(progress)} onChange={event => seek(event.currentTarget.valueAsNumber)}
+            style={{ '--soundtrack-fill': `${position.duration ? progress / position.duration * 100 : 0}%` } as React.CSSProperties}/>
+          <span>{formatTime(position.duration)}</span>
+        </div>
+        <div className="bk-soundtrack-transport">
+          <button type="button" aria-label="Shuffle tracks" aria-pressed={shuffle} onClick={toggleShuffle}><Shuffle aria-hidden="true"/></button>
+          <button type="button" aria-label="Previous track" disabled={!canPlay} onClick={prevTrack}><SkipBack aria-hidden="true"/></button>
+          <button type="button" className="bk-soundtrack-play" aria-label={isPlaying ? 'Pause' : 'Play'} disabled={!canPlay} onClick={isPlaying ? pause : play}>
+            {isPlaying ? <Pause aria-hidden="true"/> : <Play aria-hidden="true"/>}
+          </button>
+          <button type="button" aria-label="Next track" disabled={!canPlay} onClick={nextTrack}><SkipForward aria-hidden="true"/></button>
+          <button type="button" aria-label="Repeat current track" aria-pressed={repeat} onClick={toggleRepeat}><Repeat1 aria-hidden="true"/></button>
+        </div>
+        <div className="bk-soundtrack-volume">
+          <div><label htmlFor="bk-soundtrack-volume">Volume</label><span>{isMuted ? 'Muted' : `${volumePct}%`}</span></div>
+          <Volume1 aria-hidden="true"/>
+          <input id="bk-soundtrack-volume" type="range" aria-label="Soundtrack volume" min="0" max="100"
+            value={volumePct} aria-valuetext={isMuted ? 'Muted' : `${volumePct}%`}
+            onChange={event => setVolume(event.currentTarget.valueAsNumber / 100, true)}
+            style={{ '--soundtrack-fill': `${volumePct}%` } as React.CSSProperties}/>
+          <Volume2 aria-hidden="true"/>
+        </div>
+        <div className="bk-soundtrack-list-heading"><h3 id="soundtrack-tracks">Track list</h3><span>{allTracks.length} {allTracks.length === 1 ? 'track' : 'tracks'}</span></div>
+        <ol className="bk-soundtrack-list" aria-labelledby="soundtrack-tracks">
+          {allTracks.map((track, index) => {
+            const active = currentTrackIndex === index;
+            return <li key={track.id}>
+              <button type="button" aria-current={active ? 'true' : undefined} disabled={!canPlay} onClick={() => selectTrack(index)}>
+                <span aria-hidden="true">{String(index + 1).padStart(2, '0')}</span>
+                <strong>{track.title}</strong>
+                {active && isPlaying && !isMuted && <AudioLines aria-hidden="true"/>}
+              </button>
+            </li>;
+          })}
+        </ol>
+      </section>
+    </div>
+  </ModalPortal>;
+}

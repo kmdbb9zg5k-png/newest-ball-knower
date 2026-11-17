@@ -23,6 +23,14 @@
 .bkf-drop-title span {color:#f4bd59;text-shadow:0 0 14px #e4a94c75;}
 .bkf-drop-tabs {display:grid;grid-template-columns:1fr 1fr;gap:4px;margin:10px 0 12px;padding:3px;border:1px solid #d1a65994;border-radius:15px;background:#17100a;}
 .bkf-drop-tabs button {display:flex;align-items:center;justify-content:center;gap:7px;min-height:48px;border-radius:11px;border:0;color:#f8ead6;font-weight:900;font-size:clamp(12px,3vw,16px);background:transparent;}
+.bkf-drop-tabs--triple{grid-template-columns:repeat(3,minmax(0,1fr));}
+.bkf-drop-tabs--triple button{min-width:0;padding:6px 4px;gap:5px;font-size:clamp(10px,2.8vw,14px);white-space:nowrap;}
+.bkf-drop-tabs--triple button svg{flex-shrink:0;}
+.bkf-drop-hero[data-bkf-photo="poster"]{aspect-ratio:4/5;}
+.bkf-drop-modal--frostbite .bkf-drop-hero[data-bkf-photo="realistic"]{aspect-ratio:4/5;background:#dce4ea;}
+.bkf-showroom-model-note{margin:8px 0 0;color:#e0d1b1;font-size:12px;text-align:center;}
+.bkf-drop-modal--frostbite .bkf-showroom-model-note{color:#c3e3f1;}
+.bkf-drop-hero[data-bkf-photo="realistic"]{background:#dce0e4;}
 .bkf-drop-tabs button[aria-pressed="true"] {color:#1a1006;background:linear-gradient(120deg,#ffdb8c 0%,#cd9238 100%);box-shadow:inset 0 1px 0 #ffebb5,0 1px 16px #bd7b3659;}
 .bkf-drop-hero {position:relative;overflow:hidden;min-height:320px;height:clamp(340px,48dvh,520px);border:1px solid #cb9647;border-radius:17px;background:radial-gradient(circle at 60% 40%,#593415,#160f09 70%);box-shadow:inset 0 0 26px #e9ae4b16;}
 /* Match the source cover's 4:5 poster ratio instead of zooming and cropping it. */
@@ -83,3 +91,95 @@
 
 @media(max-width:380px){.bkf-drop-includes ul{column-gap:8px}.bkf-drop-cta{padding:9px}.bkf-drop-footer strong{font-size:20px}.bkf-drop-brand small{letter-spacing:.18em}}
 @media(prefers-reduced-motion:reduce){.bkf-drop-modal *{scroll-behavior:auto}}
+
+/* Gold Standard: the original 3D athlete displayed within the premium three-tab product modal. */
+.bkf-drop-modal--gold .bkf-drop-title{font-size:clamp(25px,7vw,54px);white-space:nowrap;}
+.bkf-drop-modal--gold .bkf-drop-title span{color:#f6cc76;}
+.bkf-drop-modal--gold .bkf-drop-hero[data-bkf-photo="realistic"]{background:#342418;}
+.bkf-drop-modal--gold .bkf-drop-hero[data-bkf-display="3d"]{background:#17110b;}
+.bkf-gold-showroom-3d{height:min(68dvh,610px);min-height:400px;overflow:hidden;}
+.bkf-gold-showroom-3d>.bk-athlete-showroom{position:relative;top:auto;display:grid;grid-template-rows:minmax(250px,1fr) auto auto;width:100%;height:100%;margin:0;border:0;border-radius:0;background:#16100a;box-shadow:none;isolation:isolate;}
+.bkf-gold-showroom-3d .bk-athlete-3d-stage{position:relative;inset:auto;width:100%;height:100%;min-height:240px;overflow:hidden;background:linear-gradient(180deg,#ffdb9933,#25160916 48%,#09070462),url('/store/tunnel-showroom.webp') center 63%/cover,#2b1b10;cursor:grab;touch-action:pan-y;}
+.bkf-gold-showroom-3d .bk-athlete-3d-stage canvas{display:block;width:100%;height:100%;}
+.bkf-gold-showroom-3d .bk-showroom-identity{position:absolute;z-index:2;top:10px;left:12px;display:grid;gap:2px;padding:0;color:#fff4d9;font-size:12px;text-align:left;text-shadow:0 2px 9px #000;pointer-events:none;}
+.bkf-gold-showroom-3d .bk-showroom-reset{position:absolute;top:9px;right:9px;z-index:2;display:grid;place-items:center;width:42px;height:42px;border:1px solid #eac67b99;border-radius:50%;background:#130d08c9;}
+.bkf-gold-showroom-3d .bk-showroom-orbit{display:flex;align-items:center;justify-content:space-between;background:#17110b;color:#eac988;font-size:12px;font-style:italic;}
+.bkf-gold-showroom-3d .bk-showroom-orbit button{display:grid;place-items:center;width:40px;height:40px;}
+.bkf-gold-showroom-3d .bk-showroom-views{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:4px;padding:5px 4px 8px;background:#17110b;border:0;}
+.bkf-gold-showroom-3d .bk-showroom-views button{display:grid;align-content:center;justify-items:center;gap:3px;min-width:0;min-height:58px;padding:3px 0;border:1px solid #bfa36969;border-radius:7px;background:#231a10;color:#f5e7c8;font-size:clamp(9px,2.6vw,12px);}
+.bkf-gold-showroom-3d .bk-showroom-views button[aria-pressed="true"]{border-color:#f5c976;background:#433016;color:#ffe29d;}
+.bkf-gold-showroom-3d .bk-showroom-views button svg{display:block;min-height:0;}
+.bkf-gold-showroom-3d .bk-athlete-preview-message{position:absolute;z-index:3;inset:0;display:grid;place-items:center;text-align:center;color:#fff0d4;background:#0f0b0db0;pointer-events:none;}
+.bkf-gold-showroom-3d .bk-athlete-preview-message button{pointer-events:auto;}
+.bkf-gold-showroom-3d .bk-athlete-preview-message{inset:0;gap:8px;padding:12px;background:#100d0bf0;color:#f7e4c8;text-shadow:none;}
+.bkf-gold-showroom-3d .bk-showroom-error-fallback{display:block;width:min(100%,220px);max-height:210px;object-fit:contain;border:1px solid #edc66e77;border-radius:8px;}
+.bkf-gold-showroom-3d .bk-athlete-preview-message p{margin:0;max-width:28ch;line-height:1.4;}
+.bkf-gold-showroom-3d .bk-athlete-preview-message button{min-height:42px;padding:8px 16px;border:1px solid #edc66e;border-radius:8px;background:#392914;color:#f9dda5;font-weight:750;}
+@media(max-width:380px){.bkf-drop-modal--gold .bkf-drop-title{font-size:clamp(23px,6.7vw,44px);}}
+
+/* Recovered 2:3 promotional artwork is shown in full, including its outfit panel. */
+.bkf-drop-modal--character .bkf-drop-hero[data-bkf-display="photos"]{aspect-ratio:2/3;}
+.bkf-drop-modal--character .bkf-drop-title{font-size:clamp(29px,8vw,58px);}
+.bkf-drop-modal--kickflip{border-color:#b7ce37!important;}
+.bkf-drop-modal--kickflip .bkf-drop-heading p,.bkf-drop-modal--kickflip .bkf-drop-brand{color:#d2e949;}
+.bkf-drop-modal--kickflip .bkf-drop-tabs button[aria-pressed="true"],.bkf-drop-modal--kickflip .bkf-drop-cta{background:linear-gradient(120deg,#e1ee9c,#b2c935);color:#111;}
+.bkf-character .bkf-pose-controls button{min-width:44px;min-height:44px;}
+.bkf-character-fallback{position:absolute;inset:0 0 65px;background:#171717;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:12px;gap:8px;text-align:center;font-size:13px;}
+.bkf-character-fallback img{height:65%;max-width:100%;object-fit:contain;}
+.bkf-character-fallback button{min-height:44px;padding:8px 18px;border:1px solid #eac67b;border-radius:8px;}
+.bk-store-concept-poster.bk-store-character-poster{aspect-ratio:2/3;background:#111;}
+.bk-store-concept-poster.bk-store-character-poster img{width:100%;height:100%;object-fit:contain;transform:none;}
+
+/* Stack the collection action and availability on narrow phones. */
+@media(max-width:420px){
+  .bkf-drop-modal--character .bkf-drop-footer{flex-direction:column;align-items:stretch;}
+  .bkf-drop-modal--character .bkf-drop-footer>div{text-align:center;}
+  .bkf-drop-modal--character .bkf-drop-cta{white-space:normal;}
+}
+
+
+/* The Phantom: midnight-black streetwear capsule with restrained chrome accents. */
+.bk-store-product[data-store-product="bkf-phantom"]{border-color:#b3b5bc88;}
+.bk-store-product[data-store-product="bkf-phantom"] .bk-store-concept-poster.bk-store-character-poster{aspect-ratio:4/5;background:#101011;}
+.bk-store-dialog.bkf-drop-modal--phantom{--store-gold:#d7bb85;border-color:#9d9fa9;box-shadow:0 0 0 1px #555d67,0 0 35px #8892a02d,inset 0 0 30px #91969c10;}
+.bkf-drop-modal--phantom .bkf-drop-shell{background:radial-gradient(ellipse at 55% 0%,#a0a6af20,transparent 38%),#090a0c;}
+.bkf-drop-modal--phantom .bkf-drop-heading p,.bkf-drop-modal--phantom .bkf-drop-brand{color:#ddd5c3;}
+.bkf-drop-modal--phantom .bkf-drop-title{color:#f4f2ed;text-shadow:0 0 20px #b7c3d23d;}
+.bkf-drop-modal--phantom .bkf-drop-tabs button[aria-pressed="true"],.bkf-drop-modal--phantom .bkf-drop-cta{background:linear-gradient(120deg,#f8e4b4,#acb0b6);color:#151618;}
+.bkf-drop-modal--phantom .bkf-drop-hero[data-bkf-photo="poster"]{aspect-ratio:4/5;}
+.bkf-drop-modal--phantom .bkf-drop-hero[data-bkf-photo="realistic"]{aspect-ratio:3/4;background:#98948c;}
+.bkf-drop-modal--phantom .bkf-drop-hero[data-bkf-display="3d"]{background:#151619;}
+
+.bkf-drop-modal--iron-wolf { --store-gold:#d6dce4; border-color:#bcc7d5; }
+.bkf-drop-modal--iron-wolf .bkf-drop-shell { background:linear-gradient(145deg,#1a1d22,#090b0e 65%); }
+.bkf-drop-modal--iron-wolf .bkf-drop-title { color:#eef2f7; text-shadow:0 2px 18px #9eb8d733; }
+
+/* BKF Dee: burgundy and chrome, with squared framing and silver details. */
+.bk-store-dialog.bkf-drop-modal--dee {
+  --store-gold: #f0cbd6;
+  border-color: #b8becb;
+  border-radius: 6px;
+  color: #f7eef2;
+  background: #160c13;
+  box-shadow: 0 0 0 2px #681f38, 0 0 36px #9c295233, inset 0 0 28px #b2bac214;
+}
+.bkf-drop-modal--dee .bkf-drop-shell { background: radial-gradient(ellipse at 55% 0%, #8c234544, transparent 42%), #160c13; }
+.bkf-drop-modal--dee .bkf-drop-brand,
+.bkf-drop-modal--dee .bkf-drop-heading p { color: #e9c8d4; }
+.bkf-drop-modal--dee .bkf-drop-brand small { color: #c5bdcb; }
+.bkf-drop-modal--dee .bkf-drop-close { border-color: #b8becb; border-radius: 4px; background: #32121f; box-shadow: 0 0 10px #9b315030; }
+.bkf-drop-modal--dee h2.bkf-drop-title { color: #edf0f6; text-shadow: 0 2px 16px #b5305840; }
+.bkf-drop-modal--dee .bkf-drop-tabs { border-color: #a8aebb; border-radius: 5px; background: #27101b; }
+.bkf-drop-modal--dee .bkf-drop-tabs button { color: #f0e5ec; border-radius: 3px; }
+.bkf-drop-modal--dee .bkf-drop-tabs button[aria-pressed="true"] { color: #fff6fa; background: linear-gradient(120deg, #8a294a, #58182f); box-shadow: inset 0 1px 0 #d79aaf, 0 1px 14px #87233d40; }
+.bkf-drop-modal--dee .bkf-drop-hero { border-color: #b8becb; border-radius: 4px; box-shadow: inset 0 0 18px #a3adbc18; }
+.bkf-drop-modal--dee .bkf-drop-description,
+.bkf-drop-modal--dee .bkf-drop-includes li { color: #eaddE5; }
+.bkf-drop-modal--dee .bkf-drop-includes h3 span { color: #1d1018; background: linear-gradient(110deg, #edf0f6, #b7becb); }
+.bkf-drop-modal--dee .bkf-drop-includes h3::after { background: linear-gradient(90deg, #bd879c, #77284022); }
+.bkf-drop-modal--dee .bkf-drop-includes li::before { border-color: #d4a2b4; color: #edc9d6; }
+.bkf-drop-modal--dee .bkf-drop-footer { border-color: #a26c824f; }
+.bkf-drop-modal--dee .bkf-drop-cta { border-color: #d3a3b5; border-radius: 4px; color: #fff4f8; background: linear-gradient(120deg, #872747, #59172f); box-shadow: 0 0 14px #a7325733; }
+.bkf-drop-modal--dee .bkf-drop-footer strong { color: #e6d3df; }
+.bkf-drop-modal--dee .bkf-drop-footer span,
+.bkf-drop-modal--dee .bkf-drop-disclaimer { color: #cbb6c3; }
