@@ -56,10 +56,24 @@ try {
   if (width === 390) {
    await dialog.getByRole('button',{name:'Continue shopping'}).click();
    await page.getByRole('button',{name:'Shop Characters',exact:true}).click();
+   await page.locator('[data-store-product="bk-femme"]').click();
+   const nicki = page.locator('dialog[data-bkf-collection="bk-femme"]');
+   await nicki.getByRole('button',{name:'Add to cart',exact:true}).click();
+   await nicki.getByRole('button',{name:'Close product',exact:true}).click();
+   await page.getByRole('button',{name:'Helmets',exact:true}).click();
+   const helmet = page.getByRole('button',{name:'Add to cart · Gold Standard',exact:true});
+   await helmet.click();
+   assert.ok((await page.getByRole('button',{name:'View cart · Gold Standard',exact:true}).boundingBox())?.height >= 44);
+   await page.getByRole('button',{name:/Back to Store/i}).filter({visible:true}).first().click();
+   await page.getByRole('button',{name:'Shop Characters',exact:true}).click();
    await page.locator('[data-store-product="frostbite"]').click();
    await page.getByRole('button',{name:'Add to cart',exact:true}).click();
    await page.getByRole('button',{name:'View cart',exact:true}).click();
    await dialog.getByText('Frostbite',{exact:true}).waitFor();
+   await dialog.getByText('BKF Nicki',{exact:true}).waitFor();
+   await dialog.getByText('Gold Standard Helmet',{exact:true}).waitFor();
+   assert.equal(await dialog.getByText('Saved for later · Checkout coming soon',{exact:true}).count(),2);
+   await dialog.getByText('$1.00',{exact:true}).last().waitFor();
    assert.equal(await dialog.getByText('$1.00',{exact:true}).count(),2);
    enableProviders = true;
    await page.route('https://checkout.stripe.com/bk-test',route=>route.fulfill({body:'Stripe fixture'}));
@@ -78,6 +92,8 @@ try {
    enableProviders = false;
    await page.goto('http://127.0.0.1:4189/?store_checkout=return');
    await dialog.getByText('Payments are not open yet.',{exact:false}).waitFor();
+   await dialog.getByRole('button',{name:'Remove BKF Nicki',exact:true}).click();
+   await dialog.getByRole('button',{name:'Remove Gold Standard Helmet',exact:true}).click();
    await dialog.getByRole('textbox',{name:'Character code'}).fill('WRONG');
    await dialog.getByRole('button',{name:'Redeem code'}).click();
    await dialog.getByText('This character code is unavailable for your account.').waitFor();

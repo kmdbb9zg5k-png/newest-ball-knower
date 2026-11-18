@@ -1,6 +1,6 @@
 import Stripe from 'stripe';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import { cartProducts, cleanCart, OUTFIT_PRICES, STORE_CHARACTER_IDS, STORE_WEARABLES, type StorePrices } from '../storeCart.js';
+import { canCheckOutStoreItem, cartProducts, cleanCart, OUTFIT_PRICES, STORE_CHARACTER_IDS, STORE_WEARABLES, type StorePrices } from '../storeCart.js';
 import { CLOTHING_SLOTS } from '../playerWardrobe.js';
 import { CommerceError, runtimeCommerce, verifiedOutfit } from './lockerCommerce.js';
 const fail = (status: number, message: string): never => { throw new CommerceError(status, message); };
@@ -10,7 +10,7 @@ export type StoreItem = { id: string; name: string; amount: number; kind?: 'char
 export type StoreOrder = { id: string; user_id: string; mode: 'test' | 'live'; provider: 'stripe' | 'paypal'; items: StoreItem[]; amount: number; provider_id: string | null; payment_id: string | null; status: string; created_at: string };
 export function storeItems(raw: unknown, prices: StorePrices = OUTFIT_PRICES): StoreItem[] {
   const ids = cleanCart(raw);
-  if (!Array.isArray(raw) || !ids.length || ids.length !== raw.length || raw.length > 20 || ids.some(id => !Object.hasOwn(prices, id))) fail(400, 'Choose available Store items, once each.');
+  if (!Array.isArray(raw) || !ids.length || ids.length !== raw.length || raw.length > 20 || ids.some(id => !canCheckOutStoreItem(id, prices))) fail(400, 'Choose available Store items, once each.');
   return cartProducts(ids).map(p => ({ id: p.id, name: p.name, amount: prices[p.id],
     ...(STORE_CHARACTER_IDS.includes(p.id) ? { kind: 'character' as const } : {}),
   }));

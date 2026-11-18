@@ -4,8 +4,7 @@ import { ShoppingBag, X } from 'lucide-react';
 import { redeemCharacterCode } from './characterPurchases';
 import { refreshLocker } from './lockerCommerceClient';
 import { supabase } from './supabase';
-import { CART_KEY, cartProducts, cartTotal, cleanCart, formatStoreAmount, OUTFIT_PRICES, type StorePrices } from './storeCart';
-import { storeImage } from './storeCatalog';
+import { CART_KEY, canCheckOutStoreItem, cartProducts, cartTotal, cleanCart, formatStoreAmount, OUTFIT_PRICES, type StorePrices } from './storeCart';
 
 export function useStoreCart() {
   const [ids, setIds] = useState<string[]>(() => { try { return cleanCart(JSON.parse(localStorage.getItem(CART_KEY) || '[]')); } catch { return []; } });
@@ -53,7 +52,9 @@ export default function StoreCart({ cart, onClose }: { cart: ReturnType<typeof u
   const [code, setCode] = useState('');
   const [redemptionMessage, setRedemptionMessage] = useState('');
   const native = Capacitor.isNativePlatform();
-  const unavailable = cart.ids.some(id => !status?.catalogPrices?.[id]);
+  const checkoutPrices: StorePrices = status?.catalogPrices ?? {};
+  const checkoutIds = cart.ids.filter(id => canCheckOutStoreItem(id, checkoutPrices));
+  const savedCount = cart.ids.length - checkoutIds.length;
   async function refresh() {
     const id = ++refreshId.current;
     setError('');
@@ -74,10 +75,10 @@ export default function StoreCart({ cart, onClose }: { cart: ReturnType<typeof u
     return () => { clearTimeout(timer); subscription?.data.subscription.unsubscribe(); };
   }, []);
   async function checkout(provider: 'stripe' | 'paypal') {
-    if (busy) return;
+    if (busy || !checkoutIds.length) return;
     setBusy(true); setError('');
     try {
-      const data = await request({ action: 'checkout', ids: cart.ids, provider });
+      const data = await request({ action: 'checkout', ids: checkoutIds, provider });
       const url = new URL(data.url);
       if (url.protocol !== 'https:' || !(provider === 'stripe' ? ['checkout.stripe.com'] : ['www.paypal.com', 'www.sandbox.paypal.com']).includes(url.hostname)) throw new Error('Checkout returned an invalid address.');
       window.location.assign(url.href);
@@ -103,13 +104,17 @@ export default function StoreCart({ cart, onClose }: { cart: ReturnType<typeof u
   return <dialog ref={dialog} className="bk-store-dialog bk-cart-dialog" aria-labelledby="bk-cart-title" onClose={onClose}>
     <div className="bk-store-dialog-content">
       <header className="bk-store-dialog-header"><h2 id="bk-cart-title"><ShoppingBag size={24}/> Your cart</h2><button type="button" className="bk-store-icon-button" aria-label="Close cart" onClick={() => dialog.current?.close()}><X/></button></header>
-      <p>Outfits and playable characters for your Ball Knower account.</p>
+      <p>Save gear, outfits, and characters in one cart.</p>
       {cartProducts(cart.ids).map(product => <div className="bk-cart-item" key={product.id}>
-        <img src={storeImage(product.id)} alt=""/><div><strong>{product.name}</strong><span>{cart.prices[product.id] ? formatStoreAmount(cart.prices[product.id]) : 'Price unavailable'}</span></div>
+        <img src={product.image} alt=""/>
+        <div>
+          <strong>{product.name}</strong>
+          <span>{canCheckOutStoreItem(product.id, checkoutPrices) ? formatStoreAmount(checkoutPrices[product.id]) : 'Saved for later · Checkout coming soon'}</span>
+        </div>
         <button type="button" disabled={busy} className="bk-store-button" aria-label={`Remove ${product.name}`} onClick={() => cart.remove(product.id)}>Remove</button>
       </div>)}
       {!cart.ids.length && <p className="bk-cart-empty">Your cart is empty. Explore the Store to add an item.</p>}
-      <div className="bk-cart-total"><strong>Subtotal</strong><strong>{formatStoreAmount(cartTotal(cart.ids, cart.prices))}</strong></div>
+      {checkoutIds.length > 0 && <div className="bk-cart-total"><strong>Checkout subtotal</strong><strong>{formatStoreAmount(cartTotal(checkoutIds, checkoutPrices))}</strong></div>}
       {native ? <p>Purchasing in the native app is not available yet.</p> : <>
         <form className="bk-cart-code" onSubmit={redeem}>
           <label htmlFor="bk-character-code">Character code</label>
@@ -121,11 +126,11 @@ export default function StoreCart({ cart, onClose }: { cart: ReturnType<typeof u
         {status?.owned?.length > 0 && <p role="status">{status.mode === 'test' ? 'Test checkout verified.' : 'Order verified. Find outfits in My Locker and playable characters in Profile.'}</p>}
         {status?.mode === 'test' && <p role="status">Test checkout — no real money or live ownership.</p>}
         {status && (status.stripe || status.paypal) && !status.signedIn && <p>Sign in to check out and save purchases to your account.</p>}
-        {status?.signedIn && unavailable && <p>Remove items without a current price to continue.</p>}
+        {status && savedCount > 0 && checkoutIds.length > 0 && <p>Only checkout-ready items are included in this total. The rest stay in your cart.</p>}
         {!status?.stripe && !status?.paypal && <p>{status ? 'Payments are not open yet. Your cart is saved for later.' : error ? 'Checkout is unavailable. Your cart is saved.' : 'Checking checkout availability…'}</p>}
         <div className="bk-cart-payment-actions">
-          <button type="button" className="bk-store-button bk-store-button-gold" disabled={busy || !cart.ids.length || unavailable || !status?.signedIn || !status?.stripe} onClick={() => checkout('stripe')}>{busy ? 'Opening checkout…' : 'Checkout · Card / Apple Pay / Google Pay'}</button>
-          <button type="button" className="bk-store-button" disabled={busy || !cart.ids.length || unavailable || !status?.signedIn || !status?.paypal} onClick={() => checkout('paypal')}>Checkout with PayPal</button>
+          <button type="button" className="bk-store-button bk-store-button-gold" disabled={busy || !checkoutIds.length || !status?.signedIn || !status?.stripe} onClick={() => checkout('stripe')}>{busy ? 'Opening checkout…' : 'Checkout · Card / Apple Pay / Google Pay'}</button>
+          <button type="button" className="bk-store-button" disabled={busy || !checkoutIds.length || !status?.signedIn || !status?.paypal} onClick={() => checkout('paypal')}>Checkout with PayPal</button>
         </div>
         {status?.stripe && <p className="bk-store-purchase-status">Have a promo code? Enter it on the card checkout page.</p>}
         <p className="bk-store-purchase-status">Available wallets appear on supported devices at checkout. Items unlock after checkout is verified.</p>

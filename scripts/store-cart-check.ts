@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict';
 import { cleanCart, cartTotal } from '../storeCart';
 import { storeConfig, storeItems, verifyStripeOrder, verifyPayPalOrder, type StoreOrder } from '../server/storeCommerce';
-assert.deepEqual(cleanCart(['gold-standard','tunnel-fit','tunnel-fit','frostbite','bfk-dee',null,'__proto__']), ['frostbite','gold-standard','tunnel-fit']);
+assert.deepEqual(cleanCart(['gold-standard','tunnel-fit','tunnel-fit','frostbite','bfk-dee','helmet:gold-standard',null,'__proto__']), ['bfk-dee','frostbite','gold-standard','helmet:gold-standard','tunnel-fit']);
+assert.throws(() => storeItems(['bfk-dee'], { 'bfk-dee': 100 }));
+assert.throws(() => storeItems(['helmet:gold-standard'], { 'helmet:gold-standard': 100 }));
 assert.equal(cartTotal(['gold-standard','tunnel-fit']),598);
 for(const input of [null,[],['frostbite'],['tunnel-fit','tunnel-fit'],[{id:'tunnel-fit',amount:1}]]) assert.throws(()=>storeItems(input));
 const items=storeItems(['tunnel-fit','gold-standard']);

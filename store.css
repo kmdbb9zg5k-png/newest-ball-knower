@@ -689,3 +689,8 @@ body:has(.bk-tunnel-showroom[open]) { overflow: hidden; }
 
 .bk-store-cart-entry { display:flex; justify-content:flex-end; margin:0 0 10px; }
 .bk-store-cart-entry button { min-height:44px; }
+.bk-store-gear-cart { padding-bottom: 0; }
+.bk-store-card-with-action { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.bk-store-card-with-action > button:first-child { flex: 1; min-width: 0; }
+.bk-store-add-to-cart { max-width: 100%; white-space: normal; }
+.bk-store-card-owned { display: grid; min-height: 44px; place-items: center; color: #edc66e; font-weight: 750; }
