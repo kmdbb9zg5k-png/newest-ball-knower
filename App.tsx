@@ -166,7 +166,7 @@ function BallKnowerApp(){
         {currentTab==='football'&&<FootballArenaScreen onOpenAuth={()=>setIsAuthOpen(true)} onBack={returnToGameModes}/>}
         {currentTab==='community'&&<CommunityHub onOpenAuth={()=>setIsAuthOpen(true)} onOpenTrivia={()=>goToTab('challenges')} onViewLocker={openCommunityLocker}/>}
         {currentTab==='ask'&&<AskBkHub/>}
-        {currentTab==='store'&&<StoreHub key={storeEntry.revision} initialCategory={storeEntry.category} onOpenLocker={()=>goToTab('wardrobe')} onOpenGauntlet={()=>goToTab('challenges')}/>}
+        {currentTab==='store'&&<StoreHub key={storeEntry.revision} initialCategory={storeEntry.category} onOpenLocker={()=>goToTab('wardrobe')} onOpenGauntlet={()=>goToTab('challenges')} onOpenAuth={()=>setIsAuthOpen(true)} onOpenProfile={()=>goToTab('locker')}/>}
         {currentTab==='wardrobe'&&<PlayerClothingLocker onCreatePlayer={()=>{setSoloExperience('player');goToTab('solo');}} onShopGear={openGearStore}/>}
         {currentTab==='locker'&&<LockerHub onOpenAuth={()=>setIsAuthOpen(true)} viewedMember={viewedLockerMember} onBack={viewedLockerMember?closeMemberLocker:undefined}/>}
         {currentTab==='partners'&&<PartnersPage onBack={()=>setCurrentTab('home')}/>}

@@ -5,6 +5,9 @@ on:
       - 'public/play-moment-3d/**'
       - 'public/play-moment-3d-preview.html'
       - 'scripts/check-gameplay-polish.mjs'
+      - 'scripts/check-game-athlete-browser.mjs'
+      - 'field-character.ts'
+      - 'GameAthleteSetup.tsx'
       - 'scripts/check-carry-control.mjs'
       - 'scripts/check-catch-controls.mjs'
       - '.github/workflows/gameplay-polish-review.yml'
@@ -39,3 +42,22 @@ jobs:
         with:
           name: carry-control-48
           path: artifacts/carry-control-48
+  game-athlete:
+    runs-on: ubuntu-latest
+    timeout-minutes: 14
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npx playwright install --with-deps chromium
+      - run: npm run build
+      - run: node scripts/check-game-athlete-browser.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: game-athlete-modes
+          path: artifacts/game-athlete-modes/
+          if-no-files-found: ignore

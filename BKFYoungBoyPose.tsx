@@ -1,3 +1,4 @@
+import { STORE_CHARACTER_RIGS } from './storeCatalog';
 import { useEffect, useRef, useState } from 'react';
 import { Box3, Color, DirectionalLight, Group, HemisphereLight, PerspectiveCamera, Scene, SRGBColorSpace, ACESFilmicToneMapping, Vector3, WebGLRenderer } from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
@@ -5,7 +6,7 @@ import './bkf-pose.css';
 
 // Existing fal library original: dbpirm4regj0dv5vedtg. Never modify its bind pose.
 // This hosted URL is a prototype dependency; move it to durable asset hosting before launch.
-const SOURCE='https://v3b.fal.media/files/b/0ab1eab7/V83xtyKKr4wmgiSU8ye4w_rigged_character.glb';
+const SOURCE = STORE_CHARACTER_RIGS['bkf-youngboy'];
 export default function BKFYoungBoyPose(){
   const host=useRef<HTMLDivElement>(null),turn=useRef<Group|null>(null);
   const [state,setState]=useState<'loading'|'ready'|'unavailable'|'failed'>('loading');
