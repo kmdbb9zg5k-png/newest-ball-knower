@@ -51,7 +51,10 @@
 .bkf-drop-includes li::before {content:"✓";display:grid;place-items:center;position:absolute;left:0;top:0;width:17px;height:17px;border:1px solid #f1c36e;border-radius:50%;color:#f1c36e;font-size:11px;font-weight:900;}
 .bkf-drop-footer {display:flex;align-items:center;justify-content:space-between;gap:12px;padding-top:15px;border-top:1px solid #c3995763;}
 .bkf-drop-cta {display:flex;align-items:center;justify-content:center;gap:7px;min-height:52px;padding:11px 13px;border:1px solid #ffe0a2;border-radius:12px;background:linear-gradient(125deg,#ffde91,#cf963e);color:#140c05;font-size:clamp(11px,2.9vw,16px);font-weight:950;text-transform:uppercase;box-shadow:0 0 16px #e8ac493f;white-space:nowrap;}
-.bkf-drop-footer>div {display:grid;gap:5px;text-align:right;flex:none;}
+.bkf-drop-actions {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;min-width:0;flex:1;}
+.bkf-drop-actions .bkf-drop-cta,.bkf-drop-actions .bk-store-add-to-cart {min-width:0;min-height:52px;white-space:normal;}
+.bkf-drop-actions .bkf-drop-cta svg {flex:none;}
+.bkf-drop-price {display:grid;gap:5px;text-align:right;flex:none;}
 .bkf-drop-footer strong {font-family:var(--store-display);font-style:italic;font-size:clamp(20px,5.4vw,34px);color:#f0ca7c;line-height:1;}
 .bkf-drop-footer span {font-size:9px;letter-spacing:.15em;text-transform:uppercase;color:#e8d0aa;}
 .bkf-drop-disclaimer {margin:13px 0 0;color:#c3b39c;font-size:11px;line-height:1.5;text-align:center;}
@@ -130,11 +133,10 @@
 .bk-store-concept-poster.bk-store-character-poster{aspect-ratio:2/3;background:#111;}
 .bk-store-concept-poster.bk-store-character-poster img{width:100%;height:100%;object-fit:contain;transform:none;}
 
-/* Stack the collection action and availability on narrow phones. */
-@media(max-width:420px){
-  .bkf-drop-modal--character .bkf-drop-footer{flex-direction:column;align-items:stretch;}
-  .bkf-drop-modal--character .bkf-drop-footer>div{text-align:center;}
-  .bkf-drop-modal--character .bkf-drop-cta{white-space:normal;}
+/* Keep both actions together and put availability on its own row on phones. */
+@media(max-width:540px){
+  .bkf-drop-footer{flex-direction:column;align-items:stretch;}
+  .bkf-drop-price{text-align:center;}
 }
 
 

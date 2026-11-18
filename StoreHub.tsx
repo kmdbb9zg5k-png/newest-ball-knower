@@ -128,8 +128,6 @@ function BKFConceptDialog({ product, onClose, cartPrice, action, characterOwned,
         <p>{showcase ? showcase.collection : isGold ? 'Gold Standard Outfit Collection' : isFrostbite ? 'Icebound Concept Collection' : 'Streetwear Concept Collection'}</p>
         <h2 id="bkf-drop-title" className="bkf-drop-title">{showcase ? product.name : isGold ? <>Gold <span>Standard</span></> : <><span>BKF</span> {isFrostbite ? 'Frostbite' : 'YoungBoy'}</>}</h2>
       </div>
-      {action}
-
       <div className={"bkf-drop-tabs" + (has3d ? " bkf-drop-tabs--triple" : "")} role="group" aria-label="Product view">
         <button type="button" aria-pressed={view === 'poster'} onClick={() => { setArt(storeImage(product.id)); setView('poster'); }}>Full poster</button>
         <button type="button" aria-pressed={view === 'realistic'} onClick={() => { setArt(showcase?.look ?? storeImage(isGold ? 'gold-standard-realistic' : isFrostbite ? 'frostbite-look' : 'bkf-youngboy-look')); setView('realistic'); }}>{showcase?.pose ?? (product.id === 'bk-femme' ? 'A-pose' : 'Realistic view')}</button>
@@ -166,16 +164,19 @@ function BKFConceptDialog({ product, onClose, cartPrice, action, characterOwned,
         ? <a className="bk-store-button" href={`/combine.html?drill=dash&character=${encodeURIComponent(product.id)}`}>Run the 40 as {product.name}</a>
         : <p className="bkf-showroom-model-note">{loading ? 'Checking character purchases…' : 'Purchase required to play'}</p>)}
       <footer className="bkf-drop-footer">
-        <button type="button" className="bkf-drop-cta" onClick={() => {
-          if (!has3d && showcase) {
-            const next = view === 'poster' ? 'realistic' : 'poster';
-            setArt(next === 'poster' ? storeImage(product.id) : showcase.look); setView(next);
-          } else if (view === '3d') { setArt(storeImage(product.id)); setView('poster'); }
-          else setView('3d');
-        }}>
-          {has3d ? <BoxIcon size={21} aria-hidden="true"/> : <ImageIcon size={21} aria-hidden="true"/>}{!has3d ? (view === 'poster' ? 'View A-pose' : 'View full poster') : view === '3d' ? 'View full poster' : 'Preview in 3D'}
-        </button>
-        <div><strong>{cartPrice ? formatStoreAmount(cartPrice) : 'Coming Soon'}</strong><span>{cartPrice ? (playable ? 'Playable character' : 'Outfit') : 'Concept Collection'}</span></div>
+        <div className="bkf-drop-actions">
+          <button type="button" className="bkf-drop-cta" onClick={() => {
+            if (!has3d && showcase) {
+              const next = view === 'poster' ? 'realistic' : 'poster';
+              setArt(next === 'poster' ? storeImage(product.id) : showcase.look); setView(next);
+            } else if (view === '3d') { setArt(storeImage(product.id)); setView('poster'); }
+            else setView('3d');
+          }}>
+            {has3d ? <BoxIcon size={21} aria-hidden="true"/> : <ImageIcon size={21} aria-hidden="true"/>}{!has3d ? (view === 'poster' ? 'View A-pose' : 'View full poster') : view === '3d' ? 'View full poster' : 'Preview in 3D'}
+          </button>
+          {action}
+        </div>
+        <div className="bkf-drop-price"><strong>{cartPrice ? formatStoreAmount(cartPrice) : 'Coming Soon'}</strong><span>{cartPrice ? (playable ? 'Playable character' : 'Outfit') : 'Concept Collection'}</span></div>
       </footer>
       <p className="bkf-drop-disclaimer">{playable ? 'A verified purchase unlocks this character for games.' : isGold ? 'Equip this outfit from My Locker after purchase.' : 'Photo collection · Coming soon.'}</p>
     </div>

@@ -39,7 +39,13 @@ try {
   await page.getByText('Added to your cart',{exact:true}).waitFor();
   await page.getByRole('button',{name:'Back to shop',exact:true}).click();
   await page.locator('[data-store-product="gold-standard"]').click();
-  await page.getByRole('button',{name:'Add to cart',exact:true}).click();
+  const goldActions = page.locator('dialog[data-bkf-collection="gold-standard"] .bkf-drop-actions');
+  const preview = goldActions.getByRole('button',{name:'Preview in 3D',exact:true});
+  const add = goldActions.getByRole('button',{name:'Add to cart',exact:true});
+  await add.scrollIntoViewIfNeeded();
+  const [previewBox,addBox] = await Promise.all([preview.boundingBox(),add.boundingBox()]);
+  assert.ok(previewBox && addBox && Math.abs(previewBox.y-addBox.y)<2 && addBox.x>=previewBox.x+previewBox.width && addBox.height>=44);
+  await add.click();
   await page.getByRole('button',{name:'View cart',exact:true}).click();
   await dialog.getByText('$5.98',{exact:true}).waitFor();
   assert.equal(await dialog.locator('.bk-cart-item').count(),2);
@@ -58,7 +64,7 @@ try {
    await page.getByRole('button',{name:'Shop Characters',exact:true}).click();
    await page.locator('[data-store-product="bk-femme"]').click();
    const nicki = page.locator('dialog[data-bkf-collection="bk-femme"]');
-   await nicki.getByRole('button',{name:'Add to cart',exact:true}).click();
+   await nicki.locator('.bkf-drop-actions').getByRole('button',{name:'Add to cart',exact:true}).click();
    await nicki.getByRole('button',{name:'Close product',exact:true}).click();
    await page.getByRole('button',{name:'Helmets',exact:true}).click();
    const helmet = page.getByRole('button',{name:'Add to cart · Gold Standard',exact:true});
