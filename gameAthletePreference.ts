@@ -1,11 +1,10 @@
 import type { Session } from '@supabase/supabase-js';
 import { purchasedCharacterIds } from './characterPurchases';
-import { gameAthlete, GAME_ATHLETE_KEY, readGameAthlete } from './public/play-moment-3d/game-athlete.js';
+import { gameAthlete, GAME_ATHLETE_KEY, GAME_ATHLETE_OWNER_KEY, readGameAthlete, readGuestGameAthlete } from './public/play-moment-3d/game-athlete.js';
 import { practiceAsset, STORE_PRODUCTS } from './storeCatalog';
 import { supabase } from './supabase';
 
 export const GAME_ATHLETE_CHANGED = 'bk-game-athlete-changed';
-const ownerKey = 'bk-game-athlete-owner-v1';
 const metadataKey = 'bk_game_athlete';
 const characters = STORE_PRODUCTS.filter(practiceAsset);
 type Preference = NonNullable<ReturnType<typeof gameAthlete>>;
@@ -13,14 +12,13 @@ type Preference = NonNullable<ReturnType<typeof gameAthlete>>;
 export function accountGameAthlete(session: Session | null) {
   const user = session?.user;
   const account = user && !user.is_anonymous ? user : null;
-  const remote = gameAthlete(account?.user_metadata[metadataKey]);
+  if (!account) return readGuestGameAthlete();
+  const remote = gameAthlete(account.user_metadata[metadataKey]);
   if (remote) return remote;
   try {
-    const owner = localStorage.getItem(ownerKey);
-    if (owner && owner !== (account?.id ?? 'guest')) return null;
-    const legacy = readGameAthlete();
-    // Legacy builds work for guests. A purchased character always needs its owner.
-    return legacy && !account ? { ...legacy, character: '' } : legacy;
+    const owner = localStorage.getItem(GAME_ATHLETE_OWNER_KEY);
+    if (owner && owner !== account.id) return null;
+    return readGameAthlete();
   } catch {
     return null;
   }
@@ -57,7 +55,7 @@ export async function saveGameAthlete(preference: Preference) {
     if (error || data.user?.id !== account.id) throw new Error('Could not save to your account. Try again.');
   }
   try {
-    localStorage.setItem(ownerKey, account?.id ?? 'guest');
+    localStorage.setItem(GAME_ATHLETE_OWNER_KEY, account?.id ?? 'guest');
     localStorage.setItem(GAME_ATHLETE_KEY, JSON.stringify(preference));
   } catch {
     if (!account) throw new Error('Could not save on this device.');

@@ -1,4 +1,4 @@
-import {ATHLETE_ROSTER_SLOTS,gameAthlete as sanitizeGameAthlete} from './game-athlete.js';
+import {ATHLETE_ROSTER_SLOTS,gameAthlete as sanitizeGameAthlete,hasStoredGameAccount,readGuestGameAthlete} from './game-athlete.js?v=locker-athlete-2';
 import {readLegendsField,setLegendsStart,reportLegendsResult} from './legends-field.js';
 import {readGameGearProfile,sanitizeGameGear,gameGearRosterId} from './game-gear.js';
 import {installControlSettings} from './control-settings.js';
@@ -470,8 +470,11 @@ export async function start(){
   miniConfig.legendsTitle=legends.scenario.title;
  }
  const fullGame=Boolean(miniConfig);
- const {resolveGameAthlete}=await import('/assets/bk-game-athlete.js');
- const {saved:savedAthlete}=await resolveGameAthlete();
+ let savedAthlete=readGuestGameAthlete();
+ if(hasStoredGameAccount()){
+  const {resolveGameAthlete}=await import('/assets/bk-game-athlete.js');
+  ({saved:savedAthlete}=await resolveGameAthlete());
+ }
  const careerProfile=params.get('bkChallenge')?.startsWith('career:')?readGameGearProfile():null;
  const gameAthlete=savedAthlete&&careerProfile
   ?sanitizeGameAthlete({...savedAthlete,position:careerProfile.position,heightInches:careerProfile.heightInches,weightLbs:careerProfile.weightLbs})
