@@ -147,11 +147,11 @@ try {
       await page.keyboard.press('Escape');
       await guide.waitFor({ state: 'detached' });
       if (engine === 'chromium' && (width === 430 || isGuest)) {
-        const gameCharacter = profile.locator('.bk-profile-game-character');
+        const gameCharacter = page.locator('.bk-profile-game-character');
         await gameCharacter.getByText('My Player', { exact: true }).waitFor();
         await gameCharacter.getByRole('button', { name: 'Switch character', exact: true }).click();
         const picker = page.getByRole('dialog', { name: 'Switch game character', exact: true });
-        await picker.getByText('Purchase a Store character to play as them.').waitFor();
+        await picker.getByText(isGuest ? 'Sign in with the account you used to unlock your characters.' : '1 unlocked on this account').waitFor();
         const character = picker.getByRole('combobox', { name: 'Character', exact: true });
         assert.equal(await character.locator('option[value="bkf-phantom"]').evaluate(option => option.disabled), true);
         assert.equal(await character.locator('option[value="bkf-kickflip"]').evaluate(option => option.disabled), isGuest);
@@ -345,7 +345,7 @@ try {
         for (const button of profileButtons) { if (await button.isVisible()) { await button.click(); break; } }
         const showcase = page.getByRole('region', { name: 'Player showcase' });
         await showcase.locator('[data-render-state="ready"]').waitFor({ timeout: 30000 });
-        const gameCharacter = showcase.locator('.bk-profile-game-character');
+        const gameCharacter = page.locator('.bk-profile-game-character');
         await gameCharacter.getByText('BKF Kickflip', { exact: true }).waitFor();
         await gameCharacter.getByRole('button', { name: 'Switch character', exact: true }).click();
         const picker = page.getByRole('dialog', { name: 'Switch game character', exact: true });

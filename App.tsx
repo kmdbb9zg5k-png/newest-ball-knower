@@ -66,13 +66,14 @@ function BallKnowerApp(){
   const [currentTab,setCurrentTabState]=useState<AppTab>(()=>{
     const params = new URLSearchParams(window.location.search);
     if (params.has('store_checkout')) return 'store';
+    if (params.get('profile') === '1') return 'locker';
     if (params.has('locker_checkout')) return 'wardrobe';
     if (params.get('footballH2H') === '1') return 'football';
     return params.get('storeCharacters') === '1' ? 'store' : 'home';
   });
   const navigationRevision=useRef(0);
   const setCurrentTab=useCallback((next:React.SetStateAction<AppTab>)=>{navigationRevision.current++;setCurrentTabState(next);},[]);
-  useEffect(()=>{const url=new URL(location.href);if(url.searchParams.has('footballH2H')||url.searchParams.has('storeCharacters')){url.searchParams.delete('footballH2H');url.searchParams.delete('storeCharacters');history.replaceState(history.state,'',url.pathname+url.search+url.hash);}},[]);
+  useEffect(()=>{const url=new URL(location.href);if(url.searchParams.has('footballH2H')||url.searchParams.has('storeCharacters')||url.searchParams.has('profile')){url.searchParams.delete('footballH2H');url.searchParams.delete('storeCharacters');url.searchParams.delete('profile');history.replaceState(history.state,'',url.pathname+url.search+url.hash);}},[]);
   const tabHistory=useRef<AppTab[]>([]);
   const goToTab=useCallback((tab:AppTab)=>{setCurrentTab(current=>{if(current===tab)return current;tabHistory.current.push(current);if(tabHistory.current.length>24)tabHistory.current.shift();return tab})},[]);
   const goBack=useCallback(()=>{setCurrentTab(current=>{let previous=tabHistory.current.pop();while(previous===current)previous=tabHistory.current.pop();return previous||'home'})},[]);

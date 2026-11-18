@@ -33,7 +33,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 8px 14px;
-  margin-inline: clamp(10px, 3vw, 20px);
+  margin-block: 0 12px;
   padding: 8px 12px;
   border: 1px solid #a97e3659;
   border-radius: 10px;

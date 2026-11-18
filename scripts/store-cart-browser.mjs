@@ -126,7 +126,16 @@ try {
    assert.equal(await characters.locator('option[value="bkf-phantom"]').evaluate(option => option.disabled),true);
    await picker.getByRole('button',{name:'Save game character',exact:true}).click();
    await page.locator('.bk-profile-game-character').getByText('Frostbite',{exact:true}).waitFor();
-   console.log('PASS private character code with payments disabled and unlocked character selectable in Profile');
+   await page.getByRole('button',{name:'Store',exact:true}).filter({visible:true}).first().click();
+   await page.getByRole('button',{name:'My Locker',exact:true}).click();
+   const wardrobe = page.getByRole('region',{name:'Player clothing locker'});
+   await wardrobe.getByRole('button',{name:'Switch character',exact:true}).click();
+   await picker.getByText('1 unlocked on this account').waitFor();
+   assert.equal(await picker.getByRole('combobox',{name:'Character',exact:true}).inputValue(),'frostbite');
+   await picker.getByRole('button',{name:'Cancel',exact:true}).click();
+   await page.goto('http://127.0.0.1:4189/?profile=1');
+   await page.getByRole('button',{name:'Switch character',exact:true}).waitFor();
+   console.log('PASS redeemed character selectable in Profile and Wardrobe, plus direct Profile link');
    console.log('PASS Store character cart and mocked Stripe and PayPal checkout handoff');
   }
   assert.deepEqual(errors,[]);await context.close();console.log(`PASS ${width}px: add two, total, remove, refresh persistence, return route, disabled payments, no overflow/errors`);
