@@ -63,16 +63,25 @@ function BallKnowerApp(){
   const {activeLeague,currentUser,setActiveLeagueId,toastMessage,joinLeague}=useBallKnower();
   const {setIntroActive}=useSoundtrack();
   const setIntroActiveRef=useRef(setIntroActive);
-  const [currentTab,setCurrentTabState]=useState<AppTab>(()=>new URLSearchParams(window.location.search).has('locker_checkout')?'wardrobe':new URLSearchParams(window.location.search).get('footballH2H')==='1'?'football':'home');
+  const [currentTab,setCurrentTabState]=useState<AppTab>(()=>{
+    const params = new URLSearchParams(window.location.search);
+    if (params.has('store_checkout')) return 'store';
+    if (params.has('locker_checkout')) return 'wardrobe';
+    if (params.get('footballH2H') === '1') return 'football';
+    return params.get('storeCharacters') === '1' ? 'store' : 'home';
+  });
   const navigationRevision=useRef(0);
   const setCurrentTab=useCallback((next:React.SetStateAction<AppTab>)=>{navigationRevision.current++;setCurrentTabState(next);},[]);
-  useEffect(()=>{const url=new URL(location.href);if(url.searchParams.has('footballH2H')){url.searchParams.delete('footballH2H');history.replaceState(history.state,'',url.pathname+url.search+url.hash);}},[]);
+  useEffect(()=>{const url=new URL(location.href);if(url.searchParams.has('footballH2H')||url.searchParams.has('storeCharacters')){url.searchParams.delete('footballH2H');url.searchParams.delete('storeCharacters');history.replaceState(history.state,'',url.pathname+url.search+url.hash);}},[]);
   const tabHistory=useRef<AppTab[]>([]);
   const goToTab=useCallback((tab:AppTab)=>{setCurrentTab(current=>{if(current===tab)return current;tabHistory.current.push(current);if(tabHistory.current.length>24)tabHistory.current.shift();return tab})},[]);
   const goBack=useCallback(()=>{setCurrentTab(current=>{let previous=tabHistory.current.pop();while(previous===current)previous=tabHistory.current.pop();return previous||'home'})},[]);
   const [fantasyView,setFantasyView]=useState<'leagues'|'cheatsheet'>('leagues');
   const [soloExperience,setSoloExperience]=useState<SoloExperience>('hub');
-  const [storeEntry,setStoreEntry]=useState<{category?:StoreCategory;revision:number}>({revision:0});
+  const [storeEntry,setStoreEntry]=useState<{category?: StoreCategory | 'characters'; revision:number}>(()=>({
+    category: new URLSearchParams(window.location.search).get('storeCharacters') === '1' ? 'characters' : undefined,
+    revision: 0,
+  }));
   const [isAuthOpen,setIsAuthOpen]=useState(false);
   const [isLaunchAuth,setIsLaunchAuth]=useState(false);
   const [isCreateLeagueOpen,setIsCreateLeagueOpen]=useState(false);
