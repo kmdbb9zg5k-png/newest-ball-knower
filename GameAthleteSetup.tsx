@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { ATHLETE_POSITIONS, ATHLETE_BODY_LIMITS, feetAndInches } from './athleteBuild';
 import { readAthletePassport } from './athletePassport';
 import { usePurchasedCharacters } from './usePurchasedCharacters';
+import './profileAthleteShowcase.css';
 import { practiceAsset, STORE_PRODUCTS } from './storeCatalog';
 import { GAME_ATHLETE_KEY, gameAthlete, readGameAthlete } from './public/play-moment-3d/game-athlete.js';
 
@@ -62,7 +63,7 @@ export default function GameAthleteSetup({ onSaved, variant }: { onSaved?: () =>
             </option>)}
           </select>
         </label>
-        <p className="text-xs text-zinc-300">{loading ? 'Checking character purchases…' : 'Purchase a Store character to play as them.'}</p>
+        <p className="text-xs text-zinc-300">{loading ? 'Checking character access…' : owned.size ? `${owned.size} unlocked on this account` : 'Sign in with the account you used to unlock your characters.'}</p>
         <label className="grid gap-1 text-sm">Football position
           <select value={draft.position} className="h-11 rounded-lg bg-[#243344] px-3"
             onChange={e => setDraft({ ...draft, position: e.target.value })}>
