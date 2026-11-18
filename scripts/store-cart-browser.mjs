@@ -127,6 +127,7 @@ try {
    await picker.getByRole('button',{name:'Save game character',exact:true}).click();
    await page.locator('.bk-profile-game-character').getByText('Frostbite',{exact:true}).waitFor();
    await page.getByRole('button',{name:'Store',exact:true}).filter({visible:true}).first().click();
+   await page.getByRole('button',{name:'Shop Characters',exact:true}).click();
    await page.getByRole('button',{name:'My Locker',exact:true}).click();
    const wardrobe = page.getByRole('region',{name:'Player clothing locker'});
    await wardrobe.getByRole('button',{name:'Switch character',exact:true}).click();
