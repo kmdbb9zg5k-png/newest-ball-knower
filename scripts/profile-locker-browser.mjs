@@ -161,6 +161,11 @@ try {
           await character.selectOption('bkf-kickflip');
           await picker.getByRole('button', { name: 'Save game character', exact: true }).click();
           await gameCharacter.getByText('BKF Kickflip', { exact: true }).waitFor();
+          const showcase = page.getByRole('region', { name: 'Player showcase' });
+          const photo = showcase.getByRole('img', { name: 'BKF Kickflip', exact: true });
+          await photo.waitFor();
+          await photo.evaluate(img => img.decode());
+          assert.equal(await showcase.locator('.bk-athlete-profile-showcase').count(), 0);
           assert.deepEqual(await page.evaluate(() => JSON.parse(localStorage.getItem('bk-game-athlete-v1'))),
             { character: 'bkf-kickflip', position: 'RB', heightInches: 75, weightLbs: 245 });
         }
@@ -344,7 +349,11 @@ try {
         const profileButtons = await page.getByRole('button', { name: 'Profile', exact: true }).all();
         for (const button of profileButtons) { if (await button.isVisible()) { await button.click(); break; } }
         const showcase = page.getByRole('region', { name: 'Player showcase' });
-        await showcase.locator('[data-render-state="ready"]').waitFor({ timeout: 30000 });
+        await showcase.getByRole('img', { name: 'BKF Kickflip', exact: true }).waitFor();
+        await showcase.getByRole('button', { name: 'Preview in 3D', exact: true }).click();
+        await showcase.locator('.bkf-character[data-render-state="ready"]').waitFor({ timeout: 30000 });
+        await showcase.getByRole('button', { name: 'View photo', exact: true }).click();
+        await showcase.getByRole('img', { name: 'BKF Kickflip', exact: true }).waitFor();
         const gameCharacter = page.locator('.bk-profile-game-character');
         await gameCharacter.getByText('BKF Kickflip', { exact: true }).waitFor();
         await gameCharacter.getByRole('button', { name: 'Switch character', exact: true }).click();
@@ -353,7 +362,10 @@ try {
         await picker.getByRole('button', { name: 'Save game character', exact: true }).click();
         await gameCharacter.getByText('My Player', { exact: true }).waitFor();
         assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('bk-game-athlete-v1')).character), '');
-        console.log('PASS Profile game character persisted across navigation and switched back to My Player');
+        await showcase.locator('.bk-athlete-profile-showcase[data-render-state="ready"]').waitFor({ timeout: 30000 });
+        const iconHeight = await showcase.locator('.bk-profile-athlete-frame svg').evaluate(icon => icon.getBoundingClientRect().height);
+        assert.ok(iconHeight > 0 && iconHeight <= 24, 'Showcase controls must use icon-sized SVGs');
+        console.log('PASS Profile shows the saved character, previews its 3D model, and returns to My Player');
         assert.match(await page.locator('.bk-profile-hero-title').evaluate(el => getComputedStyle(el).backgroundImage), /profile-legacy-lockup/);
         const stageBox = await showcase.locator('.bk-athlete-profile-showcase').boundingBox();
         assert.ok(stageBox && Math.abs(stageBox.width / stageBox.height - 1.3) < .06);

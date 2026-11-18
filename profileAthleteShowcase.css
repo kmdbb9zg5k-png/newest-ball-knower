@@ -151,3 +151,35 @@
     margin-inline:12px;
   }
 }
+
+.bk-profile-character-showcase {
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  border: 1px solid #665332;
+  border-radius: 14px;
+  background: #101014;
+}
+.bk-profile-character-showcase figcaption {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 12px;
+  color: #ffe4a7;
+}
+.bk-profile-character-showcase figcaption button {
+  min-height: 44px;
+  padding: 6px 10px;
+  border: 1px solid #80663a;
+  border-radius: 8px;
+  background: #261e14;
+  color: inherit;
+  font-weight: 700;
+}
+.bk-profile-character-photo {
+  display: block;
+  width: 100%;
+  height: clamp(260px, 100vw, 520px);
+  object-fit: contain;
+}

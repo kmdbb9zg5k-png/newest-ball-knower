@@ -2,30 +2,26 @@ import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { ATHLETE_POSITIONS, ATHLETE_BODY_LIMITS, feetAndInches } from './athleteBuild';
 import { readAthletePassport } from './athletePassport';
-import { usePurchasedCharacters } from './usePurchasedCharacters';
+import { saveGameAthlete, useGameAthlete } from './useGameAthlete';
 import './profileAthleteShowcase.css';
 import { practiceAsset, STORE_PRODUCTS } from './storeCatalog';
-import { GAME_ATHLETE_KEY, gameAthlete, readGameAthlete } from './public/play-moment-3d/game-athlete.js';
+import { gameAthlete, readGameAthlete } from './public/play-moment-3d/game-athlete.js';
 
 const characters = STORE_PRODUCTS.filter(practiceAsset);
 
 export default function GameAthleteSetup({ onSaved, variant }: { onSaved?: () => void; variant?: 'profile' }) {
   const onProfile = variant === 'profile';
   const [open, setOpen] = useState(false);
-  const { owned, loading } = usePurchasedCharacters(open || onProfile);
-  const [saved, setSaved] = useState(readGameAthlete);
+  const { saved, owned, loading, character: activeCharacter } = useGameAthlete(open || onProfile);
   const [draft, setDraft] = useState(() => saved ?? gameAthlete(readAthletePassport()?.build ?? {})!);
   const [error, setError] = useState('');
   const dialog = useRef<HTMLDialogElement>(null);
-  const activeCharacter = saved && owned.has(saved.character)
-    ? characters.find(character => character.id === saved.character)?.name : undefined;
   useEffect(() => { if (open) dialog.current?.showModal(); }, [open]);
   function save(event: React.FormEvent) {
     event.preventDefault();
     try {
       const next = gameAthlete({ ...draft, character: owned.has(draft.character) ? draft.character : '' });
-      localStorage.setItem(GAME_ATHLETE_KEY, JSON.stringify(next));
-      setSaved(next);
+      saveGameAthlete(next);
       setOpen(false);
       onSaved?.();
     } catch {
@@ -34,7 +30,6 @@ export default function GameAthleteSetup({ onSaved, variant }: { onSaved?: () =>
   }
   function openSetup() {
     const current = readGameAthlete();
-    setSaved(current);
     setDraft(current ?? gameAthlete(readAthletePassport()?.build ?? {})!);
     setError('');
     setOpen(true);
@@ -43,7 +38,7 @@ export default function GameAthleteSetup({ onSaved, variant }: { onSaved?: () =>
     {onProfile ? <div className="bk-profile-game-character">
       <div>
         <span>Game character</span>
-        <strong aria-live="polite">{loading && saved?.character ? 'Checking purchase…' : activeCharacter ?? 'My Player'}</strong>
+        <strong aria-live="polite">{loading && saved?.character ? 'Checking purchase…' : activeCharacter?.name ?? 'My Player'}</strong>
       </div>
       <button type="button" onClick={openSetup}>Switch character</button>
     </div> : <button type="button" className="rounded-xl border border-white/20 bg-[#18232e] px-4 py-3 text-sm font-bold text-white"

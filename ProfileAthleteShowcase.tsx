@@ -4,10 +4,13 @@ import { refreshLocker } from './lockerCommerceClient';
 import { CLOTHING, CLOTHING_SLOTS } from './playerWardrobe';
 import { usePlayerOutfit } from './usePlayerOutfit';
 import { sanitizeShowcaseFit, type ShowcaseFit } from './profileAthleteShowcase';
+import { practiceAsset, storeImage, type StoreProduct } from './storeCatalog';
+import { useGameAthlete } from './useGameAthlete';
 import { supabase } from './supabase';
 import './profileAthleteShowcase.css';
 
 const AthleteLivePreview = lazy(() => import('./AthleteLivePreview'));
+const StoreCharacterPreview = lazy(() => import('./StoreCharacterPreview'));
 const poster = '/profile/cinematic/player-hero.webp';
 
 export function ProfileAthleteShowcase({ userId, visitor, canShare, displayName, publicProfileReady }: {
@@ -15,6 +18,7 @@ export function ProfileAthleteShowcase({ userId, visitor, canShare, displayName,
 }) {
   const [athlete, setAthlete] = useState(() => visitor ? null : readAthletePassport());
   const outfit = usePlayerOutfit();
+  const { character, loading: checkingCharacter, saved } = useGameAthlete(!visitor);
   const [shared, setShared] = useState<ShowcaseFit | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -79,9 +83,12 @@ export function ProfileAthleteShowcase({ userId, visitor, canShare, displayName,
     } finally { setBusy(false); }
   }
 
-  if (!fit && (visitor || !shared)) return null;
+  const waitingForCharacter = !visitor && checkingCharacter && Boolean(saved?.character);
+  if (!character && !waitingForCharacter && !fit && (visitor || !shared)) return null;
   return <section className="bk-profile-athlete" aria-label="Player showcase">
-    {fit && <Suspense fallback={<img className="bk-profile-athlete-poster" src={poster} alt="" />}>
+    {character ? <EquippedCharacter key={character.id} character={character}/>
+      : waitingForCharacter ? <p role="status">Checking character access…</p>
+      : fit && <Suspense fallback={<img className="bk-profile-athlete-poster" src={poster} alt="" />}>
       <AthleteLivePreview profile={{ ...fit, name: visitor ? displayName || 'Featured athlete' : athlete?.name || 'Your athlete',
         combineId: visitor ? userId : athlete?.id }} previewOutfit={previewOutfit} profileShowcase
         fallbackImage={visitor ? poster : athlete?.portrait || poster}/>
@@ -93,4 +100,22 @@ export function ProfileAthleteShowcase({ userId, visitor, canShare, displayName,
       {message && <small role="status">{message}</small>}
     </div>}
   </section>;
+}
+
+function EquippedCharacter({ character }: { character: StoreProduct }) {
+  const [showModel, setShowModel] = useState(false);
+  const model = practiceAsset(character);
+  const look = character.showcase?.look ?? storeImage(character.id);
+  const photo = <img className="bk-profile-character-photo" src={look} alt={character.name}/>;
+  return <figure className="bk-profile-character-showcase">
+    <figcaption>
+      <strong>{character.name}</strong>
+      {model && <button type="button" onClick={() => setShowModel(value => !value)}>
+        {showModel ? 'View photo' : 'Preview in 3D'}
+      </button>}
+    </figcaption>
+    {showModel && model ? <Suspense fallback={photo}>
+      <StoreCharacterPreview name={character.name} model={model} look={look}/>
+    </Suspense> : photo}
+  </figure>;
 }
