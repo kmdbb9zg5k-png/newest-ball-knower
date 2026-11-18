@@ -2,6 +2,7 @@ import React, { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useGameAthlete } from '../useGameAthlete';
 import { combineAthlete, readResults, RULESET } from './dash.js';
+import CombineLoading from './CombineLoading';
 
 const Combine = lazy(() => import('./CombineExperience'));
 export type CombinePlayer = { id: string; name: string; position: string; speed?: number; grade?: number; attributes?: { athleticism: number } };
@@ -30,5 +31,5 @@ class CombineError extends React.Component<{ children: React.ReactNode; close: (
 function CombineModal({ children, close }: { children: React.ReactNode; close: () => void }) {
   const dialog = useRef<HTMLDialogElement>(null);
   useEffect(() => { const previous = document.body.style.overflow; document.body.style.overflow = 'hidden'; dialog.current?.showModal(); return () => { document.body.style.overflow = previous; }; }, []);
-  return <dialog ref={dialog} aria-label="Combine 40-yard dash" onCancel={close} style={{position:'fixed',inset:0,width:'100vw',maxWidth:'none',height:'100dvh',maxHeight:'none',margin:0,padding:0,border:0,background:'#10171b'}}><CombineError close={close}><Suspense fallback={<div style={{padding:24,color:'white'}}>Preparing Combine… <button onClick={close}>Back</button></div>}>{children}</Suspense></CombineError></dialog>;
+  return <dialog ref={dialog} aria-label="Combine 40-yard dash" onCancel={close} style={{position:'fixed',inset:0,width:'100vw',maxWidth:'none',height:'100dvh',maxHeight:'none',margin:0,padding:0,border:0,background:'#10171b'}}><CombineError close={close}><Suspense fallback={<main style={{position:"fixed",inset:0}}><CombineLoading onBack={close} onRetry={()=>{}} /></main>}>{children}</Suspense></CombineError></dialog>;
 }

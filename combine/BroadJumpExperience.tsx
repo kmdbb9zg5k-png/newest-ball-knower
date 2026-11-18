@@ -3,6 +3,7 @@ import {reportMiniChallenge} from '../public/mini-challenge-bridge.js';
 import React, { useEffect, useRef, useState } from 'react';
 import { newJump, pressJump, stepJump, jumpMarker, formatJump, readJumps, saveJump, JUMP_ATTEMPTS, REP_SECONDS, POWER_SECONDS, LAND_GREEN_START, LAND_GREEN_END, isLandingGreen, landingProgress, inputReady, launchSeconds, landingFeedback } from './broad-jump.js';
 import './combine.css';
+import CombineLoading from './CombineLoading';
 import './broad-jump-premium.css';
 type Athlete = {id:string;name:string;position:string;speed:number;acceleration:number;seed:number};
 export default function BroadJumpExperience({players,context,onClose,onResult}:{players:Athlete[];context:string;onClose:()=>void;onResult?:(stats:Record<string,number>)=>void}) {
@@ -98,7 +99,7 @@ export default function BroadJumpExperience({players,context,onClose,onResult}:{
         </div>
       </div>
     </div>
-    {blocked&&<section className="combine-overlay" role="dialog" aria-modal="true" aria-label={error?'Combine unavailable':terminal?'Broad jump results':paused?'Broad jump paused':'Loading athlete'}><div ref={modal} className="combine-result">
+    {blocked && ready && !error && <section className="combine-overlay" role="dialog" aria-modal="true" aria-label={error?'Combine unavailable':terminal?'Broad jump results':paused?'Broad jump paused':'Loading athlete'}><div ref={modal} className="combine-result">
       <span className="combine-eyebrow">BK / BROAD JUMP</span>
       <h2>{error?'UNAVAILABLE':!ready?'PREPARING':paused?'PAUSED':view.distance?formatJump(view.distance):'NO JUMP'}</h2>
       {error?<><p role="alert">{error}</p><button onClick={()=>{pause();held.current.clear();setReady(false);setError('');setSceneAttempt(n=>n+1);}}>RETRY DRILL</button></>:!ready?<p>Loading your Combine athlete…</p>:paused?<p>Your attempt is held here.</p>:<>
@@ -108,5 +109,6 @@ export default function BroadJumpExperience({players,context,onClose,onResult}:{
       </>}
       <div className="combine-result-actions">{!error&&ready&&(paused?<button onClick={()=>{stopped.current=false;setPaused(false);}}>RESUME</button>:<button onClick={()=>reset(player,attempts.length>=JUMP_ATTEMPTS)}>{attempts.length<JUMP_ATTEMPTS?'NEXT ATTEMPT':'NEW SESSION'}</button>)}<button onClick={onClose}>BACK TO COMBINE</button></div>
     </div></section>}
-  </main>;
+ {(!ready || error) && <CombineLoading error={error} onBack={onClose} onRetry={()=>{pause();held.current.clear();setReady(false);setError('');setSceneAttempt(n=>n+1);}} />}
+ </main>;
 }
