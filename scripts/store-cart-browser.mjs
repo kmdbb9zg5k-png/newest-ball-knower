@@ -96,7 +96,7 @@ try {
    const characters = picker.getByRole('combobox',{name:'Character',exact:true});
    await characters.locator('option[value="frostbite"]:enabled').waitFor({state:'attached'});
    await characters.selectOption('frostbite');
-   assert.equal(await characters.locator('option[value="bkf-phantom"]').isDisabled(),true);
+   assert.equal(await characters.locator('option[value="bkf-phantom"]').evaluate(option => option.disabled),true);
    await picker.getByRole('button',{name:'Save game character',exact:true}).click();
    await page.locator('.bk-profile-game-character').getByText('Frostbite',{exact:true}).waitFor();
    console.log('PASS private character code with payments disabled and unlocked character selectable in Profile');
