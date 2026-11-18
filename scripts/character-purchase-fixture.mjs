@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 
-export async function mockCharacterPurchases(context, purchases) {
+export async function mockCharacterPurchases(context, purchases, codeGrant = []) {
   const user = {
     id: '11111111-1111-4111-8111-111111111111',
     aud: 'authenticated', role: 'authenticated', email: 'character-fixture@example.invalid',
@@ -12,6 +12,7 @@ export async function mockCharacterPurchases(context, purchases) {
     encode({ sub: user.id, aud: 'authenticated', role: 'authenticated', exp: expires_at }),
     'test-fixture-only'].join('.');
   const session = { user, access_token, refresh_token: 'fixture-only', token_type: 'bearer', expires_at };
+  let redeemed = false;
 
   await context.addInitScript(value => {
     localStorage.setItem('sb-gpnboygoosrmeydwjpvk-auth-token', JSON.stringify(value));
@@ -26,6 +27,13 @@ export async function mockCharacterPurchases(context, purchases) {
     const respond = json => route.fulfill({ json, headers });
     if (route.request().method() === 'OPTIONS') return respond({});
     if (pathname === '/auth/v1/user') return respond(user);
+    if (pathname === '/rest/v1/rpc/bk_store_character_code') {
+      const { p_code } = route.request().postDataJSON() || {};
+      if (p_code && p_code !== 'FIXTURE-CODE') return respond([]);
+      assert.equal(route.request().headers().authorization, 'Bearer ' + access_token);
+      if (p_code) redeemed = true;
+      return respond(redeemed ? codeGrant : []);
+    }
     if (pathname === '/rest/v1/ball_knower_entitlements' && searchParams.has('source')) {
       assert.equal(searchParams.get('auth_user_id'), 'eq.' + user.id);
       assert.equal(searchParams.get('source'), 'eq.purchase');

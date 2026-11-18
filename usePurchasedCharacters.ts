@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { purchasedCharacterIds } from './characterPurchases';
+import { characterOwnershipChanges, purchasedCharacterIds } from './characterPurchases';
 import { supabase } from './supabase';
 
 const pending = { owned: new Set<string>() as ReadonlySet<string>, loading: true };
@@ -27,8 +27,10 @@ export function usePurchasedCharacters(enabled = true) {
         });
       }, 0);
     }
+    characterOwnershipChanges.addEventListener('change', refresh);
     refresh();
     return () => {
+      characterOwnershipChanges.removeEventListener('change', refresh);
       refreshVersion++;
       clearTimeout(timer);
       subscription?.unsubscribe();

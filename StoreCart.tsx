@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Capacitor } from '@capacitor/core';
 import { ShoppingBag, X } from 'lucide-react';
+import { redeemCharacterCode } from './characterPurchases';
 import { refreshLocker } from './lockerCommerceClient';
 import { supabase } from './supabase';
 import { CART_KEY, cartProducts, cartTotal, cleanCart, formatStoreAmount, OUTFIT_PRICES, type StorePrices } from './storeCart';
@@ -49,6 +50,8 @@ export default function StoreCart({ cart, onClose }: { cart: ReturnType<typeof u
   const [status, setStatus] = useState<any>(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [code, setCode] = useState('');
+  const [redemptionMessage, setRedemptionMessage] = useState('');
   const native = Capacitor.isNativePlatform();
   const unavailable = cart.ids.some(id => !status?.catalogPrices?.[id]);
   async function refresh() {
@@ -80,6 +83,23 @@ export default function StoreCart({ cart, onClose }: { cart: ReturnType<typeof u
       window.location.assign(url.href);
     } catch (e) { setError(e instanceof Error ? e.message : 'Could not open checkout.'); setBusy(false); }
   }
+  async function redeem(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (busy || !code.trim()) return;
+    setBusy(true);
+    setError('');
+    setRedemptionMessage('');
+    try {
+      const skus = await redeemCharacterCode(code.trim());
+      cart.removeOwned(skus);
+      setCode('');
+      setRedemptionMessage('Characters unlocked. Choose your player in Profile.');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not redeem your code. Try again.');
+    } finally {
+      setBusy(false);
+    }
+  }
   return <dialog ref={dialog} className="bk-store-dialog bk-cart-dialog" aria-labelledby="bk-cart-title" onClose={onClose}>
     <div className="bk-store-dialog-content">
       <header className="bk-store-dialog-header"><h2 id="bk-cart-title"><ShoppingBag size={24}/> Your cart</h2><button type="button" className="bk-store-icon-button" aria-label="Close cart" onClick={() => dialog.current?.close()}><X/></button></header>
@@ -91,6 +111,13 @@ export default function StoreCart({ cart, onClose }: { cart: ReturnType<typeof u
       {!cart.ids.length && <p className="bk-cart-empty">Your cart is empty. Explore the Store to add an item.</p>}
       <div className="bk-cart-total"><strong>Subtotal</strong><strong>{formatStoreAmount(cartTotal(cart.ids, cart.prices))}</strong></div>
       {native ? <p>Purchasing in the native app is not available yet.</p> : <>
+        <form className="bk-cart-code" onSubmit={redeem}>
+          <label htmlFor="bk-character-code">Character code</label>
+          <input id="bk-character-code" value={code} onChange={event => setCode(event.target.value)}
+            maxLength={80} autoCapitalize="characters" autoComplete="off" spellCheck={false} required disabled={busy}/>
+          <button type="submit" className="bk-store-button" disabled={busy || !code.trim()}>Redeem code</button>
+          {redemptionMessage && <p role="status">{redemptionMessage}</p>}
+        </form>
         {status?.owned?.length > 0 && <p role="status">{status.mode === 'test' ? 'Test checkout verified.' : 'Order verified. Find outfits in My Locker and playable characters in Profile.'}</p>}
         {status?.mode === 'test' && <p role="status">Test checkout — no real money or live ownership.</p>}
         {status && (status.stripe || status.paypal) && !status.signedIn && <p>Sign in to check out and save purchases to your account.</p>}

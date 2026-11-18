@@ -10,7 +10,7 @@ try {
  for(const width of [320,390,1280]) {
   const context=await browser.newContext({viewport:{width,height:844},isMobile:width<768,hasTouch:width<768,serviceWorkers:'block'});
   const page=await context.newPage();page.setDefaultTimeout(30000);const errors=[];page.on('pageerror',e=>errors.push(e.message));
-  if (width === 390) await mockCharacterPurchases(context, []);
+  if (width === 390) await mockCharacterPurchases(context, [], [{sku:'frostbite'}]);
   else await page.route('**/*.supabase.co/**',r=>r.abort());
   let enableProviders = false;
   const requests = [];
@@ -75,6 +75,25 @@ try {
     { action:'checkout', ids:['frostbite'], provider:'stripe' },
     { action:'checkout', ids:['frostbite'], provider:'paypal' },
    ]);
+   enableProviders = false;
+   await page.goto('http://127.0.0.1:4189/?store_checkout=return');
+   await dialog.getByText('Payments are not open yet.',{exact:false}).waitFor();
+   await dialog.getByRole('textbox',{name:'Character code'}).fill('WRONG');
+   await dialog.getByRole('button',{name:'Redeem code'}).click();
+   await dialog.getByText('This character code is unavailable for your account.').waitFor();
+   await dialog.getByRole('textbox',{name:'Character code'}).fill('FIXTURE-CODE');
+   await dialog.getByRole('button',{name:'Redeem code'}).click();
+   await dialog.getByText('Characters unlocked. Choose your player in Profile.').waitFor();
+   await dialog.getByText('Your cart is empty.',{exact:false}).waitFor();
+   await dialog.getByRole('button',{name:'Continue shopping'}).click();
+   await page.getByRole('button',{name:'Profile',exact:true}).first().click();
+   await page.getByRole('button',{name:'Switch character',exact:true}).click();
+   const picker = page.getByRole('dialog',{name:'Switch game character',exact:true});
+   const characters = picker.getByRole('combobox',{name:'Character',exact:true});
+   await characters.selectOption('frostbite');
+   assert.equal(await characters.inputValue(),'frostbite');
+   assert.equal(await characters.locator('option[value="bkf-phantom"]').isDisabled(),true);
+   console.log('PASS private character code with payments disabled and unlocked character selectable in Profile');
    console.log('PASS Store character cart and mocked Stripe and PayPal checkout handoff');
   }
   assert.deepEqual(errors,[]);await context.close();console.log(`PASS ${width}px: add two, total, remove, refresh persistence, return route, disabled payments, no overflow/errors`);

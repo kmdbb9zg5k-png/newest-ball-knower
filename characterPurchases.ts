@@ -4,7 +4,27 @@ import { supabase } from './supabase';
 const characters = STORE_PRODUCTS.filter(practiceAsset);
 const characterSkus = characters.map(product => product.id);
 
-// Checkout ownership comes from paid orders. Keep previously issued purchase grants.
+export const characterOwnershipChanges = new EventTarget();
+
+export async function redeemCharacterCode(code: string): Promise<string[]> {
+  const client = supabase;
+  const session = (await client?.auth.getSession())?.data.session;
+  if (!client || !session || session.user.is_anonymous) {
+    throw new Error('Sign in to Ball Knower before redeeming a character code.');
+  }
+  const { data, error } = await client.rpc('bk_store_character_code', { p_code: code })
+    .setHeader('Authorization', `Bearer ${session.access_token}`)
+    .abortSignal(AbortSignal.timeout(10000));
+  const current = (await client.auth.getSession()).data.session;
+  if (current?.user.id !== session.user.id) throw new Error('Your account changed. Reopen your cart to check access.');
+  if (error) throw new Error('Could not redeem the character code. Try again.');
+  const skus = Array.isArray(data) ? data.map(row => row.sku).filter(sku => characterSkus.includes(sku)) : [];
+  if (!skus.length) throw new Error('This character code is unavailable for your account.');
+  characterOwnershipChanges.dispatchEvent(new Event('change'));
+  return skus;
+}
+
+// Paid orders, redeemed codes, and previously issued purchase grants confer access.
 export async function purchasedCharacterIds(): Promise<ReadonlySet<string>> {
   const owned = new Set<string>();
   const client = supabase;
@@ -14,8 +34,9 @@ export async function purchasedCharacterIds(): Promise<ReadonlySet<string>> {
     const user = session?.user;
     if (!user || user.is_anonymous) return owned;
 
-    const [checkout, legacy] = await Promise.allSettled([
+    const [checkout, code, legacy] = await Promise.allSettled([
       client.rpc('bk_store_character_purchases').abortSignal(AbortSignal.timeout(4000)),
+      client.rpc('bk_store_character_code').abortSignal(AbortSignal.timeout(4000)),
       client.from('ball_knower_entitlements')
         .select('sku,source,expires_at')
         .eq('auth_user_id', user.id)
@@ -25,9 +46,11 @@ export async function purchasedCharacterIds(): Promise<ReadonlySet<string>> {
     ]);
     const { data: { session: current } } = await client.auth.getSession();
     if (!current || current.user.id !== user.id || current.user.is_anonymous) return owned;
-    if (checkout.status === 'fulfilled' && !checkout.value.error && Array.isArray(checkout.value.data)) {
-      for (const row of checkout.value.data ?? []) {
-        if (characterSkus.includes(row.sku)) owned.add(row.sku);
+    for (const result of [checkout, code]) {
+      if (result.status === 'fulfilled' && !result.value.error && Array.isArray(result.value.data)) {
+        for (const row of result.value.data) {
+          if (characterSkus.includes(row.sku)) owned.add(row.sku);
+        }
       }
     }
     const now = Date.now();
