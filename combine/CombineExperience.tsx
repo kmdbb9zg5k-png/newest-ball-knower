@@ -3,6 +3,7 @@ import {reportMiniChallenge,challengeSeed,inMiniChallenge} from '../public/mini-
 import React, { useEffect, useRef, useState } from 'react';
 import { bestResult, newDash, pressDash, tapStride, speedPercent, accuracy, positionRanking, RULESET, readResults, saveResult, stepDash, YARD } from './dash.js';
 import './combine.css';
+import CombineLoading from './CombineLoading';
 import ControlSettings,{useDrillControls} from './ControlSettings';
 import {controlPulse} from './controlPreferences';
 import GhostRacePanel, {type DashReplay} from './GhostRacePanel';
@@ -207,6 +208,6 @@ export default function CombineExperience({ players, context, onClose, onResult 
     {ghostOpen&&<section className="combine-overlay" role="dialog" aria-modal="true" aria-label="Choose ghost race"><div className="combine-result combine-ghost-dialog"><button autoFocus type="button" onClick={closeGhosts}>BACK TO DASH</button><GhostRacePanel best={ghosts.best} imported={ghosts.imported} selected={selectedGhost} onSelect={selectGhost} onImport={importGhost}/></div></section>}
     {picker && <section className="combine-overlay combine-picker" role="dialog" aria-modal="true" aria-label="Choose athlete"><div className="combine-result"><div className="combine-picker-heading"><h2>Athletes & results</h2><button autoFocus onClick={closePicker} aria-label="Close athlete selection">×</button></div><p>{characterPractice ? 'Character practice · your local best time' : context === 'standalone' ? 'Fictional prospects · your local best times' : 'Franchise scouting · your local best times'}</p><div className="combine-athlete-list">{players.map(p => { const record = bestResult(rows, context, p.id); return <button key={p.id} onClick={() => { closePicker(); setRuns([]); setRunSplits([]); reset(p, 1); }}><span><b>{p.name}</b><small>{p.position} · SPEED {p.speed}</small></span><strong>{record ? `${time(record.splits[2])}s` : 'RUN →'}</strong></button>; })}</div></div></section>}
     {paused && !error && <section className="combine-overlay" role="dialog" aria-modal="true" aria-label="Dash paused"><div className="combine-result"><h2>PAUSED</h2><p>Your attempt is held here. Movement-stick side applies to other drills.</p><ControlSettings controls={controls} onChange={changeControls} saved={controlsSaved}/><div className="combine-result-actions"><button autoFocus onClick={resume}>RESUME</button><button onClick={onClose}>LEAVE COMBINE</button></div></div></section>}
-    {(!ready || error) && <section className="combine-overlay"><div className="combine-result"><h2>{error ? 'COMBINE UNAVAILABLE' : 'PREPARING COMBINE'}</h2><p role="status">{error || 'Setting the track…'}</p><button onClick={onClose}>BACK</button>{error&&<button onClick={()=>{pause();setReady(false);setError('');setSceneAttempt(n=>n+1);}}>RETRY DRILL</button>}</div></section>}
+    {(!ready || error) && <CombineLoading error={error} onBack={onClose} onRetry={()=>{pause();setReady(false);setError('');setSceneAttempt(n=>n+1);}} />}
   </main>;
 }
