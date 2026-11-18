@@ -24,6 +24,7 @@ import '../index.css';
 import '../communityMiniGames.css';
 import '../solo/soloPresentation.css';
 import './combine-entry.css';
+import CombineLoading from './CombineLoading';
 
 const positions=['WR','RB','CB','QB','TE','LB'];
 const allPlayers=positions.flatMap(pos=>SOLO_PLAYERS_DATABASE.filter(p=>p.position===pos).slice(0,3)).map(combineAthlete);
@@ -98,8 +99,8 @@ function CombineEntry({ owned, loading, onStarted }: { owned: ReadonlySet<string
     return()=>{active=false;window.clearTimeout(timeout);};
   },[]);
   const start = () => { onStarted(); setStarted(true); };
-  if (started && loading && readGameAthlete()?.character) return <main className="combine-entry" role="status">Checking character purchases…</main>;
-  if(!outfitReady)return <main className="combine-entry" role="status">Loading your saved outfit…</main>;
+  if (started && loading && readGameAthlete()?.character) return <main style={{position:'fixed',inset:0,zIndex:100}}><CombineLoading onBack={exit} onRetry={()=>{}} message="Checking character purchases…"/></main>;
+  if(!outfitReady)return <main style={{position:'fixed',inset:0,zIndex:100}}><CombineLoading onBack={exit} onRetry={()=>{}} message="Loading your saved outfit…"/></main>;
   const name=drillNames[drill||'dash']||drillNames.dash;
   return <><LockerAccountSync/>{started?<Drill owned={owned}/>:<main className="combine-entry" aria-label={`${name} athlete setup`}><header><button type="button" onClick={exit} aria-label="Back to Mini Games">‹</button><div><span>BALL KNOWER / MINI COMBINE</span><h1>{name}</h1></div><GameAthleteSetup onSaved={start}/></header><MiniGameAthleteBuilder actionLabel={`Save & start ${name}`} onContinue={start}/></main>}</>;
 }
