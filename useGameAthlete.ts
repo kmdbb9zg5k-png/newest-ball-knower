@@ -1,32 +1,36 @@
 import { useEffect, useState } from 'react';
-import { GAME_ATHLETE_KEY, readGameAthlete } from './public/play-moment-3d/game-athlete.js';
-import { practiceAsset, STORE_PRODUCTS } from './storeCatalog';
+import { accountGameAthlete, equippedCharacter, GAME_ATHLETE_CHANGED } from './gameAthletePreference';
+import { GAME_ATHLETE_KEY } from './public/play-moment-3d/game-athlete.js';
+import { supabase } from './supabase';
 import { usePurchasedCharacters } from './usePurchasedCharacters';
 
-const gameAthleteChanged = 'bk-game-athlete-changed';
-
-export function saveGameAthlete(athlete: ReturnType<typeof readGameAthlete>) {
-  localStorage.setItem(GAME_ATHLETE_KEY, JSON.stringify(athlete));
-  window.dispatchEvent(new Event(gameAthleteChanged));
-}
-
 export function useGameAthlete(enabled: boolean) {
-  const [saved, setSaved] = useState(readGameAthlete);
+  const [profile, setProfile] = useState<{ saved: ReturnType<typeof accountGameAthlete>; loading: boolean }>({ saved: null, loading: true });
   const { owned, loading } = usePurchasedCharacters(enabled);
   useEffect(() => {
-    const update = () => setSaved(readGameAthlete());
+    if (!enabled) return;
+    let active = true;
+    const update = () => {
+      void Promise.resolve(supabase?.auth.getSession()).then(result => {
+        if (active) setProfile({ saved: accountGameAthlete(result?.data.session ?? null), loading: false });
+      });
+    };
+    const subscription = supabase?.auth.onAuthStateChange((_event, session) => {
+      if (active) setProfile({ saved: accountGameAthlete(session), loading: false });
+    }).data.subscription;
     const onStorage = (event: StorageEvent) => {
       if (!event.key || event.key === GAME_ATHLETE_KEY) update();
     };
-    window.addEventListener(gameAthleteChanged, update);
+    update();
+    window.addEventListener(GAME_ATHLETE_CHANGED, update);
     window.addEventListener('storage', onStorage);
     return () => {
-      window.removeEventListener(gameAthleteChanged, update);
+      active = false;
+      subscription?.unsubscribe();
+      window.removeEventListener(GAME_ATHLETE_CHANGED, update);
       window.removeEventListener('storage', onStorage);
     };
-  }, []);
-  const character = enabled && saved && owned.has(saved.character)
-    ? STORE_PRODUCTS.find(product => product.id === saved.character && practiceAsset(product))
-    : undefined;
-  return { saved, owned, loading, character };
+  }, [enabled]);
+  return { saved: profile.saved, owned, loading: profile.loading || loading,
+    character: equippedCharacter(profile.saved, owned) };
 }

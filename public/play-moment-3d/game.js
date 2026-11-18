@@ -1,4 +1,4 @@
-import {ATHLETE_ROSTER_SLOTS,gameAthlete as sanitizeGameAthlete,readGameAthlete} from './game-athlete.js';
+import {ATHLETE_ROSTER_SLOTS,gameAthlete as sanitizeGameAthlete} from './game-athlete.js';
 import {readLegendsField,setLegendsStart,reportLegendsResult} from './legends-field.js';
 import {readGameGearProfile,sanitizeGameGear,gameGearRosterId} from './game-gear.js';
 import {installControlSettings} from './control-settings.js';
@@ -470,7 +470,8 @@ export async function start(){
   miniConfig.legendsTitle=legends.scenario.title;
  }
  const fullGame=Boolean(miniConfig);
- const savedAthlete=readGameAthlete();
+ const {resolveGameAthlete}=await import('/assets/bk-game-athlete.js');
+ const {saved:savedAthlete}=await resolveGameAthlete();
  const careerProfile=params.get('bkChallenge')?.startsWith('career:')?readGameGearProfile():null;
  const gameAthlete=savedAthlete&&careerProfile
   ?sanitizeGameAthlete({...savedAthlete,position:careerProfile.position,heightInches:careerProfile.heightInches,weightLbs:careerProfile.weightLbs})
@@ -1198,21 +1199,19 @@ function coverage(dt){
  // Arena opens directly into a live return, so loading time cannot consume it.
  // The athlete loader settles on error too, retaining the existing fallback rig.
  if(miniConfig?.mode==='arena')await meshy.loadPromise;
- if(gameAthlete?.character)void meshy.loadPromise.then(async()=>{
-  if(!meshy.ready)return;
-  try {
-   const {loadFieldCharacter}=await import('/assets/bk-field-character.js');
-   meshy.fieldCharacter=await loadFieldCharacter(r,gameAthlete,name=>{
-    const index=meshy.namedNodes['mixamorig:'+name];
-    return Number.isInteger(index)?meshy.worldPose(meshy.base,index):undefined;
-   });
-   if(meshy.fieldCharacter)addEventListener('pagehide',event=>{
-    if(!event.persisted)meshy.fieldCharacter.dispose();
-   },{passive:true});
-  } catch(error) {
-   console.warn('Store character unavailable on this drive; using the football athlete.',error);
-  }
- });
+ if(gameAthlete?.character){
+  await meshy.loadPromise;
+  if(!meshy.ready)throw new Error('The football athlete rig did not load.');
+  const {loadFieldCharacter}=await import('/assets/bk-field-character.js');
+  meshy.fieldCharacter=await loadFieldCharacter(r,gameAthlete,name=>{
+   const index=meshy.namedNodes['mixamorig:'+name];
+   return Number.isInteger(index)?meshy.worldPose(meshy.base,index):undefined;
+  });
+  if(!meshy.fieldCharacter)throw new Error('Could not load your equipped character. Reload to retry.');
+  addEventListener('pagehide',event=>{
+   if(!event.persisted)meshy.fieldCharacter.dispose();
+  },{passive:true});
+ }
 
  last=performance.now();accumulator=0;
  // Each arena iframe is one drive: receive the opening kick before choosing offense.

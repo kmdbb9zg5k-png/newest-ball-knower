@@ -1,10 +1,5 @@
-import { practiceAsset, STORE_PRODUCTS } from './storeCatalog';
-import { readGameAthlete } from './public/play-moment-3d/game-athlete.js';
+import type { StoreProduct } from './storeCatalog';
 
-export function gameCharacterAppearance(id = readGameAthlete()?.character) {
-  const character = id && STORE_PRODUCTS.find(product => product.id === id);
-  if (!character || !practiceAsset(character)) return {};
-  return {
-    practiceCharacterId: character.id,
-  };
+export function withGameCharacter<T extends { name: string }>(athlete: T, character?: StoreProduct) {
+  return character ? { ...athlete, name: character.name, practiceCharacterId: character.id } : athlete;
 }

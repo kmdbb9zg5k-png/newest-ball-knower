@@ -11,7 +11,7 @@ try{
     const page=await browser.newPage({viewport:{width,height:844},deviceScaleFactor:2,isMobile:width<768,hasTouch:width<768});
     const errors=[];page.on('pageerror',error=>errors.push(error.message));
     page.on('console',message=>{if(message.type()==='error'&&/shader|WebGL|THREE/.test(message.text()))errors.push(message.text());});
-    await page.goto('http://127.0.0.1:3061/combine.html?drill=dash');
+    await page.goto('http://127.0.0.1:3061/combine.html?drill=dash&create=1');
     const preview=page.locator('[data-athlete-live-preview=true]');
     const capture=async path=>{
       await preview.scrollIntoViewIfNeeded();
@@ -92,7 +92,7 @@ try{
     assert.equal(await page.getByLabel('ARMS',{exact:true}).inputValue(),'100');
     assert.equal(await preview.getAttribute('data-hair-style'),'braids');
     assert.equal(await preview.getAttribute('data-skin-tone'),'fair');
-    await page.getByRole('button',{name:'Save & start 40-Yard Dash',exact:true}).click();
+    await page.getByRole('button',{name:'Save My Player',exact:true}).click();
     const stored=await page.evaluate(()=>JSON.parse(localStorage.getItem('ballknower_solo_my_player_v2')));
     assert.equal(stored.number,21);assert.equal(stored.position,'CB');assert.equal(stored.heightInches,81);assert.equal(stored.weightLbs,300);
     await page.getByRole('heading',{name:'40-YARD DASH',exact:true}).waitFor();
@@ -119,7 +119,7 @@ try{
       await page.getByRole('button',{name:/^HEAVY/}).click();
       await capture('artifacts/athlete-creator/heavy-front.png');
       await page.screenshot({path:'artifacts/athlete-creator/studio-build-390.png'});
-      const saveBox=await page.getByRole('button',{name:'Save & start 40-Yard Dash',exact:true}).boundingBox();
+      const saveBox=await page.getByRole('button',{name:'Save My Player',exact:true}).boundingBox();
       assert(saveBox.y+saveBox.height<=844,'Save stays within viewport');
       await page.getByRole('tab',{name:'Build',exact:true}).press('ArrowRight');
       assert.equal(await preview.getAttribute('data-view'),'head');
@@ -142,7 +142,7 @@ try{
         await page.setViewportSize(viewport);
         await tab('Hair');
         await page.screenshot({path:`artifacts/athlete-creator/studio-${viewport.width}x${viewport.height}.png`});
-        const bounds=await page.getByRole('button',{name:'Save & start 40-Yard Dash',exact:true}).boundingBox();
+        const bounds=await page.getByRole('button',{name:'Save My Player',exact:true}).boundingBox();
         assert(bounds.y+ bounds.height<=viewport.height,'Save remains reachable on short screens');
         const model=await preview.boundingBox();assert(model.height>100&&model.y>=0);
         assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
