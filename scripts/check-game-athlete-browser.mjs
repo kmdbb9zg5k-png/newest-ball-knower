@@ -29,6 +29,7 @@ try {
   await page.goto(base+'/combine.html?drill=dash&character=bkf-kickflip');
   await page.getByRole('heading', { name: 'BKF Kickflip is locked' }).waitFor();
   await page.getByRole('button', { name: 'Continue to Combine' }).click();
+  await page.getByRole('button', { name: /Save & start/ }).click();
   await page.waitForFunction(() => document.querySelector('[data-character="native-athlete"] canvas'));
   assert.equal(await page.locator('[data-character="store-character"]').count(), 0);
   console.log('PASS locked deep link and saved selection with only an expired purchase or grant');
