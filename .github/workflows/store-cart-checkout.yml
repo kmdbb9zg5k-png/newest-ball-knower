@@ -1,0 +1,31 @@
+name: Store cart checkout
+on:
+  pull_request:
+    paths:
+      - 'App.tsx'
+      - 'Store*.tsx'
+      - 'store*.ts'
+      - 'store.css'
+      - 'characterPurchases.ts'
+      - 'api/store-*.ts'
+      - 'server/storeCommerce.ts'
+      - 'scripts/store-cart-*'
+      - 'supabase/migrations/*store*.sql'
+      - '.github/workflows/store-cart-checkout.yml'
+permissions:
+  contents: read
+jobs:
+  checkout:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: node --import tsx scripts/store-cart-check.ts
+      - run: npx playwright install --with-deps chromium
+      - run: npm run build
+      - run: node scripts/store-cart-browser.mjs
