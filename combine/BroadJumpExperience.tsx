@@ -30,7 +30,7 @@ export default function BroadJumpExperience({players,context,onClose,onResult}:{
     let gone=false,raf=0,last=performance.now(),hud=0;
     import('./scene.js').then(async({createCombineScene})=>{
       if(gone||!host.current)return;
-      const loaded=await createCombineScene(host.current,run.current.athlete,()=>{if(gone)return;pause();setError('Graphics were interrupted. Retry to resume your session.');},'jump');
+      const loaded=await createCombineScene(host.current,run.current.athlete,()=>{if(gone)return;pause();setError('Graphics were interrupted. Retry to resume your session.');},'jump',{retry:sceneAttempt>0});
       if(gone){loaded.dispose();return;}scene.current=loaded;loaded.draw(run.current,0);setReady(true);last=performance.now();
       const frame=(now:number)=>{
         if(gone)return;raf=requestAnimationFrame(frame);const dt=Math.max(0,(now-last)/1000);last=now;

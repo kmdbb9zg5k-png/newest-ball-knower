@@ -1,7 +1,7 @@
 // Keep the Store mesh and skin. The native Combine rig still drives the dash,
 // while its poses are copied onto the character's own proportions.
 import { Box3, MathUtils, Quaternion, Vector3 } from 'three';
-import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { combineModelLoader } from './model-loader.js';
 import { invalidateCombineAsset, loadCombineAsset } from './asset-loading.js';
 
 const jointNames = {
@@ -21,11 +21,11 @@ for (const side of ['Left', 'Right']) {
 
 export const sourceJointNames = Object.freeze(Object.keys(jointNames));
 
-export async function loadPracticeCharacter(url, source, fitting) {
+export async function loadPracticeCharacter(url, source, fitting, textureLimit) {
   let model;
   try {
     const bytes = await loadCombineAsset(url);
-    ({ scene: model } = await new GLTFLoader().parseAsync(bytes.slice(0), new URL('.', new URL(url, location.href)).href));
+    ({ scene: model } = await combineModelLoader(textureLimit).parseAsync(bytes, new URL('.', new URL(url, location.href)).href));
     let lowestSole;
     if (fitting) {
       const { fitStoreRig } = await import('./fit-store-rig.js');

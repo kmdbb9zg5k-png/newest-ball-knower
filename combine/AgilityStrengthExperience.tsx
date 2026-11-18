@@ -21,7 +21,7 @@ export default function AgilityStrengthExperience({players,context,onClose,drill
  useEffect(()=>{
   let gone=false,raf=0,last=0,hud=0;
   import('./scene.js').then(async({createCombineScene})=>{
-   if(gone||!host.current)return;const loaded=await createCombineScene(host.current,run.current.athlete,()=>{if(gone)return;pause();setError('Graphics were interrupted. Retry to resume your session.');},drill);
+   if(gone||!host.current)return;const loaded=await createCombineScene(host.current,run.current.athlete,()=>{if(gone)return;pause();setError('Graphics were interrupted. Retry to resume your session.');},drill,{retry:sceneAttempt>0});
    if(gone){loaded.dispose();return;}scene.current=loaded;loaded.draw(run.current,0);setReady(true);last=performance.now();
    const frame=(now:number)=>{if(gone)return;raf=requestAnimationFrame(frame);const dt=(now-last)/1000;last=now;if(stopped.current||document.hidden)return;
     if(dt>5&&['running','cut','countdown'].includes(run.current.phase)){pause('interruption');return;}

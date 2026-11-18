@@ -1,8 +1,8 @@
 import * as T from 'three';
 import {loadCombineRunner} from './meshy-runner.js';
 import {DEFENDER,manBall} from './man-coverage.js';
-export async function createDefender(scene,player=DEFENDER){
- const db=await loadCombineRunner(player);db.root.name='man-coverage-defender';scene.add(db.root);
+export async function createDefender(scene,player=DEFENDER,textureLimit){
+ const db=await loadCombineRunner(player,false,false,textureLimit);db.root.name='man-coverage-defender';scene.add(db.root);
  // Default defenders use burgundy; equipped clothing keeps its own colors.
  if(!db.storeCharacterLoaded)db.root.traverse(o=>{if(!o.isSkinnedMesh)return;for(const m of(Array.isArray(o.material)?o.material:[o.material])){const before=m.onBeforeCompile,cache=m.customProgramCacheKey.bind(m);m.onBeforeCompile=shader=>{before.call(m,shader);shader.vertexShader='varying vec3 bkDBWorld;\n'+shader.vertexShader.replace('#include <worldpos_vertex>','#include <worldpos_vertex>\nbkDBWorld=(modelMatrix*vec4(transformed,1.)).xyz;');shader.fragmentShader='varying vec3 bkDBWorld;\n'+shader.fragmentShader.replace('#include <color_fragment>',`#include <color_fragment>
  if(bkKit_enabled < .5){

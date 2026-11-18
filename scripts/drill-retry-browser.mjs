@@ -16,8 +16,8 @@ const browser=await chromium.launch({headless:true,executablePath:process.env.BR
 
 // Fault-injected scene checks exercise real drill components/state without a GPU
 // for the full mode matrix. The companion my-player-drill-retry-browser test uses the real renderer.
-const stub=`export async function createCombineScene(host,athlete,onLost){
- const stats=window.__retryStats??={created:0,disposed:0,live:0};stats.created++;
+const stub=`export async function createCombineScene(host,athlete,onLost,drill,{retry}={}){
+ const stats=window.__retryStats??={created:0,disposed:0,live:0};stats.created++;stats.retry=retry;
  if(window.__retryFail)throw Error('Injected renderer load failure');
  const canvas=document.createElement('canvas');canvas.dataset.retryScene='true';host.append(canvas);stats.live++;
  const lose=e=>{e.preventDefault();onLost();};canvas.addEventListener('webglcontextlost',lose);
@@ -36,7 +36,8 @@ try{
   if(drill==='rb')await page.clock.install();
   await page.goto(base+'/combine.html?drill='+drill);await page.getByRole('button',{name:/^Save & start /}).click();
   const retry=page.getByRole('button',{name:'RETRY DRILL',exact:true});await retry.waitFor();const initialNavigations=navigations;
-  await retry.click();await retry.waitFor();assert.equal(navigations,initialNavigations,'Repeated failed retry must stay in '+drill);
+  assert.equal(await page.evaluate(()=>window.__retryStats.retry),false);
+  await retry.click();await retry.waitFor();assert.equal(await page.evaluate(()=>window.__retryStats.retry),true);assert.equal(navigations,initialNavigations,'Repeated failed retry must stay in '+drill);
   await page.evaluate(()=>window.__retryFail=false);await retry.click();await page.waitForFunction(()=>window.__retryStats?.live===1);await retry.waitFor({state:'hidden'});await resume(page);
   const main=page.locator('main.combine-game');assert.equal(await main.getAttribute('data-phase'),'idle');
   const start=drill==='dash'?page.locator('.combine-action'):drill==='broad-jump'?page.getByRole('button',{name:'Left power',exact:true}):page.locator('.skill-start,.route-start');
