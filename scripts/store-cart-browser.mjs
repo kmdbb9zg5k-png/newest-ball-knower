@@ -87,12 +87,18 @@ try {
    await dialog.getByText('Your cart is empty.',{exact:false}).waitFor();
    await dialog.getByRole('button',{name:'Continue shopping'}).click();
    await page.getByRole('button',{name:'Profile',exact:true}).first().click();
+   const guide = page.getByRole('dialog',{name:'Make every game count.',exact:true});
+   await guide.waitFor();
+   await page.keyboard.press('Escape');
+   await guide.waitFor({state:'detached'});
    await page.getByRole('button',{name:'Switch character',exact:true}).click();
    const picker = page.getByRole('dialog',{name:'Switch game character',exact:true});
    const characters = picker.getByRole('combobox',{name:'Character',exact:true});
+   await characters.locator('option[value="frostbite"]:enabled').waitFor({state:'attached'});
    await characters.selectOption('frostbite');
-   assert.equal(await characters.inputValue(),'frostbite');
    assert.equal(await characters.locator('option[value="bkf-phantom"]').isDisabled(),true);
+   await picker.getByRole('button',{name:'Save game character',exact:true}).click();
+   await page.locator('.bk-profile-game-character').getByText('Frostbite',{exact:true}).waitFor();
    console.log('PASS private character code with payments disabled and unlocked character selectable in Profile');
    console.log('PASS Store character cart and mocked Stripe and PayPal checkout handoff');
   }
