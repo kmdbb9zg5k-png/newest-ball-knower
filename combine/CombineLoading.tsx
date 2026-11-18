@@ -1,9 +1,9 @@
 import React from 'react';
 import './CombineLoading.css';
 
-type Props = { error?: string; onBack: () => void; onRetry: () => void };
+type Props = { error?: string; message?: string; onBack: () => void; onRetry: () => void };
 
-export default function CombineLoading({ error, onBack, onRetry }: Props) {
+export default function CombineLoading({ error, message, onBack, onRetry }: Props) {
   const failed = Boolean(error);
   return <section className="bk-combine-loading" role="dialog" aria-modal="true" aria-label={failed ? 'Combine unavailable' : 'Preparing Combine'}>
     <div className="bk-combine-loading-scene" aria-hidden="true"><div className="bk-combine-loading-lanes"/><div className="bk-combine-loading-floodlights"/></div>
@@ -11,7 +11,7 @@ export default function CombineLoading({ error, onBack, onRetry }: Props) {
       <div className="bk-combine-loading-brand"><span className="bk-combine-loading-monogram">B<span>K</span></span><span>THE COMBINE</span></div>
       <div className="bk-combine-loading-rule" aria-hidden="true"/>
       <h2>{failed ? 'COMBINE UNAVAILABLE' : 'PREPARING COMBINE'}</h2>
-      <p className="bk-combine-loading-subtitle" role="status">{error || 'Setting the track…'}</p>
+      <p className="bk-combine-loading-subtitle" role="status">{error || message || 'Setting the track…'}</p>
       {!failed && <>
         <div className="bk-combine-loading-progress" role="progressbar" aria-label="Loading combine" aria-valuetext="Preparing combine"><span/></div>
         <p className="bk-combine-loading-caption">Preparing your 40-yard dash experience</p>
