@@ -22,7 +22,6 @@ import '../index.css';
 import '../communityMiniGames.css';
 import '../solo/soloPresentation.css';
 import './combine-entry.css';
-import CombineLoading from './CombineLoading';
 
 const positions=['WR','RB','CB','QB','TE','LB'];
 const allPlayers=positions.flatMap(pos=>SOLO_PLAYERS_DATABASE.filter(p=>p.position===pos).slice(0,3)).map(combineAthlete);
