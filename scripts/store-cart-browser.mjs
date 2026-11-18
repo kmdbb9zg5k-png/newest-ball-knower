@@ -65,6 +65,7 @@ try {
    await page.route('https://checkout.stripe.com/bk-test',route=>route.fulfill({body:'Stripe fixture'}));
    await page.route('https://www.sandbox.paypal.com/bk-test',route=>route.fulfill({body:'PayPal fixture'}));
    await dialog.getByRole('button',{name:'Refresh purchases'}).click();
+   await dialog.getByText('Have a promo code? Enter it on the card checkout page.').waitFor();
    await dialog.getByRole('button',{name:/Checkout · Card/}).click();
    await page.waitForURL('https://checkout.stripe.com/bk-test');
    await page.goto('http://127.0.0.1:4189/?store_checkout=return');

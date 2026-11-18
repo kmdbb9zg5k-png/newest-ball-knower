@@ -4,7 +4,7 @@ Shoppers can add Tunnel Fit and Gold Standard to one persistent cart, remove ite
 
 ## Playable characters
 
-The same cart accepts the two supported outfits and characters with gameplay rigs. The server snapshots item type and cents on each order. Only paid live character lines unlock Profile and gameplay. Refunds and disputes remove access. Sandbox payments verify the receipt without granting gameplay access on the live account.
+The same cart accepts the two supported outfits and characters with gameplay rigs. The server snapshots item type and cents on each order. Verified live orders unlock characters in Profile and gameplay. Refunds and disputes remove access. Sandbox orders verify the receipt without granting gameplay access on the live account.
 
 `STORE_CHARACTER_PRICES` is a server environment variable containing a JSON object from approved character SKUs to their USD price in integer cents. Without a configured live price a character remains preview-only. Test mode gives allowlisted buyers a $1.00 test price per playable character unless a test price map is configured. Check both migrations with `scripts/store-cart-database-check.sql` in a rollback transaction.
 
@@ -24,6 +24,12 @@ Webhook endpoints (required):
 - `/api/store-webhook?provider=paypal`: PayPal `CHECKOUT.ORDER.APPROVED`, `PAYMENT.CAPTURE.COMPLETED`, `PAYMENT.CAPTURE.PENDING`, `PAYMENT.CAPTURE.DENIED`, `PAYMENT.CAPTURE.REFUNDED`, `PAYMENT.CAPTURE.REVERSED`, `CUSTOMER.DISPUTE.CREATED`, `CUSTOMER.DISPUTE.RESOLVED`.
 
 The ledger snapshots USD catalog prices server-side. Authenticated API reads reconcile provider records, and signed webhook handlers process asynchronous completion even without a browser return. Web return parameters never grant ownership. Refunds (including partial refunds) and disputes revoke the complete bundled order and stay revoked on event replay. Dispute resolution requires support review to reinstate. One pending cart per account/environment prevents parallel duplicate purchases; Stripe sessions can be canceled from the cart. PayPal pending orders can be resumed with the same cart/provider; unresolved/abandoned orders require support rather than risking a second charge. Provider idempotency windows are bounded and old ambiguous orders require support.
+
+## Checkout promo codes
+
+Customers enter the code on hosted Stripe Checkout. Create and manage campaigns in the Stripe Dashboard for the chosen environment. Review other active merchant-wide Stripe codes before enabling live Store Checkout, since eligible account-level codes can apply to these carts. PayPal checkout does not accept Stripe codes.
+
+The ledger keeps the original catalog subtotal. Reconciliation verifies both the original cart and Stripe's per-item discounts, then matches the discounted total to the payment and charge. A full discount unlocks items only after Stripe confirms a completed zero-cost session. Verify valid, invalid and expired codes, a discounted payment and a zero-cost order in sandbox before enabling the corresponding live codes.
 
 Outfits persist by account and environment, and only server-verified wearables appear in My Wardrobe. Native builds do not expose payment actions; native purchasing is a separate integration. Tax collection is not configured or advertised as enabled.
 

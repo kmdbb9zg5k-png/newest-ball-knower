@@ -40,21 +40,27 @@ export function storeConfig(env: Record<string,string|undefined>) {
     prices: { ...OUTFIT_PRICES, ...characterPrices(mode, env.STORE_CHARACTER_PRICES) } };
 }
 export function verifyStripeOrder(order: StoreOrder, session: Stripe.Checkout.Session, lines: Stripe.ApiList<Stripe.LineItem>, payment: Stripe.PaymentIntent | null) {
-  if (session.livemode !== (order.mode === 'live') || session.mode !== 'payment' || session.metadata?.store_order !== order.id || session.client_reference_id !== order.user_id || (order.provider_id && session.id !== order.provider_id) || session.amount_total !== order.amount || session.currency !== 'usd' || lines.has_more || lines.data.length !== order.items.length) fail(409, 'Order verification failed.');
+  if (session.livemode !== (order.mode === 'live') || session.mode !== 'payment' || session.metadata?.store_order !== order.id || session.client_reference_id !== order.user_id || (order.provider_id && session.id !== order.provider_id) || session.amount_subtotal !== order.amount || session.currency !== 'usd' || lines.has_more || lines.data.length !== order.items.length) fail(409, 'Order verification failed.');
   const seen = new Set<string>();
+  let discount = 0;
   for (const line of lines.data) {
     const product = line.price?.product;
     const sku = typeof product === 'object' && product && 'metadata' in product ? product.metadata?.store_sku : undefined;
     const item = order.items.find(i => i.id === sku);
-    if (!item || seen.has(sku!) || line.quantity !== 1 || line.amount_total !== item.amount || line.currency !== 'usd') fail(409, 'Item verification failed.');
+    if (!item || seen.has(sku!) || line.quantity !== 1 || line.amount_subtotal !== item.amount || line.currency !== 'usd' || line.amount_tax !== 0 || !Number.isSafeInteger(line.amount_discount) || line.amount_discount < 0 || line.amount_discount > item.amount || line.amount_total !== item.amount - line.amount_discount) fail(409, 'Item verification failed.');
     seen.add(sku!);
+    discount += line.amount_discount;
   }
+  const total = order.amount - discount;
+  const details = session.total_details;
+  if (session.amount_total !== total || (details?.amount_discount ?? 0) !== discount || (details?.amount_tax ?? 0) !== 0 || (details?.amount_shipping ?? 0) !== 0 || (discount > 0 && session.allow_promotion_codes !== true)) fail(409, 'Discount verification failed.');
+  if (total === 0 && session.status === 'complete' && session.payment_status === 'no_payment_required' && !session.payment_intent && !payment && !order.payment_id) return 'paid';
   if (payment) {
-    if (payment.livemode !== (order.mode === 'live') || payment.id !== idOf(session.payment_intent) || (order.payment_id && order.payment_id !== payment.id) || payment.metadata?.store_order !== order.id || payment.metadata?.user_id !== order.user_id || payment.amount !== order.amount || payment.currency !== 'usd') fail(409, 'Payment verification failed.');
+    if (payment.livemode !== (order.mode === 'live') || payment.id !== idOf(session.payment_intent) || (order.payment_id && order.payment_id !== payment.id) || payment.metadata?.store_order !== order.id || payment.metadata?.user_id !== order.user_id || payment.amount !== total || payment.currency !== 'usd') fail(409, 'Payment verification failed.');
     const charge = typeof payment.latest_charge === 'object' ? payment.latest_charge : null;
     if (charge?.disputed) return 'disputed';
     if (charge && charge.amount_refunded > 0) return 'refunded';
-    if (session.status === 'complete' && session.payment_status === 'paid' && payment.status === 'succeeded' && payment.amount_received === order.amount && charge?.paid && charge.amount === order.amount && charge.currency === 'usd' && charge.livemode === (order.mode === 'live')) return 'paid';
+    if (total > 0 && session.status === 'complete' && session.payment_status === 'paid' && payment.status === 'succeeded' && payment.amount_received === total && charge?.paid && charge.amount === total && charge.currency === 'usd' && charge.livemode === (order.mode === 'live')) return 'paid';
   }
   return session.status === 'expired' ? 'expired' : 'pending';
 }
@@ -151,7 +157,7 @@ export function makeStoreCommerce(db: SupabaseClient, config: NonNullable<Return
         await account();
         const metadata = { store_order: order.id, user_id: user };
         const session = order.provider_id ? await stripe!.checkout.sessions.retrieve(order.provider_id) : await stripe!.checkout.sessions.create({
-          mode: 'payment', client_reference_id: user, metadata, payment_intent_data: { metadata },
+          mode: 'payment', allow_promotion_codes: true, client_reference_id: user, metadata, payment_intent_data: { metadata },
           integration_identifier: 'ball-knower-store-kfndpjra',
           line_items: order.items.map(i => ({ quantity: 1, price_data: { currency: 'usd', unit_amount: i.amount, product_data: { name: i.name, metadata: { store_sku: i.id } } } })),
           success_url: `${ORIGIN}/?store_checkout=return`, cancel_url: `${ORIGIN}/?store_checkout=cancel`,

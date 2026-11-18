@@ -91,7 +91,7 @@ export default function StoreCart({ cart, onClose }: { cart: ReturnType<typeof u
       {!cart.ids.length && <p className="bk-cart-empty">Your cart is empty. Explore the Store to add an item.</p>}
       <div className="bk-cart-total"><strong>Subtotal</strong><strong>{formatStoreAmount(cartTotal(cart.ids, cart.prices))}</strong></div>
       {native ? <p>Purchasing in the native app is not available yet.</p> : <>
-        {status?.owned?.length > 0 && <p role="status">{status.mode === 'test' ? 'Test payment verified.' : 'Payment verified. Find outfits in My Locker and playable characters in Profile.'}</p>}
+        {status?.owned?.length > 0 && <p role="status">{status.mode === 'test' ? 'Test checkout verified.' : 'Order verified. Find outfits in My Locker and playable characters in Profile.'}</p>}
         {status?.mode === 'test' && <p role="status">Test checkout — no real money or live ownership.</p>}
         {status && (status.stripe || status.paypal) && !status.signedIn && <p>Sign in to check out and save purchases to your account.</p>}
         {status?.signedIn && unavailable && <p>Remove items without a current price to continue.</p>}
@@ -100,7 +100,8 @@ export default function StoreCart({ cart, onClose }: { cart: ReturnType<typeof u
           <button type="button" className="bk-store-button bk-store-button-gold" disabled={busy || !cart.ids.length || unavailable || !status?.signedIn || !status?.stripe} onClick={() => checkout('stripe')}>{busy ? 'Opening checkout…' : 'Checkout · Card / Apple Pay / Google Pay'}</button>
           <button type="button" className="bk-store-button" disabled={busy || !cart.ids.length || unavailable || !status?.signedIn || !status?.paypal} onClick={() => checkout('paypal')}>Checkout with PayPal</button>
         </div>
-        <p className="bk-store-purchase-status">Available wallets appear on supported devices at checkout. Purchases unlock after payment is verified.</p>
+        {status?.stripe && <p className="bk-store-purchase-status">Have a promo code? Enter it on the card checkout page.</p>}
+        <p className="bk-store-purchase-status">Available wallets appear on supported devices at checkout. Items unlock after checkout is verified.</p>
         <button className="bk-store-button" type="button" disabled={busy} onClick={refresh}>Refresh purchases</button>
       </>}
       {status?.pending && <><p role="status">A checkout is pending. Finish it before starting another cart.</p><button className="bk-store-button" disabled={busy} onClick={async () => { setBusy(true); try { await request({ action: 'cancel' }); await refresh(); } catch(e) { setError(e instanceof Error ? e.message : 'Could not cancel checkout.'); } finally { setBusy(false); } }}>Cancel pending card checkout</button></>}
