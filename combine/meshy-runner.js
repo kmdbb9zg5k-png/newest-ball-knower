@@ -1,6 +1,6 @@
 import {loadCombineAsset,invalidateCombineAsset} from './asset-loading.js';
 import * as T from 'three';
-import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { combineModelLoader } from './model-loader.js';
 import { createPlayerAppearance } from './player-appearance.js';
 import {gameAthlete,gameAthleteScale} from '../public/play-moment-3d/game-athlete.js';
 import {createBodyShape,bodyMass} from './body-shape.js';
@@ -11,10 +11,10 @@ const v=(x=0,y=0,z=0)=>new T.Vector3(x,y,z);
 const position=o=>o.getWorldPosition(v());
 const rotation=o=>o.getWorldQuaternion(new T.Quaternion());
 
-export async function loadCombineRunner(player,showroom=false,showroomSkin=false) {
+export async function loadCombineRunner(player,showroom=false,showroomSkin=false,textureLimit) {
   const bytes=await loadCombineAsset(COMBINE_CHARACTER_URL);
   let gltf;
-  try { gltf=await new GLTFLoader().parseAsync(bytes.slice(0),'/play-moment-3d/assets/'); }
+  try { gltf=await combineModelLoader(textureLimit).parseAsync(bytes,'/play-moment-3d/assets/'); }
   catch(error) { invalidateCombineAsset(COMBINE_CHARACTER_URL); throw error; }
   const root=new T.Group(),body=gltf.scene;root.add(body);
   const asset=body.getObjectByName('CombineAthlete'),baseScale=asset.scale.clone();
@@ -67,7 +67,7 @@ export async function loadCombineRunner(player,showroom=false,showroomSkin=false
   if (storeAsset) {
     try {
       const {loadPracticeCharacter} = await import('./practice-character.js');
-      practiceCharacter = await loadPracticeCharacter(storeAsset.url, bones, storeAsset.fitId);
+      practiceCharacter = await loadPracticeCharacter(storeAsset.url, bones, storeAsset.fitId, textureLimit);
     } catch (error) {
       disposeRunner();
       throw error;

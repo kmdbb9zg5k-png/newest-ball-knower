@@ -7,8 +7,8 @@ import {createCreatorScene} from '/combine/creator-scene.ts';
 import {newDash} from '/combine/dash.js';
 const player={id:'startup-regression',name:'Test runner',position:'WR',speed:85,acceleration:85,seed:10};
 const host=document.getElementById('host');
-window.runStartup=async()=>{
- try{const scene=await createCombineScene(host,player,()=>{});scene.draw(newDash(player),0);window.lastScenery={scouts:host.dataset.scouts,waiting:host.dataset.waitingAthletes};scene.dispose();return{ok:true};}
+window.runStartup=async(options={mobile:false})=>{
+ try{const scene=await createCombineScene(host,player,()=>{},'dash',options);scene.draw(newDash(player),0);const canvas=host.querySelector('canvas');window.lastGraphics={mode:host.dataset.graphics,width:canvas.width,antialias:canvas.getContext('webgl2').getContextAttributes().antialias};window.lastScenery={scouts:host.dataset.scouts,waiting:host.dataset.waitingAthletes};scene.dispose();return{ok:true};}
  catch(error){return{ok:false,stage:error.combineStage,message:error.cause?.message||error.message};}
 };
 window.runCreator=async()=>{const scene=await createCreatorScene(host,player);scene.dispose();return true;};
@@ -16,7 +16,7 @@ window.ready=true;`;
 const server=await createServer({server:{host:'127.0.0.1',port:3094,strictPort:true},plugins:[{name:'startup-fixture',configureServer(s){s.middlewares.use(async(req,res,next)=>{if(req.url==='/startup-qa.html'){res.setHeader('Content-Type','text/html');res.end(await s.transformIndexHtml(req.url,'<div id="host" style="width:390px;height:680px"></div><script type="module" src="/startup-qa.js"></script>'));}else next();});},resolveId(id){if(id==='/startup-qa.js')return '\0startup-qa';},load(id){if(id==='\0startup-qa')return fixture;}}]});
 await server.listen();const browser=await chromium.launch({args:['--no-sandbox','--enable-unsafe-swiftshader','--use-angle=swiftshader']});
 try{
- const page=await browser.newPage({viewport:{width:390,height:844},isMobile:true,hasTouch:true});page.setDefaultTimeout(90000);const errors=[];page.on('pageerror',error=>errors.push(error.message));
+ const page=await browser.newPage({viewport:{width:390,height:844},isMobile:true,hasTouch:true,deviceScaleFactor:3});page.setDefaultTimeout(90000);const errors=[];page.on('pageerror',error=>errors.push(error.message));
  await page.addInitScript(()=>{
   window.contextStats={live:0,created:0,released:0};window.failPreferred=false;
   const original=HTMLCanvasElement.prototype.getContext,seen=new WeakSet();
@@ -61,4 +61,11 @@ try{
  assert.equal(await page.evaluate(()=>window.contextStats.live),0);
  assert.deepEqual(errors,[]);
  console.log('PASS playable scenery fallback, retained athletes, restored scouts, native-decoder independence and context cleanup');
+ assert.deepEqual(await page.evaluate(()=>window.runStartup({})),{ok:true});
+ assert.deepEqual(await page.evaluate(()=>window.lastGraphics),{mode:'mobile',width:390,antialias:false});
+ assert.deepEqual(await page.evaluate(()=>window.lastScenery),{scouts:'0',waiting:'0'});
+ assert.deepEqual(await page.evaluate(()=>window.runStartup({retry:true})),{ok:true});
+ assert.deepEqual(await page.evaluate(()=>window.lastGraphics),{mode:'recovery',width:292,antialias:false});
+ assert.equal(await page.evaluate(()=>window.contextStats.live),0);
+ console.log('PASS mobile and retry presets render with smaller framebuffers and release the context');
 }finally{await browser.close();await server.close();}

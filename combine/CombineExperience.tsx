@@ -94,7 +94,7 @@ export default function CombineExperience({ players, context, onClose, onResult 
     };
     import('./scene.js').then(async ({ createCombineScene }) => {
       if (gone || !host.current) return;
-      const loadedScene = await createCombineScene(host.current, run.current.athlete, () => { if(gone)return;pause(); setError('Graphics were interrupted. Retry to resume your session.'); });
+      const loadedScene = await createCombineScene(host.current, run.current.athlete, () => { if(gone)return;pause(); setError('Graphics were interrupted. Retry to resume your session.'); }, 'dash', { retry: sceneAttempt > 0 });
       if(gone){loadedScene.dispose();return;}
       scene.current=loadedScene;
       if(ghostRef.current)loadedScene.setGhost(ghostRef.current.athlete);

@@ -4,13 +4,13 @@ import {loadCombineRunner} from './meshy-runner.js';
 import {createDefender} from './defender-presentation.js';
 import {manBall} from './man-coverage.js';
 import {newRouteCamera,stepRouteCamera} from './route-camera.js';
-export async function createRoutePresentation(scene,runner,camera,host,player,man=false,dbPlayer=null){
- const qb=await loadCombineRunner({id:'combine-quarterback-114',name:'Marcus • Passing Coach',position:'QB',heightInches:75,weightLbs:220});scene.add(qb.root);
+export async function createRoutePresentation(scene,runner,camera,host,player,man=false,dbPlayer=null,textureLimit){
+ const qb=await loadCombineRunner({id:'combine-quarterback-114',name:'Marcus • Passing Coach',position:'QB',heightInches:75,weightLbs:220},false,false,textureLimit);scene.add(qb.root);
  qb.root.traverse(o=>{if(!o.isSkinnedMesh)return;for(const m of(Array.isArray(o.material)?o.material:[o.material])){const before=m.onBeforeCompile,cache=m.customProgramCacheKey.bind(m);m.onBeforeCompile=shader=>{before.call(m,shader);shader.vertexShader='varying vec3 bkQBPosition;\n'+shader.vertexShader.replace('#include <worldpos_vertex>','#include <worldpos_vertex>\nbkQBPosition=(modelMatrix*vec4(transformed,1.)).xyz;');shader.fragmentShader='varying vec3 bkQBPosition;\n'+shader.fragmentShader.replace('#include <color_fragment>',`#include <color_fragment>
  float grey=1.-smoothstep(.04,.15,max(diffuseColor.r,max(diffuseColor.g,diffuseColor.b))-min(diffuseColor.r,min(diffuseColor.g,diffuseColor.b)));
  float shirt=grey*smoothstep(.88,.98,bkQBPosition.y)*(1.-smoothstep(1.48,1.57,bkQBPosition.y));
  diffuseColor.rgb=mix(diffuseColor.rgb,vec3(.10,.32,.62)*(.45+dot(diffuseColor.rgb,vec3(.333))),shirt);`);};m.customProgramCacheKey=()=>cache()+'-route-coach-blue';m.needsUpdate=true;}});
- const defender=man?await createDefender(scene,dbPlayer||undefined):null;
+ const defender=man?await createDefender(scene,dbPlayer||undefined,textureLimit):null;
  const ball=createDrillFootball('receiver-drill-football');scene.add(ball);
  const halo=new T.Mesh(new T.RingGeometry(.17,.21,24),new T.MeshBasicMaterial({color:'#fff3c7',side:T.DoubleSide,depthTest:false,transparent:true,opacity:.8}));ball.add(halo);halo.renderOrder=4;
  const marker=new T.Mesh(new T.RingGeometry(.65,.70,40),new T.MeshBasicMaterial({color:'#eac979',side:T.DoubleSide,transparent:true,opacity:.6}));marker.rotation.x=-Math.PI/2;marker.position.y=.025;scene.add(marker);
