@@ -22,7 +22,7 @@ try {
     const context = await browser.newContext({
       viewport: { width, height: 844 }, isMobile: true, hasTouch: true, serviceWorkers: 'block',
     });
-    await mockCharacterPurchases(context, [{ sku: id, source: 'purchase', expires_at: null }]);
+    await mockCharacterPurchases(context, [{ sku: id, source: 'purchase', expires_at: null }], [], {character:id,position:'WR',heightInches:72,weightLbs:195});
     await context.route('**/api/**', route => route.fulfill({ json: { available: false, tracks: [] } }));
     await context.addInitScript(() => {
       localStorage.setItem('ball-knower-team-setup-v2', 'complete');
@@ -43,8 +43,8 @@ try {
     const card = page.locator(`[data-store-product="${id}"]`);
     await card.tap();
     const savedPlayer = await page.evaluate(() => localStorage.getItem('ballknower_solo_my_player_v2'));
-    await page.getByRole('link', { name: 'Run the 40 as ' + name }).tap();
-    await page.waitForURL('**/combine.html?drill=dash&character=' + id);
+    await page.getByRole('link', { name: 'Equip in Locker' }).waitFor();
+    await page.goto('http://127.0.0.1:4192/combine.html?drill=dash');
 
     const start = page.locator('.combine-hud:not([inert])').getByRole('button', { name: 'Start dash' });
     await start.waitFor();
@@ -65,12 +65,12 @@ try {
     assert.equal(await page.evaluate(() => localStorage.getItem('ballknower_solo_my_player_v2')), savedPlayer);
     const result = await page.evaluate(() => JSON.parse(localStorage.getItem('bk-combine-forty-v1')).at(-1));
     assert.equal(result.playerId, 'store:' + id);
-    assert.equal(result.context, 'character-practice');
+    assert.equal(result.context, 'standalone');
     assert.ok(result.splits.every(Number.isFinite));
-    await results.getByRole('button', { name: 'Back to Characters' }).tap();
-    await card.waitFor();
+    await results.getByRole('button', { name: 'Back to Mini Games' }).tap();
+    await page.waitForURL('**/?miniGames=1&combine=1');
     assert.deepEqual(errors, []);
-    console.log(`PASS ${width}px ${name} Store launch, touch play, saved result, and return to Characters`);
+    console.log(`PASS ${width}px ${name} Locker character launch, touch play, saved result, and return to Combine`);
     await context.close();
   }
 } finally {

@@ -128,7 +128,7 @@ const LockerSession: React.FC<{ onOpenAuth?: () => void }> = ({ onOpenAuth }) =>
   return <BroadcastStage scene="locker" page="profile" className="bk-profile-page relative isolate min-h-[calc(100dvh-7rem)] overflow-hidden px-3 pb-8 pt-4 sm:px-6 sm:pt-6">
     <div className="mx-auto max-w-5xl">
       <header className="bk-locker-masthead"><div><h1>Profile</h1></div><ProfileGuide/></header>
-      <GameAthleteSetup variant="profile"/>
+      <GameAthleteSetup/>
       <ProgressionProfileCard identity={<div className="bk-profile-identity" data-testid="locker-identity">
         <ProfilePhotoEditor onOpenAuth={onOpenAuth}/>
       </div>}/>

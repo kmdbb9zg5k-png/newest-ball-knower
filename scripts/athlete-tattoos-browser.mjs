@@ -33,11 +33,11 @@ try{
  for(const width of [320,390]){
   browser=await launch();const page=await browser.newPage({viewport:{width,height:844},serviceWorkers:'block'});page.setDefaultTimeout(90000);
   await page.route('**/*',r=>{const u=new URL(r.request().url());if(u.origin!=='http://127.0.0.1:3096')return r.abort();if(u.pathname.startsWith('/api/'))return r.fulfill({json:{available:false}});return r.request().method()==='GET'?r.continue():r.abort();});
-  await page.goto('http://127.0.0.1:3096/combine.html?drill=dash');await page.locator('[data-render-state=ready]').waitFor();await page.getByRole('tab',{name:'Tattoos',exact:true}).click();
+  await page.goto('http://127.0.0.1:3096/combine.html?drill=dash&create=1');await page.locator('[data-render-state=ready]').waitFor();await page.getByRole('tab',{name:'Tattoos',exact:true}).click();
   for(const arm of ['Left Arm','Right Arm','Both Arms']){await page.getByRole('button',{name:arm,exact:true}).click();assert.equal(await page.getByRole('button',{name:arm,exact:true}).getAttribute('aria-pressed'),'true');}
   await page.getByRole('button',{name:'Forearm',exact:true}).click();await page.getByRole('button',{name:'Traditional',exact:true}).click();
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);await page.screenshot({path:`artifacts/athlete-tattoos/controls-${width}.png`});
-  await page.getByRole('button',{name:'Save & start 40-Yard Dash',exact:true}).click();await page.reload();await page.locator('[data-render-state=ready]').waitFor();await page.getByRole('tab',{name:'Tattoos',exact:true}).click();
+  await page.getByRole('button',{name:'Save My Player',exact:true}).click();await page.reload();await page.locator('[data-render-state=ready]').waitFor();await page.getByRole('tab',{name:'Tattoos',exact:true}).click();
   for(const label of ['Both Arms','Forearm','Traditional'])assert.equal(await page.getByRole('button',{name:label,exact:true}).getAttribute('aria-pressed'),'true');
   await browser.close();browser=null;console.log(`PASS ${width}px placement controls, saved appearance and reload.`);
  }

@@ -126,7 +126,14 @@ try {
    assert.equal(await characters.locator('option[value="bkf-phantom"]').evaluate(option => option.disabled),true);
    await picker.getByRole('button',{name:'Save game character',exact:true}).click();
    await page.locator('.bk-profile-game-character').getByText('Frostbite',{exact:true}).waitFor();
+   const savedCloudCharacter = await page.evaluate(() => {
+     const session = JSON.parse(localStorage.getItem('sb-gpnboygoosrmeydwjpvk-auth-token'));
+     localStorage.removeItem('bk-game-athlete-v1');
+     return session.user.user_metadata.bk_game_athlete.character;
+   });
+   assert.equal(savedCloudCharacter,'frostbite');
    await page.getByRole('button',{name:'Store',exact:true}).filter({visible:true}).first().click();
+   await page.getByRole('button',{name:'Shop Characters',exact:true}).click();
    await page.getByRole('button',{name:'My Locker',exact:true}).click();
    const wardrobe = page.getByRole('region',{name:'Player clothing locker'});
    await wardrobe.getByRole('button',{name:'Switch character',exact:true}).click();

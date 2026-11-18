@@ -1,5 +1,6 @@
 import React, { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { useGameAthlete } from '../useGameAthlete';
 import { combineAthlete, readResults, RULESET } from './dash.js';
 
 const Combine = lazy(() => import('./CombineExperience'));
@@ -12,7 +13,14 @@ export function FranchiseCombine({ prospects, roster, context, year }: { prospec
 export function CombineLauncher({ players, context, label = '40-Yard Dash', onResults }: { players: CombinePlayer[]; context: string; label?: string; onResults?: () => void }) {
   const [open, setOpen] = useState(false);
   return <><button type="button" onClick={() => setOpen(true)} className="rounded-xl border border-emerald-300/30 bg-emerald-950 px-4 py-3 text-sm font-bold text-emerald-100" disabled={!players.length}>{label} <span aria-hidden="true">↗</span></button>
-    {open && createPortal(<CombineModal close={() => { setOpen(false); onResults?.(); }}><Combine players={players.map(combineAthlete)} context={context} onClose={() => { setOpen(false); onResults?.(); }} /></CombineModal>, document.body)}</>;
+    {open && createPortal(<CombineModal close={() => { setOpen(false); onResults?.(); }}><ScoutCombine players={players} context={context} onClose={() => { setOpen(false); onResults?.(); }} /></CombineModal>, document.body)}</>;
+}
+function ScoutCombine({ players, context, onClose }: { players: CombinePlayer[]; context: string; onClose: () => void }) {
+  const { character, saved, loading } = useGameAthlete(true);
+  if (loading) return <p role="status">Loading your Locker character…</p>;
+  if (saved?.character && !character) return <><p role="alert">Could not load your Locker character.</p><button onClick={onClose}>Back to franchise</button></>;
+  const roster = players.map(player => ({ ...combineAthlete(player), practiceCharacterId: character?.id }));
+  return <Combine players={roster} context={context} onClose={onClose}/>;
 }
 class CombineError extends React.Component<{ children: React.ReactNode; close: () => void }, { failed: boolean }> {
   state = { failed: false };

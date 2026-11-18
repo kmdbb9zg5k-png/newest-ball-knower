@@ -36,14 +36,15 @@ export default defineConfig(() => {
       configureServer(server) {
         server.middlewares.use((request, _response, next) => {
           if (request.url === '/assets/bk-field-character.js') request.url = '/field-character.ts';
+          if (request.url === '/assets/bk-game-athlete.js') request.url = '/gameAthletePreference.ts';
           next();
         });
       },
     }],
     build: { rollupOptions: {
       preserveEntrySignatures: 'exports-only',
-      input: { app: path.join(root, 'index.html'), combine: path.join(root, 'combine.html'), fieldCharacter: path.join(root, 'field-character.ts') },
-      output: { entryFileNames: chunk => chunk.name === 'fieldCharacter' ? 'assets/bk-field-character.js' : 'assets/[name]-[hash].js' },
+      input: { app: path.join(root, 'index.html'), combine: path.join(root, 'combine.html'), fieldCharacter: path.join(root, 'field-character.ts'), gameAthletePreference: path.join(root, 'gameAthletePreference.ts') },
+      output: { entryFileNames: chunk => chunk.name === 'fieldCharacter' ? 'assets/bk-field-character.js' : chunk.name === 'gameAthletePreference' ? 'assets/bk-game-athlete.js' : 'assets/[name]-[hash].js' },
     } },
     resolve: { alias: { '@': root } },
     server: {

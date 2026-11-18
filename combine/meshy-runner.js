@@ -64,6 +64,10 @@ export async function loadCombineRunner(player,showroom=false,showroomSkin=false
   const storeAsset = player.practiceCharacterId && !showroom
     ? await import('../characterPurchases').then(({purchasedCharacterAsset}) => purchasedCharacterAsset(player.practiceCharacterId))
     : null;
+  if (player.practiceCharacterId && !showroom && !storeAsset) {
+    disposeRunner();
+    throw new Error('Could not verify your equipped character.');
+  }
   if (storeAsset) {
     try {
       const {loadPracticeCharacter} = await import('./practice-character.js');

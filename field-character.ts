@@ -32,7 +32,7 @@ export async function loadFieldCharacter(field: Field, profile: Profile, bindPos
     root.add(source[name]);
   }
   readPose(bindPose);
-  const rig = await loadPracticeCharacter(character.url, source, character.fitId);
+  const rig = await loadPracticeCharacter(character.url, source, character.fitId, matchMedia('(pointer: coarse)').matches ? 1024 : undefined);
   const body = gameAthleteScale(profile);
   rig.setDimensions(body.width, body.height);
   root.add(rig.model);

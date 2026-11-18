@@ -18,7 +18,6 @@ try{
   await page.addInitScript(()=>{localStorage.setItem('ballknower_player_wardrobe_v1',JSON.stringify({top:'top-mint',shorts:'shorts-navy',shoes:'shoes-lavender',wrist:'wrist-teal'}));localStorage.setItem('ballknower_solo_my_player_v2',JSON.stringify({version:1,name:'Outfit Athlete',position:'WR',stage:'camp',number:21,combineId:'outfit-test'}));});
   await page.goto('http://127.0.0.1:3095'+url);
   const view=scene==='community-db'?await (await page.locator('iframe').elementHandle()).contentFrame():page;
-  if(scene==='practice'||scene==='paid-practice'){await page.getByRole('button',{name:'Save & start 40-Yard Dash',exact:true}).click();}
   if(scene==='camp')await page.getByRole('button',{name:'PLAY POSITION WORKOUT',exact:true}).click();
   const expectedTop=scene==='paid-practice'?'29231a':'194d46';
   await view.waitForFunction(color=>window.__outfitMaterials?.['Outfit Athlete']?.materials.some(m=>m.enabled===1&&m.top===color),expectedTop);

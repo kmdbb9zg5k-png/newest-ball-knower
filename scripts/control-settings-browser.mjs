@@ -7,7 +7,7 @@ const browser=await chromium.launch({headless:true,executablePath:process.env.BR
 try{
  for(const viewport of [{width:320,height:844},{width:390,height:844},{width:844,height:390}]){
   const context=await browser.newContext({viewport,isMobile:true,hasTouch:true});const page=await context.newPage();page.setDefaultTimeout(60000);const errors=[];page.on('pageerror',e=>errors.push(e.message));
-  const enter=()=>page.getByRole('button',{name:'Save & start Receiver Routes',exact:true}).click();
+  const enter=()=>page.locator('.combine-game').waitFor();
   console.log('CONTROL viewport',viewport);await page.goto('http://127.0.0.1:3074/combine.html?drill=routes');await enter();await page.getByText('Customize controls',{exact:true}).click();
   for(const selector of ['select','button'])for(const control of await page.locator('.bk-control-options '+selector).all()){
    await control.scrollIntoViewIfNeeded();const box=await control.boundingBox();assert(box&&box.x>=0&&box.y>=0&&box.x+box.width<=viewport.width+1&&box.y+box.height<=viewport.height+1,'Each setting is reachable inside the viewport, including landscape');

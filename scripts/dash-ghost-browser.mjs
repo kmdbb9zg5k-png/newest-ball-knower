@@ -8,7 +8,7 @@ await mkdir('artifacts/dash-ghost',{recursive:true});
 const browser=await chromium.launch({headless:true,executablePath:process.env.BROWSER_PATH||undefined,args:['--no-sandbox','--enable-unsafe-swiftshader','--use-angle=swiftshader']});
 try{
   const context=await browser.newContext({viewport:{width:390,height:844},isMobile:true,hasTouch:true});const page=await context.newPage();page.setDefaultTimeout(120000);const errors=[];page.on('pageerror',e=>errors.push(e.message));
-  const enter=()=>page.getByRole('button',{name:'Save & start 40-Yard Dash',exact:true}).click();
+  const enter=()=>page.locator('.combine-game').waitFor();
   await page.goto('http://127.0.0.1:3068/combine.html?drill=dash');await enter();await page.waitForFunction(()=>document.querySelector('.combine-action')&&!document.querySelector('.combine-action').disabled);
   for(const width of [320,390]){await page.setViewportSize({width,height:844});await page.getByRole('button',{name:'GHOST RACE',exact:true}).click();assert(await page.getByRole('button',{name:'Import friend replay'}).isVisible());assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);await page.screenshot({path:`artifacts/dash-ghost/setup-${width}.png`});await page.getByRole('button',{name:'BACK TO DASH'}).click();}
   console.log('Starting actual dash');await page.getByRole('button',{name:'Start dash',exact:true}).click();await page.waitForFunction(()=>document.querySelector('.combine-game').dataset.phase==='running');

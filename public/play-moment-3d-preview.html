@@ -88,13 +88,13 @@ document.getElementById('game').addEventListener('webglcontextlost', () => {
   reportLegendsFailure();
 });
 try {
-  const {start}=await import('/play-moment-3d/game.js?v=game-athlete-1');
+  const {start}=await import('/play-moment-3d/game.js?v=locker-athlete-2');
   await start();
   if (!graphicsLost) reportArenaField('ready');
 } catch(error) {
   document.getElementById('loading').hidden=true;
   document.getElementById('error').hidden=false;
-  document.getElementById('errorText').textContent='The 3D preview could not start. Your saved career is unchanged.';
+  document.getElementById('errorText').textContent='The 3D game could not start. Reload to try again.';
   reportArenaField('failed');
   reportLegendsFailure();
   console.error(error);

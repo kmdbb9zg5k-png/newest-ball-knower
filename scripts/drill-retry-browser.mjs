@@ -34,7 +34,7 @@ try{
   let navigations=0;page.on('framenavigated',f=>{if(f===page.mainFrame())navigations++;});
   await page.addInitScript(()=>{window.__retryFail=true;window.__rbWrites=0;const original=Storage.prototype.setItem;Storage.prototype.setItem=function(key,value){if(key==='bk-rb-drill-v1')window.__rbWrites++;return original.call(this,key,value);};});
   if(drill==='rb')await page.clock.install();
-  await page.goto(base+'/combine.html?drill='+drill);await page.getByRole('button',{name:/^Save & start /}).click();
+  await page.goto(base+'/combine.html?drill='+drill);
   const retry=page.getByRole('button',{name:'RETRY DRILL',exact:true});await retry.waitFor();const initialNavigations=navigations;
   assert.equal(await page.evaluate(()=>window.__retryStats.retry),false);
   await retry.click();await retry.waitFor();assert.equal(await page.evaluate(()=>window.__retryStats.retry),true);assert.equal(navigations,initialNavigations,'Repeated failed retry must stay in '+drill);

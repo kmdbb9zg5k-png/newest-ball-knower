@@ -1,9 +1,6 @@
-// Exercise the same saved-athlete entry shown to guests before each drill.
+// Combine drills load the Locker selection and start without a setup form.
 export async function enterCombineSetup(page) {
-  const start = page.getByRole('button', {name: /^Save & start /});
-  await start.waitFor({state:'visible',timeout:90000});
-  await start.click();
-  console.log('Saved-athlete setup complete');
+  await page.locator('.combine-game').waitFor({state:'visible',timeout:90000});
 }
 
 // Static production builds avoid compiling six independent Vite dependency graphs

@@ -161,7 +161,7 @@ function BKFConceptDialog({ product, onClose, cartPrice, action, characterOwned,
         <ul>{product.includes.map(item=><li key={item}>{item}</li>)}</ul>
       </div>
       {playable && (characterOwned
-        ? <a className="bk-store-button" href={`/combine.html?drill=dash&character=${encodeURIComponent(product.id)}`}>Run the 40 as {product.name}</a>
+        ? <a className="bk-store-button" href="/?profile=1">Equip in Locker</a>
         : <p className="bkf-showroom-model-note">{loading ? 'Checking character purchases…' : 'Purchase required to play'}</p>)}
       <footer className="bkf-drop-footer">
         <div className="bkf-drop-actions">
