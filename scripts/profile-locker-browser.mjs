@@ -108,8 +108,10 @@ try {
         return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
       });
       await page.addInitScript(({ session, user, checkGameCharacter }) => {
-        if (checkGameCharacter) localStorage.setItem('bk-game-athlete-v1', JSON.stringify({ character: '', position: 'RB', heightInches: 75, weightLbs: 245 }));
-        localStorage.setItem('sb-gpnboygoosrmeydwjpvk-auth-token', JSON.stringify(session));
+        if (checkGameCharacter && !localStorage.getItem('bk-game-athlete-v1')) localStorage.setItem('bk-game-athlete-v1', JSON.stringify({ character: '', position: 'RB', heightInches: 75, weightLbs: 245 }));
+        if (!localStorage.getItem('sb-gpnboygoosrmeydwjpvk-auth-token')) {
+          localStorage.setItem('sb-gpnboygoosrmeydwjpvk-auth-token', JSON.stringify(session));
+        }
         localStorage.setItem('ballknower_user_v1', JSON.stringify({ id: user.id, name: user.user_metadata.name, email: user.email || '', isAnonymous: user.is_anonymous, avatarUrl: '', createdAt: user.created_at }));
         localStorage.setItem('ball-knower-team-setup-v2', 'complete');
         localStorage.setItem('ball-knower-intro-completed-v1', '2');
@@ -354,6 +356,20 @@ try {
         await showcase.locator('.bkf-character[data-render-state="ready"]').waitFor({ timeout: 30000 });
         await showcase.getByRole('button', { name: 'View photo', exact: true }).click();
         await showcase.getByRole('img', { name: 'BKF Kickflip', exact: true }).waitFor();
+        await page.getByRole('link', { name: 'View character', exact: true }).click();
+        await page.waitForURL('**/combine.html?create=1');
+        const equipped = page.getByRole('region', { name: 'Equipped character', exact: true });
+        const combinePhoto = equipped.getByRole('img', { name: 'BKF Kickflip', exact: true });
+        await combinePhoto.waitFor();
+        await combinePhoto.evaluate(img => img.decode());
+        assert.equal(await page.locator('[data-athlete-live-preview]').count(), 0);
+        assert.equal(await page.getByRole('button', { name: 'Switch character', exact: true }).count(), 0);
+        await equipped.getByRole('button', { name: 'Preview in 3D', exact: true }).click();
+        await equipped.locator('.bkf-character[data-render-state="ready"]').waitFor({ timeout: 30000 });
+        await page.getByRole('link', { name: 'Back to Locker', exact: true }).click();
+        await page.waitForURL('**/?profile=1');
+        await showcase.getByRole('img', { name: 'BKF Kickflip', exact: true }).waitFor();
+        console.log('PASS Combine setup previews the equipped character and keeps switching in the Locker');
         const gameCharacter = page.locator('.bk-profile-game-character');
         await gameCharacter.getByText('BKF Kickflip', { exact: true }).waitFor();
         await gameCharacter.getByRole('button', { name: 'Switch character', exact: true }).click();

@@ -183,3 +183,25 @@
   height: clamp(260px, 100vw, 520px);
   object-fit: contain;
 }
+
+
+.bk-mini-equipped {
+  width: min(100%, 680px);
+  margin: 0 auto;
+  min-height: 0;
+  overflow: auto;
+}
+.bk-mini-equipped-actions {
+  display: grid;
+  gap: 8px;
+  margin-block: 12px;
+}
+.bk-mini-equipped-actions > * {
+  width: 100%;
+  min-height: 44px;
+}
+.bk-mini-equipped-edit {
+  border: 1px solid #665332;
+  border-radius: 10px;
+  color: #ffe4a7;
+}

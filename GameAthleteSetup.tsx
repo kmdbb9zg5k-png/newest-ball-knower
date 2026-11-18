@@ -45,7 +45,7 @@ export default function GameAthleteSetup() {
         <strong aria-live="polite">{loading && saved?.character ? 'Checking purchase…' : activeCharacter?.name ?? 'My Player'}</strong>
       </div>
       <div className="flex flex-wrap justify-end gap-2">
-        <a className="self-center text-xs underline" href="/combine.html?create=1">Edit My Player</a>
+        <a className="self-center text-xs underline" href="/combine.html?create=1">{activeCharacter ? 'View character' : 'Edit My Player'}</a>
         <button type="button" disabled={loading} onClick={openSetup}>Switch character</button>
       </div>
     </div>
