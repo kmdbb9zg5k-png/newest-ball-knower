@@ -1,4 +1,5 @@
 import React, { lazy, Suspense, useEffect, useState } from 'react';
+import GameAthleteSetup from './GameAthleteSetup';
 import { ATHLETE_CHANGED, ATHLETE_SAVE_KEY, readAthletePassport } from './athletePassport';
 import { refreshLocker } from './lockerCommerceClient';
 import { CLOTHING, CLOTHING_SLOTS } from './playerWardrobe';
@@ -79,13 +80,14 @@ export function ProfileAthleteShowcase({ userId, visitor, canShare, displayName,
     } finally { setBusy(false); }
   }
 
-  if (!fit && (visitor || !shared)) return null;
+  if (visitor && !fit) return null;
   return <section className="bk-profile-athlete" aria-label="Player showcase">
     {fit && <Suspense fallback={<img className="bk-profile-athlete-poster" src={poster} alt="" />}>
       <AthleteLivePreview profile={{ ...fit, name: visitor ? displayName || 'Featured athlete' : athlete?.name || 'Your athlete',
         combineId: visitor ? userId : athlete?.id }} previewOutfit={previewOutfit} profileShowcase
         fallbackImage={visitor ? poster : athlete?.portrait || poster}/>
     </Suspense>}
+    {!visitor && <GameAthleteSetup variant="profile"/>}
     {!visitor && canShare && <div className="bk-profile-athlete-sharing">
       {loaded && personalFit && (!shared || changed) && <button type="button" disabled={busy} onClick={() => void share(personalFit)}>{shared ? 'Update shared fit' : 'Show equipped fit'}</button>}
       {loaded && shared && <button type="button" disabled={busy} onClick={() => void share(null)}>Hide shared fit</button>}

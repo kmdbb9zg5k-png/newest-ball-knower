@@ -1,7 +1,7 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { Capacitor } from '@capacitor/core';
 import { ShoppingBag, X } from 'lucide-react';
-import { redeemCharacterCode } from './characterPurchases';
+import { CharacterCodeSignInRequired, redeemCharacterCode } from './characterPurchases';
 import { refreshLocker } from './lockerCommerceClient';
 import { supabase } from './supabase';
 import { CART_KEY, canCheckOutStoreItem, cartProducts, cartTotal, cleanCart, formatStoreAmount, OUTFIT_PRICES, type StorePrices } from './storeCart';
@@ -32,7 +32,8 @@ export function useStoreCart() {
     return () => { version++; clearTimeout(timer); subscription?.data.subscription.unsubscribe(); };
   }, []);
   const prices = { ...OUTFIT_PRICES, ...characterPrices };
-  return { ids, prices, add: (id: string) => setIds(v => cleanCart([...v, id])), remove: (id: string) => setIds(v => v.filter(x => x !== id)), removeOwned: (owned: string[]) => setIds(v => v.filter(x => !owned.includes(x))) };
+  const removeOwned = useCallback((owned: string[]) => setIds(items => items.some(id => owned.includes(id)) ? items.filter(id => !owned.includes(id)) : items), []);
+  return { ids, prices, add: (id: string) => setIds(v => cleanCart([...v, id])), remove: (id: string) => setIds(v => v.filter(x => x !== id)), removeOwned };
 }
 async function request(body?: unknown, query = '') {
   const session = (await supabase?.auth.getSession())?.data.session;
@@ -43,7 +44,7 @@ async function request(body?: unknown, query = '') {
   if ((await supabase?.auth.getSession())?.data.session?.user.id !== session?.user.id) throw new Error('Your account changed. Please reopen your cart.');
   return data;
 }
-export default function StoreCart({ cart, onClose }: { cart: ReturnType<typeof useStoreCart>; onClose: () => void }) {
+export default function StoreCart({ cart, onClose, onOpenAuth, onOpenProfile }: { cart: ReturnType<typeof useStoreCart>; onClose: () => void; onOpenAuth: () => void; onOpenProfile: () => void }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const refreshId = useRef(0);
   const [status, setStatus] = useState<any>(null);
@@ -51,6 +52,9 @@ export default function StoreCart({ cart, onClose }: { cart: ReturnType<typeof u
   const [busy, setBusy] = useState(false);
   const [code, setCode] = useState('');
   const [redemptionMessage, setRedemptionMessage] = useState('');
+  const [redemptionError, setRedemptionError] = useState('');
+  const [redeeming, setRedeeming] = useState(false);
+  const [needsSignIn, setNeedsSignIn] = useState(false);
   const native = Capacitor.isNativePlatform();
   const checkoutPrices: StorePrices = status?.catalogPrices ?? {};
   const checkoutIds = cart.ids.filter(id => canCheckOutStoreItem(id, checkoutPrices));
@@ -90,14 +94,19 @@ export default function StoreCart({ cart, onClose }: { cart: ReturnType<typeof u
     setBusy(true);
     setError('');
     setRedemptionMessage('');
+    setRedemptionError('');
+    setNeedsSignIn(false);
+    setRedeeming(true);
     try {
       const skus = await redeemCharacterCode(code.trim());
       cart.removeOwned(skus);
       setCode('');
-      setRedemptionMessage('Characters unlocked.');
+      setRedemptionMessage(`Characters unlocked. ${skus.length} ready to play.`);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not redeem your code. Try again.');
+      setNeedsSignIn(e instanceof CharacterCodeSignInRequired);
+      setRedemptionError(e instanceof Error ? e.message : 'Could not redeem your code. Try again.');
     } finally {
+      setRedeeming(false);
       setBusy(false);
     }
   }
@@ -120,8 +129,13 @@ export default function StoreCart({ cart, onClose }: { cart: ReturnType<typeof u
           <label htmlFor="bk-character-code">Character code</label>
           <input id="bk-character-code" value={code} onChange={event => setCode(event.target.value)}
             maxLength={80} autoCapitalize="characters" autoComplete="off" spellCheck={false} required disabled={busy}/>
-          <button type="submit" className="bk-store-button" disabled={busy || !code.trim()}>Redeem code</button>
-          {redemptionMessage && <p role="status">{redemptionMessage} <a href="https://newest-ball-knower-git-feat-store-cart-checkout-elijah16.vercel.app/">Choose your player in the gameplay preview</a>.</p>}
+          <button type="submit" className="bk-store-button" disabled={busy || !code.trim()}>{redeeming ? 'Redeeming…' : 'Redeem code'}</button>
+          {redemptionError && <p className="bk-cart-code-error" role="alert">{redemptionError}</p>}
+          {needsSignIn && <button type="button" className="bk-store-button" onClick={onOpenAuth}>Sign in</button>}
+          {redemptionMessage && <>
+            <p role="status">{redemptionMessage}</p>
+            <button type="button" className="bk-store-button" onClick={onOpenProfile}>Choose character in Profile</button>
+          </>}
         </form>
         {status?.owned?.length > 0 && <p role="status">{status.mode === 'test' ? 'Test checkout verified.' : 'Order verified. Find outfits in My Locker and playable characters in Profile.'}</p>}
         {status?.mode === 'test' && <p role="status">Test checkout — no real money or live ownership.</p>}

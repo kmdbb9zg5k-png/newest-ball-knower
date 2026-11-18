@@ -32,6 +32,12 @@ try {
   await page.goto('http://127.0.0.1:4189/?store_checkout=cancel');
   const dialog=page.getByRole('dialog',{name:'Your cart'});await dialog.waitFor();
   await dialog.getByText('Your cart is empty.',{exact:false}).waitFor();
+  if (width === 320) {
+   await dialog.getByRole('textbox',{name:'Character code'}).fill('FIXTURE-CODE');
+   await dialog.getByRole('button',{name:'Redeem code'}).click();
+   await dialog.locator('.bk-cart-code').getByRole('alert').getByText(/Sign in with the Apple account/).waitFor();
+   await dialog.locator('.bk-cart-code').getByRole('button',{name:'Sign in',exact:true}).waitFor();
+  }
   await dialog.getByRole('button',{name:'Continue shopping'}).click();
   await page.getByRole('button',{name:/view all tunnel fits/i}).click();
   await page.locator('[data-store-product="tunnel-fit"]').click();
@@ -105,9 +111,22 @@ try {
    await dialog.getByText('This character code is unavailable for your account.').waitFor();
    await dialog.getByRole('textbox',{name:'Character code'}).fill('FIXTURE-CODE');
    await dialog.getByRole('button',{name:'Redeem code'}).click();
-   await dialog.getByRole('link',{name:'Choose your player in the gameplay preview'}).waitFor();
+   await dialog.getByText('Characters unlocked. 1 ready to play.').waitFor();
    await dialog.getByText('Your cart is empty.',{exact:false}).waitFor();
-   console.log('PASS private character code with payments disabled and gameplay preview link');
+   await dialog.getByRole('button',{name:'Choose character in Profile',exact:true}).click();
+   const guide = page.getByRole('dialog',{name:'Make every game count.',exact:true});
+   await guide.waitFor();
+   await page.keyboard.press('Escape');
+   await guide.waitFor({state:'detached'});
+   await page.getByRole('button',{name:'Switch character',exact:true}).click();
+   const picker = page.getByRole('dialog',{name:'Switch game character',exact:true});
+   const characters = picker.getByRole('combobox',{name:'Character',exact:true});
+   await characters.locator('option[value="frostbite"]:enabled').waitFor({state:'attached'});
+   await characters.selectOption('frostbite');
+   assert.equal(await characters.locator('option[value="bkf-phantom"]').evaluate(option => option.disabled),true);
+   await picker.getByRole('button',{name:'Save game character',exact:true}).click();
+   await page.locator('.bk-profile-game-character').getByText('Frostbite',{exact:true}).waitFor();
+   console.log('PASS private character code with payments disabled and unlocked character selectable in Profile');
    console.log('PASS Store character cart and mocked Stripe and PayPal checkout handoff');
   }
   assert.deepEqual(errors,[]);await context.close();console.log(`PASS ${width}px: add two, total, remove, refresh persistence, return route, disabled payments, no overflow/errors`);

@@ -46,7 +46,7 @@ try {
       const session = { user, access_token: token, refresh_token: 'fixture-only', token_type: 'bearer', expires_in: 86400, expires_at: Math.floor(Date.now()/1000)+86400 };
       // Every hosted-data request is intercepted. These tests never mutate production.
       await page.route('**/*.supabase.co/**', async route => {
-        const path = new URL(route.request().url()).pathname;
+        const { pathname: path, searchParams } = new URL(route.request().url());
         const headers = { 'access-control-allow-origin': '*', 'access-control-allow-headers': '*', 'access-control-allow-methods': '*' };
         const respond = (body, status = 200) => route.fulfill({ status, contentType: 'application/json', headers, body: JSON.stringify(body) });
         if (route.request().method() === 'OPTIONS') return respond({});
@@ -87,6 +87,10 @@ try {
         if (path.endsWith('/ball_knower_achievement_catalog')) return respond(mode === 'extended' ? [...catalog, { achievement_key: 'seventh', title: 'Seventh Milestone', description: 'Additional verified catalog entry.', tier: 'gold', category: 'gm', xp_reward: 125 }] : catalog);
         if (path.endsWith('/ball_knower_user_achievements')) return respond(mode === 'earned' ? [{ achievement_key: 'dynasty', unlocked_at: timestamp }, { achievement_key: 'first_receipt', unlocked_at: timestamp }] : []);
         if (path.endsWith('/ball_knower_store_catalog')) return respond([{ sku: 'qa-frame', title: 'Fixture Gold Frame', description: 'An owned equippable fixture.', category: 'profile_cosmetic', rarity: 'rare', price_cents: null, currency: 'USD', metadata: { slot: 'profile_frame' }, active: true }, { sku: 'qa-card', title: 'Fixture Collectible', description: 'An owned collectible fixture.', category: 'collectible', rarity: 'rare', price_cents: null, currency: 'USD', metadata: {}, active: true }]);
+        if (path.endsWith('/rpc/bk_store_character_purchases')) {
+          return respond(isGuest ? [] : [{ sku: 'bkf-kickflip' }]);
+        }
+        if (path.endsWith('/ball_knower_entitlements') && searchParams.get('source') === 'eq.purchase') return respond([]);
         if (path.endsWith('/ball_knower_entitlements')) return respond(['qa-frame', 'qa-card'].map(sku => ({ sku, source: 'test', granted_at: timestamp, expires_at: null, auth_user_id: userId })));
         if (path.endsWith('/ball_knower_locker')) return respond({ auth_user_id: userId, equipped_profile_frame: equipped });
         if (path.endsWith('/ball_knower_pass_progress')) return respond({ auth_user_id: userId, season: '2026', xp: 321, level: 4, premium_unlocked: false, claimed_free: [], claimed_premium: [] });
@@ -103,14 +107,15 @@ try {
         const body = path === '/api/media' ? { tracks: [], introUrl: null } : path === '/api/nfl-news' ? { available: true, fetchedAt: timestamp, provider: 'Explicit test fixture', articles: [{ id: 'fixture-news', url: 'https://example.invalid/news', headline: 'Profile visual regression news fixture', source: 'Test fixture', image: null }] } : { ok: true };
         return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
       });
-      await page.addInitScript(({ session, user }) => {
+      await page.addInitScript(({ session, user, checkGameCharacter }) => {
+        if (checkGameCharacter) localStorage.setItem('bk-game-athlete-v1', JSON.stringify({ character: '', position: 'RB', heightInches: 75, weightLbs: 245 }));
         localStorage.setItem('sb-gpnboygoosrmeydwjpvk-auth-token', JSON.stringify(session));
         localStorage.setItem('ballknower_user_v1', JSON.stringify({ id: user.id, name: user.user_metadata.name, email: user.email || '', isAnonymous: user.is_anonymous, avatarUrl: '', createdAt: user.created_at }));
         localStorage.setItem('ball-knower-team-setup-v2', 'complete');
         localStorage.setItem('ball-knower-intro-completed-v1', '2');
         localStorage.setItem('ball-knower-favorite-team', 'Philadelphia Eagles');
         localStorage.setItem('ball-knower-intro-sound-v1', 'off');
-      }, { session, user });
+      }, { session, user, checkGameCharacter: engine === 'chromium' && width === 430 });
       await page.goto(base, { waitUntil: 'domcontentloaded' });
       await page.locator('.bk-home-stadium').waitFor();
       const badgeOffer = page.getByRole('dialog', { name: 'You’re in the First 1,000', exact: true });
@@ -141,6 +146,26 @@ try {
       assert.ok(await guide.getByRole('heading', { name: 'Verified activity & receipts', exact: true }).isVisible());
       await page.keyboard.press('Escape');
       await guide.waitFor({ state: 'detached' });
+      if (engine === 'chromium' && (width === 430 || isGuest)) {
+        const gameCharacter = profile.locator('.bk-profile-game-character');
+        await gameCharacter.getByText('My Player', { exact: true }).waitFor();
+        await gameCharacter.getByRole('button', { name: 'Switch character', exact: true }).click();
+        const picker = page.getByRole('dialog', { name: 'Switch game character', exact: true });
+        await picker.getByText('Purchase a Store character to play as them.').waitFor();
+        const character = picker.getByRole('combobox', { name: 'Character', exact: true });
+        assert.equal(await character.locator('option[value="bkf-phantom"]').evaluate(option => option.disabled), true);
+        assert.equal(await character.locator('option[value="bkf-kickflip"]').evaluate(option => option.disabled), isGuest);
+        if (isGuest) {
+          await picker.getByRole('button', { name: 'Cancel', exact: true }).click();
+        } else {
+          await character.selectOption('bkf-kickflip');
+          await picker.getByRole('button', { name: 'Save game character', exact: true }).click();
+          await gameCharacter.getByText('BKF Kickflip', { exact: true }).waitFor();
+          assert.deepEqual(await page.evaluate(() => JSON.parse(localStorage.getItem('bk-game-athlete-v1'))),
+            { character: 'bkf-kickflip', position: 'RB', heightInches: 75, weightLbs: 245 });
+        }
+        console.log('PASS Profile game character picker', engine, width, isGuest ? 'guest purchase lock' : 'saved purchased character and build');
+      }
       assert.equal(await page.evaluate(() => localStorage.getItem('bk-guide-profile-v1')), 'seen');
       await page.getByRole('heading', { name: 'Profile', exact: true }).waitFor();
       const foundingBadge = profile.getByRole('button', { name: 'First 1,000', exact: true });
@@ -320,6 +345,15 @@ try {
         for (const button of profileButtons) { if (await button.isVisible()) { await button.click(); break; } }
         const showcase = page.getByRole('region', { name: 'Player showcase' });
         await showcase.locator('[data-render-state="ready"]').waitFor({ timeout: 30000 });
+        const gameCharacter = showcase.locator('.bk-profile-game-character');
+        await gameCharacter.getByText('BKF Kickflip', { exact: true }).waitFor();
+        await gameCharacter.getByRole('button', { name: 'Switch character', exact: true }).click();
+        const picker = page.getByRole('dialog', { name: 'Switch game character', exact: true });
+        await picker.getByRole('combobox', { name: 'Character', exact: true }).selectOption({ label: 'My Player' });
+        await picker.getByRole('button', { name: 'Save game character', exact: true }).click();
+        await gameCharacter.getByText('My Player', { exact: true }).waitFor();
+        assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('bk-game-athlete-v1')).character), '');
+        console.log('PASS Profile game character persisted across navigation and switched back to My Player');
         assert.match(await page.locator('.bk-profile-hero-title').evaluate(el => getComputedStyle(el).backgroundImage), /profile-legacy-lockup/);
         const stageBox = await showcase.locator('.bk-athlete-profile-showcase').boundingBox();
         assert.ok(stageBox && Math.abs(stageBox.width / stageBox.height - 1.3) < .06);

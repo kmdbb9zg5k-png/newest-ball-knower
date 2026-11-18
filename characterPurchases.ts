@@ -6,17 +6,20 @@ const characterSkus = characters.map(product => product.id);
 
 export const characterOwnershipChanges = new EventTarget();
 
+export class CharacterCodeSignInRequired extends Error {}
+
 export async function redeemCharacterCode(code: string): Promise<string[]> {
   const client = supabase;
   const session = (await client?.auth.getSession())?.data.session;
   if (!client || !session || session.user.is_anonymous) {
-    throw new Error('Sign in to Ball Knower before redeeming a character code.');
+    throw new CharacterCodeSignInRequired('Sign in with the Apple account you used for your wardrobe unlock.');
   }
   const { data, error } = await client.rpc('bk_store_character_code', { p_code: code })
     .setHeader('Authorization', `Bearer ${session.access_token}`)
     .abortSignal(AbortSignal.timeout(10000));
   const current = (await client.auth.getSession()).data.session;
   if (current?.user.id !== session.user.id) throw new Error('Your account changed. Reopen your cart to check access.');
+  if (error?.code === 'PGRST301') throw new CharacterCodeSignInRequired('Your session expired. Sign in and try again.');
   if (error) throw new Error('Could not redeem the character code. Try again.');
   const skus = Array.isArray(data) ? data.map(row => row.sku).filter(sku => characterSkus.includes(sku)) : [];
   if (!skus.length) throw new Error('This character code is unavailable for your account.');

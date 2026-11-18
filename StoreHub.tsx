@@ -161,7 +161,7 @@ function BKFConceptDialog({ product, onClose, cartPrice, action, characterOwned,
         <ul>{product.includes.map(item=><li key={item}>{item}</li>)}</ul>
       </div>
       {playable && (characterOwned
-        ? <a className="bk-store-button" href={`https://newest-ball-knower-git-feat-store-cart-checkout-elijah16.vercel.app/combine.html?drill=dash&character=${encodeURIComponent(product.id)}`}>Run the 40 as {product.name}</a>
+        ? <a className="bk-store-button" href={`/combine.html?drill=dash&character=${encodeURIComponent(product.id)}`}>Run the 40 as {product.name}</a>
         : <p className="bkf-showroom-model-note">{loading ? 'Checking character purchases…' : 'Purchase required to play'}</p>)}
       <footer className="bkf-drop-footer">
         <div className="bkf-drop-actions">
@@ -321,10 +321,12 @@ function TunnelProductPage({ product, onBack, inCart, onAdd, onCart }: { product
   </section>;
 }
 
-export default function StoreHub({ initialCategory, onOpenLocker, onOpenGauntlet }: {
+export default function StoreHub({ initialCategory, onOpenLocker, onOpenGauntlet, onOpenAuth, onOpenProfile }: {
   initialCategory?: StoreCategory | 'characters';
   onOpenLocker: () => void;
   onOpenGauntlet: () => void;
+  onOpenAuth: () => void;
+  onOpenProfile: () => void;
 }) {
   const [shuffledCharacters] = useState(() => {
     const products = [...characterProducts];
@@ -337,8 +339,11 @@ export default function StoreHub({ initialCategory, onOpenLocker, onOpenGauntlet
   const [department, setDepartment] = useState<ShopDepartment>(initialCategory === 'characters' ? 'characters' : initialCategory ? 'all' : 'featured');
   const cart = useStoreCart();
   const [cartOpen, setCartOpen] = useState(() => new URLSearchParams(window.location.search).has('store_checkout'));
-  const cartDialog = cartOpen ? <StoreCart cart={cart} onClose={() => setCartOpen(false)}/> : null;
+  const cartDialog = cartOpen ? <StoreCart cart={cart} onClose={() => setCartOpen(false)}
+    onOpenAuth={() => { setCartOpen(false); setSelection(null); onOpenAuth(); }} onOpenProfile={onOpenProfile}/> : null;
   const { owned, loading } = usePurchasedCharacters();
+  const { removeOwned } = cart;
+  useEffect(() => { if (owned.size) removeOwned([...owned]); }, [owned, removeOwned]);
   const openCart = () => setCartOpen(true);
   function cartAction(id: string, productName?: string) {
     if (owned.has(id)) return <span className="bk-store-card-owned">Owned</span>;
