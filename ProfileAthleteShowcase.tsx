@@ -4,13 +4,12 @@ import { refreshLocker } from './lockerCommerceClient';
 import { CLOTHING, CLOTHING_SLOTS } from './playerWardrobe';
 import { usePlayerOutfit } from './usePlayerOutfit';
 import { sanitizeShowcaseFit, type ShowcaseFit } from './profileAthleteShowcase';
-import { practiceAsset, storeImage, type StoreProduct } from './storeCatalog';
+import EquippedCharacterPreview from './EquippedCharacterPreview';
 import { useGameAthlete } from './useGameAthlete';
 import { supabase } from './supabase';
 import './profileAthleteShowcase.css';
 
 const AthleteLivePreview = lazy(() => import('./AthleteLivePreview'));
-const StoreCharacterPreview = lazy(() => import('./StoreCharacterPreview'));
 const poster = '/profile/cinematic/player-hero.webp';
 
 export function ProfileAthleteShowcase({ userId, visitor, canShare, displayName, publicProfileReady }: {
@@ -86,7 +85,7 @@ export function ProfileAthleteShowcase({ userId, visitor, canShare, displayName,
   const waitingForCharacter = !visitor && checkingCharacter && Boolean(saved?.character);
   if (!character && !waitingForCharacter && !fit && (visitor || !shared)) return null;
   return <section className="bk-profile-athlete" aria-label="Player showcase">
-    {character ? <EquippedCharacter key={character.id} character={character}/>
+    {character ? <EquippedCharacterPreview key={character.id} character={character}/>
       : waitingForCharacter ? <p role="status">Checking character access…</p>
       : fit && <Suspense fallback={<img className="bk-profile-athlete-poster" src={poster} alt="" />}>
       <AthleteLivePreview profile={{ ...fit, name: visitor ? displayName || 'Featured athlete' : athlete?.name || 'Your athlete',
@@ -100,22 +99,4 @@ export function ProfileAthleteShowcase({ userId, visitor, canShare, displayName,
       {message && <small role="status">{message}</small>}
     </div>}
   </section>;
-}
-
-function EquippedCharacter({ character }: { character: StoreProduct }) {
-  const [showModel, setShowModel] = useState(false);
-  const model = practiceAsset(character);
-  const look = character.showcase?.look ?? storeImage(character.id);
-  const photo = <img className="bk-profile-character-photo" src={look} alt={character.name}/>;
-  return <figure className="bk-profile-character-showcase">
-    <figcaption>
-      <strong>{character.name}</strong>
-      {model && <button type="button" onClick={() => setShowModel(value => !value)}>
-        {showModel ? 'View photo' : 'Preview in 3D'}
-      </button>}
-    </figcaption>
-    {showModel && model ? <Suspense fallback={photo}>
-      <StoreCharacterPreview name={character.name} model={model} look={look}/>
-    </Suspense> : photo}
-  </figure>;
 }

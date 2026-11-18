@@ -88,8 +88,8 @@ function CombineEntry() {
     }).finally(() => clearTimeout(timer));
     return () => { active = false; clearTimeout(timer); };
   }, [attempt]);
-  if (editing) return <><LockerAccountSync/><main className="combine-entry" aria-label="Edit My Player">
-    <header><a href="/?profile=1" aria-label="Back to Locker">‹</a><h1>My Player</h1></header>
+  if (editing) return <><LockerAccountSync/><main className="combine-entry" aria-label="Combine athlete setup">
+    <header><a href="/?profile=1" aria-label="Back to Locker">‹</a><h1>Game character</h1></header>
     <MiniGameAthleteBuilder actionLabel="Save My Player" onContinue={() => setEditing(false)}/>
   </main></>;
   return <><LockerAccountSync/>{selection
