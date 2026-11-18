@@ -670,3 +670,27 @@ body:has(.bk-tunnel-showroom[open]) { overflow: hidden; }
 .bk-store-locker-shop[data-store-page="featured"][data-store-department="featured"]{width:min(100%,1320px);padding:8px max(8px,env(safe-area-inset-right)) 28px max(8px,env(safe-area-inset-left));background:#08090e}
 .bk-store-locker-shop[data-store-page="featured"][data-store-department="featured"]>.bk-store-header,
 .bk-store-locker-shop[data-store-page="featured"][data-store-department="featured"]>.bk-store-departments{display:none}
+
+/* Cart stays reachable on small screens and inside the full product page. */
+.bk-store-header { flex-wrap: wrap; gap: 12px; }
+.bk-cart-dialog { width: min(580px, calc(100vw - 24px)); max-height: calc(100dvh - 24px); overflow-y: auto; }
+.bk-cart-dialog .bk-store-dialog-content { padding-bottom: max(24px, env(safe-area-inset-bottom)); }
+.bk-cart-dialog h2 { display: flex; gap: 10px; align-items: center; }
+.bk-cart-item { display: flex; gap: 12px; align-items: center; padding: 16px 0; border-bottom: 1px solid #ffffff24; }
+.bk-cart-item img { width: 64px; height: 80px; object-fit: cover; border-radius: 8px; }
+.bk-cart-item div { flex: 1; min-width: 0; display: grid; gap: 8px; }
+.bk-cart-total { display: flex; justify-content: space-between; padding: 24px 0; font-size: 20px; }
+.bk-cart-payment-actions { display: grid; gap: 12px; margin: 16px 0; }
+.bk-cart-dialog button { min-height: 44px; white-space: normal; }
+.bk-cart-dialog button:disabled { opacity: .45; cursor: not-allowed; }
+.bk-cart-empty { padding: 24px 0; }
+.bk-cart-code { display: grid; gap: 8px; margin-bottom: 16px; }
+.bk-cart-code input { min-width: 0; min-height: 44px; padding: 8px 12px; border: 1px solid #ffffff40; border-radius: 8px; background: #111119; color: #fff; font-size: 16px; }
+
+.bk-store-cart-entry { display:flex; justify-content:flex-end; margin:0 0 10px; }
+.bk-store-cart-entry button { min-height:44px; }
+.bk-store-gear-cart { padding-bottom: 0; }
+.bk-store-card-with-action { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.bk-store-card-with-action > button:first-child { flex: 1; min-width: 0; }
+.bk-store-add-to-cart { max-width: 100%; white-space: normal; }
+.bk-store-card-owned { display: grid; min-height: 44px; place-items: center; color: #edc66e; font-weight: 750; }

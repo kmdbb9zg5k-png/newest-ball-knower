@@ -1,4 +1,5 @@
-import { lazy, Suspense, useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { usePurchasedCharacters } from './usePurchasedCharacters';
+import { lazy, Suspense, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { Archive, ArrowLeft, Box as BoxIcon, ChevronRight, Crown, Image as ImageIcon, Shirt, X } from 'lucide-react';
 import { DEFAULT_ATHLETE_APPEARANCE } from './athleteAppearance';
 import { recommendedAthleteBuild } from './athleteBuild';
@@ -9,8 +10,10 @@ import { readOutfit } from './playerWardrobe';
 import { readLockerState, refreshLocker, subscribeLocker } from './lockerCommerceClient';
 import {
   STORE_CATEGORIES, STORE_PRODUCTS,
-  storeImage, storePrice, type StoreCategory, type StoreFilter, type StoreProduct,
+  practiceAsset, storeImage, storePrice, type StoreCategory, type StoreFilter, type StoreProduct,
 } from './storeCatalog';
+import StoreCart, { useStoreCart } from './StoreCart';
+import { formatStoreAmount } from './storeCart';
 import './store.css';
 import './bkf-drop.css';
 
@@ -53,8 +56,8 @@ const goldPhotos = [
   { file: 'gold-standard', label: 'Full outfit', alt: 'Gold Standard tracksuit on the detailed showroom athlete' },
 ] as const;
 
-function ProductCard({ product, onOpen }: { product: StoreProduct; onOpen: (product: StoreProduct) => void }) {
-  return <button className="bk-store-product" type="button" data-store-product={product.id} onClick={() => onOpen(product)}>
+function ProductCard({ product, onOpen, price, action }: { product: StoreProduct; onOpen: (product: StoreProduct) => void; price?: number; action: ReactNode }) {
+  return <div className="bk-store-card-with-action"><button className="bk-store-product" type="button" data-store-product={product.id} onClick={() => onOpen(product)}>
     <span className={"bk-store-card-art" + (product.showcase || isCharacter(product) || product.id === 'gold-standard' || product.id === 'tunnel-fit' ? ' bk-store-card-art--portrait' : '')}>
       <img src={storeImage(product.id === 'tunnel-fit' ? 'tunnel-look' : product.id === 'gold-standard' ? 'gold-standard-realistic' : product.id)} alt="" loading="lazy" decoding="async"
         onError={event => { const fallback = product.showcase?.look ?? storeImage(product.id); if (event.currentTarget.getAttribute('src') !== fallback) event.currentTarget.src = fallback; }}/>
@@ -62,9 +65,9 @@ function ProductCard({ product, onOpen }: { product: StoreProduct; onOpen: (prod
     <span className="bk-store-product-text">
       <strong>{product.name}</strong>
       <span>{product.summary}</span>
-      <b>{storePrice(product)}{(product.priceCents > 0 || product.proposedCoins) && <small> proposed</small>}</b>
+      <b>{price ? formatStoreAmount(price) : storePrice(product)}{!price && (product.priceCents > 0 || product.proposedCoins) && <small> proposed</small>}</b>
     </span>
-  </button>;
+  </button>{action}</div>;
 }
 
 function TryOnPreview({ athlete, preview }: { athlete: AthletePassport | null; preview: NonNullable<StoreProduct['tryOn']> }) {
@@ -97,8 +100,12 @@ function TryOnPreview({ athlete, preview }: { athlete: AthletePassport | null; p
 
 const FROSTBITE_PREVIEW_FALLBACK = 'https://v3b.fal.media/files/b/0ab1eab2/PuPh4vtWpnfEVTwvd_xXM_preview.png';
 
-function BKFConceptDialog({ product, onClose }: { product: StoreProduct; onClose: () => void }) {
+function BKFConceptDialog({ product, onClose, cartPrice, action, characterOwned, loading }: {
+  product: StoreProduct; onClose: () => void; cartPrice?: number;
+  action: ReactNode; characterOwned: boolean; loading: boolean;
+}) {
   const dialog = useRef<HTMLDialogElement>(null);
+  const playable = Boolean(practiceAsset(product));
   const showcase = product.showcase;
   const has3d = !showcase || Boolean(showcase.model);
   const isFrostbite = product.id === 'frostbite';
@@ -121,7 +128,6 @@ function BKFConceptDialog({ product, onClose }: { product: StoreProduct; onClose
         <p>{showcase ? showcase.collection : isGold ? 'Gold Standard Outfit Collection' : isFrostbite ? 'Icebound Concept Collection' : 'Streetwear Concept Collection'}</p>
         <h2 id="bkf-drop-title" className="bkf-drop-title">{showcase ? product.name : isGold ? <>Gold <span>Standard</span></> : <><span>BKF</span> {isFrostbite ? 'Frostbite' : 'YoungBoy'}</>}</h2>
       </div>
-
       <div className={"bkf-drop-tabs" + (has3d ? " bkf-drop-tabs--triple" : "")} role="group" aria-label="Product view">
         <button type="button" aria-pressed={view === 'poster'} onClick={() => { setArt(storeImage(product.id)); setView('poster'); }}>Full poster</button>
         <button type="button" aria-pressed={view === 'realistic'} onClick={() => { setArt(showcase?.look ?? storeImage(isGold ? 'gold-standard-realistic' : isFrostbite ? 'frostbite-look' : 'bkf-youngboy-look')); setView('realistic'); }}>{showcase?.pose ?? (product.id === 'bk-femme' ? 'A-pose' : 'Realistic view')}</button>
@@ -154,24 +160,30 @@ function BKFConceptDialog({ product, onClose }: { product: StoreProduct; onClose
         <h3><span>Included</span></h3>
         <ul>{product.includes.map(item=><li key={item}>{item}</li>)}</ul>
       </div>
+      {playable && (characterOwned
+        ? <a className="bk-store-button" href={`/combine.html?drill=dash&character=${encodeURIComponent(product.id)}`}>Run the 40 as {product.name}</a>
+        : <p className="bkf-showroom-model-note">{loading ? 'Checking character purchases…' : 'Purchase required to play'}</p>)}
       <footer className="bkf-drop-footer">
-        <button type="button" className="bkf-drop-cta" onClick={() => {
-          if (!has3d && showcase) {
-            const next = view === 'poster' ? 'realistic' : 'poster';
-            setArt(next === 'poster' ? storeImage(product.id) : showcase.look); setView(next);
-          } else if (view === '3d') { setArt(storeImage(product.id)); setView('poster'); }
-          else setView('3d');
-        }}>
-          {has3d ? <BoxIcon size={21} aria-hidden="true"/> : <ImageIcon size={21} aria-hidden="true"/>}{!has3d ? (view === 'poster' ? 'View A-pose' : 'View full poster') : view === '3d' ? 'View full poster' : 'Preview in 3D'}
-        </button>
-        <div><strong>{isGold ? storePrice(product) : 'Coming Soon'}</strong><span>{isGold ? 'Planned price' : 'Concept Collection'}</span></div>
+        <div className="bkf-drop-actions">
+          <button type="button" className="bkf-drop-cta" onClick={() => {
+            if (!has3d && showcase) {
+              const next = view === 'poster' ? 'realistic' : 'poster';
+              setArt(next === 'poster' ? storeImage(product.id) : showcase.look); setView(next);
+            } else if (view === '3d') { setArt(storeImage(product.id)); setView('poster'); }
+            else setView('3d');
+          }}>
+            {has3d ? <BoxIcon size={21} aria-hidden="true"/> : <ImageIcon size={21} aria-hidden="true"/>}{!has3d ? (view === 'poster' ? 'View A-pose' : 'View full poster') : view === '3d' ? 'View full poster' : 'Preview in 3D'}
+          </button>
+          {action}
+        </div>
+        <div className="bkf-drop-price"><strong>{cartPrice ? formatStoreAmount(cartPrice) : 'Coming Soon'}</strong><span>{cartPrice ? (playable ? 'Playable character' : 'Outfit') : 'Concept Collection'}</span></div>
       </footer>
-      <p className="bkf-drop-disclaimer">{!has3d ? 'Photo collection · Wearable items and checkout are not available yet.' : isGold ? '3D uses the standard showcase athlete, not your saved player. Checkout is not available yet.' : '3D is a prototype. Wearable items and checkout are not available yet.'}</p>
+      <p className="bkf-drop-disclaimer">{playable ? 'A verified purchase unlocks this character for games.' : isGold ? 'Equip this outfit from My Locker after purchase.' : 'Photo collection · Coming soon.'}</p>
     </div>
   </dialog>;
 }
 
-function ProductDialog({ selection, onClose }: { selection: Selection; onClose: () => void }) {
+function ProductDialog({ selection, onClose, action }: { selection: Selection; onClose: () => void; action: ReactNode }) {
   const { product } = selection;
   const dialog = useRef<HTMLDialogElement>(null);
   const [athlete] = useState(readAthletePassport);
@@ -205,6 +217,7 @@ function ProductDialog({ selection, onClose }: { selection: Selection; onClose: 
           <strong>{storePrice(product)}</strong><span>{product.posterOnly ? 'Proposed pack price' : product.id === 'bkf-youngboy' ? 'Concept collection' : 'Planned price'}</span>
         </div>
       </div>
+      {action}
       <p className="bk-store-purchase-status">{product.posterOnly ? 'Artwork preview · 3D, wearables, purchases and gifting are not available yet.' : product.id === 'bkf-youngboy' ? 'Concept preview · Wearable 3D garments and checkout are not available yet.' : 'Catalog preview · Checkout opens at launch.'}</p>
     </div>
   </dialog>;
@@ -244,7 +257,7 @@ function TunnelShowroom({ product, onExit }: { product: StoreProduct; onExit: ()
   </dialog>;
 }
 
-function TunnelProductPage({ product, onBack }: { product: StoreProduct; onBack: () => void }) {
+function TunnelProductPage({ product, onBack, inCart, onAdd, onCart }: { product: StoreProduct; onBack: () => void; inCart: boolean; onAdd: () => void; onCart: () => void }) {
   const [trying, setTrying] = useState(false);
   const [activePhoto, setActivePhoto] = useState(0);
   const photos = product.id === 'gold-standard' ? goldPhotos : tunnelPhotos;
@@ -266,7 +279,7 @@ function TunnelProductPage({ product, onBack }: { product: StoreProduct; onBack:
   return <section className="bk-store bk-store-product-page" aria-labelledby="bk-tunnel-title">
     <header className="bk-store-product-header">
       <button className="bk-store-product-back" type="button" onClick={onBack} aria-label="Back to shop"><ArrowLeft size={22} aria-hidden="true"/></button>
-      <h1 id="bk-tunnel-title" ref={title} tabIndex={-1}>{product.name}</h1>
+      <h1 id="bk-tunnel-title" ref={title} tabIndex={-1}>{product.name}</h1><button className="bk-store-button" type="button" onClick={onCart}>Cart</button>
     </header>
     <div className="bk-tunnel-layout">
       <div className="bk-tunnel-showcase">
@@ -296,7 +309,7 @@ function TunnelProductPage({ product, onBack }: { product: StoreProduct; onBack:
           <div className="bk-store-price-status"><strong>{storePrice(product)}</strong><span>Planned price</span></div>
         </div>
         <button className="bk-store-button bk-store-button-gold bk-tunnel-try-on" type="button" onClick={() => setTrying(true)}>Try on in 3D</button>
-        <p className="bk-store-purchase-status">Catalog preview · Purchases are not available yet.</p>
+        <button className="bk-store-button bk-store-button-gold bk-tunnel-try-on" type="button" onClick={inCart ? onCart : onAdd}>{inCart ? "View cart" : "Add to cart"}</button><p className="bk-store-purchase-status" role="status">{inCart ? "Added to your cart" : "Digital outfit · One per account"}</p>
         <details className="bk-tunnel-details">
           <summary>What’s included</summary>
           <p>{product.description}</p>
@@ -309,7 +322,7 @@ function TunnelProductPage({ product, onBack }: { product: StoreProduct; onBack:
 }
 
 export default function StoreHub({ initialCategory, onOpenLocker, onOpenGauntlet }: {
-  initialCategory?: StoreCategory;
+  initialCategory?: StoreCategory | 'characters';
   onOpenLocker: () => void;
   onOpenGauntlet: () => void;
 }) {
@@ -321,9 +334,24 @@ export default function StoreHub({ initialCategory, onOpenLocker, onOpenGauntlet
     }
     return products;
   });
-  const [department, setDepartment] = useState<ShopDepartment>(initialCategory ? 'all' : 'featured');
+  const [department, setDepartment] = useState<ShopDepartment>(initialCategory === 'characters' ? 'characters' : initialCategory ? 'all' : 'featured');
+  const cart = useStoreCart();
+  const [cartOpen, setCartOpen] = useState(() => new URLSearchParams(window.location.search).has('store_checkout'));
+  const cartDialog = cartOpen ? <StoreCart cart={cart} onClose={() => setCartOpen(false)}/> : null;
+  const { owned, loading } = usePurchasedCharacters();
+  const openCart = () => setCartOpen(true);
+  function cartAction(id: string, productName?: string) {
+    if (owned.has(id)) return <span className="bk-store-card-owned">Owned</span>;
+    const inCart = cart.ids.includes(id);
+    const label = inCart ? 'View cart' : 'Add to cart';
+    return <button type="button" className="bk-store-button bk-store-button-gold bk-store-add-to-cart"
+      aria-label={productName ? `${label} · ${productName}` : undefined}
+      onClick={inCart ? openCart : () => cart.add(id)}>{label}</button>;
+  }
+  const cartEntry = <div className="bk-store-cart-entry"><button className="bk-store-button" type="button" onClick={openCart}>Cart ({cart.ids.length})</button></div>;
+  const gearShop = (shop: ReactNode) => <><div className="bk-store bk-store-gear-cart">{cartEntry}</div>{shop}{cartDialog}</>;
   const [page, setPage] = useState<StorePage>(initialCategory ? 'catalog' : 'featured');
-  const [filter, setFilter] = useState<StoreFilter>(initialCategory ?? 'all');
+  const [filter, setFilter] = useState<StoreFilter>(initialCategory === 'characters' ? 'all' : initialCategory ?? 'all');
   const [selection, setSelection] = useState<Selection | null>(null);
   const [tunnelProduct, setTunnelProduct] = useState<StoreProduct | null>(null);
   const store = useRef<HTMLElement>(null);
@@ -384,52 +412,52 @@ export default function StoreHub({ initialCategory, onOpenLocker, onOpenGauntlet
       <button type="button" key={category.id} aria-pressed={filter === category.id} onClick={() => setFilter(category.id)}>{category.label}</button>)}
   </div>;
 
-  if (department === 'game-fits' && page !== 'rewards') return <Suspense fallback={<p role="status">Loading game fits…</p>}>
-    <GameFitsShop onNavigate={next => {
+  if (department === 'game-fits' && page !== 'rewards') return gearShop(<Suspense fallback={<p role="status">Loading game fits…</p>}>
+    <GameFitsShop cartAction={(id, name) => cartAction('game-fit:' + id, name)} onNavigate={next => {
       if (next === 'coins') { setDepartment('featured'); openPage('rewards'); }
       else if (next === 'bundles') { setDepartment('all'); setFilter('bundles'); openPage('catalog'); }
       else { setDepartment(next); setFilter('all'); openPage('featured'); }
     }}/>
-  </Suspense>;
-  if (department === 'helmets' && page !== 'rewards') return <Suspense fallback={<p role="status">Loading helmet collection…</p>}>
-    <HelmetShop onNavigate={next => {
-      if (next === 'coins') { setDepartment('featured'); openPage('rewards'); }
-      else if (next === 'cleats') { setDepartment('cleats'); setFilter('all'); openPage('featured'); }
-      else if (next === 'bundles') { setDepartment('all'); setFilter('bundles'); openPage('catalog'); }
-      else { setDepartment(next); setFilter('all'); openPage('featured'); }
-    }}/>
-  </Suspense>;
-  if (department === 'jerseys' && page !== 'rewards') return <Suspense fallback={<p role="status">Loading jersey collection…</p>}>
-    <JerseyShop onNavigate={next => {
+  </Suspense>);
+  if (department === 'helmets' && page !== 'rewards') return gearShop(<Suspense fallback={<p role="status">Loading helmet collection…</p>}>
+    <HelmetShop cartAction={(id, name) => cartAction('helmet:' + id, name)} onNavigate={next => {
       if (next === 'coins') { setDepartment('featured'); openPage('rewards'); }
       else if (next === 'cleats') { setDepartment('cleats'); setFilter('all'); openPage('featured'); }
       else if (next === 'bundles') { setDepartment('all'); setFilter('bundles'); openPage('catalog'); }
       else { setDepartment(next); setFilter('all'); openPage('featured'); }
     }}/>
-  </Suspense>;
-  if (department === 'pants' && page !== 'rewards') return <Suspense fallback={<p role="status">Loading pants collection…</p>}>
-    <PantsShop onNavigate={next => {
+  </Suspense>);
+  if (department === 'jerseys' && page !== 'rewards') return gearShop(<Suspense fallback={<p role="status">Loading jersey collection…</p>}>
+    <JerseyShop cartAction={(id, name) => cartAction('jersey:' + id, name)} onNavigate={next => {
       if (next === 'coins') { setDepartment('featured'); openPage('rewards'); }
       else if (next === 'cleats') { setDepartment('cleats'); setFilter('all'); openPage('featured'); }
       else if (next === 'bundles') { setDepartment('all'); setFilter('bundles'); openPage('catalog'); }
       else { setDepartment(next); setFilter('all'); openPage('featured'); }
     }}/>
-  </Suspense>;
-  if (department === 'cleats' && page !== 'rewards') return <Suspense fallback={<p role="status">Loading cleat collection…</p>}>
-    <CleatShop onNavigate={next => {
+  </Suspense>);
+  if (department === 'pants' && page !== 'rewards') return gearShop(<Suspense fallback={<p role="status">Loading pants collection…</p>}>
+    <PantsShop cartAction={(id, name) => cartAction('pants:' + id, name)} onNavigate={next => {
+      if (next === 'coins') { setDepartment('featured'); openPage('rewards'); }
+      else if (next === 'cleats') { setDepartment('cleats'); setFilter('all'); openPage('featured'); }
+      else if (next === 'bundles') { setDepartment('all'); setFilter('bundles'); openPage('catalog'); }
+      else { setDepartment(next); setFilter('all'); openPage('featured'); }
+    }}/>
+  </Suspense>);
+  if (department === 'cleats' && page !== 'rewards') return gearShop(<Suspense fallback={<p role="status">Loading cleat collection…</p>}>
+    <CleatShop cartAction={(id, name) => cartAction('cleat:' + id, name)} onNavigate={next => {
       if (next === 'coins') { setDepartment('featured'); openPage('rewards'); }
       else if (next === 'bundles') { setDepartment('all'); setFilter('bundles'); openPage('catalog'); }
       else { setDepartment(next); setFilter('all'); openPage('featured'); }
     }}/>
-  </Suspense>;
-  if (department === 'accessories' && page !== 'rewards') return <Suspense fallback={<p role="status">Loading accessory collection…</p>}>
-    <AccessoriesShop onNavigate={next => {
+  </Suspense>);
+  if (department === 'accessories' && page !== 'rewards') return gearShop(<Suspense fallback={<p role="status">Loading accessory collection…</p>}>
+    <AccessoriesShop cartAction={(id, name) => cartAction('accessory:' + id, name)} onNavigate={next => {
       if (next === 'coins') { setDepartment('featured'); openPage('rewards'); }
       else if (next === 'bundles') { setDepartment('all'); setFilter('bundles'); openPage('catalog'); }
       else { setDepartment(next); setFilter('all'); openPage('featured'); }
     }}/>
-  </Suspense>;
-  if (tunnelProduct) return <TunnelProductPage product={tunnelProduct} onBack={() => setTunnelProduct(null)}/>;
+  </Suspense>);
+  if (tunnelProduct) return <><TunnelProductPage product={tunnelProduct} onBack={() => setTunnelProduct(null)} inCart={cart.ids.includes(tunnelProduct.id)} onAdd={() => cart.add(tunnelProduct.id)} onCart={() => setCartOpen(true)}/>{cartDialog}</>;
 
   return <section className="bk-store bk-store-locker-shop" data-store-page={page} data-store-department={department} ref={store} aria-label="Store">
     {page !== 'featured' && <button className="bk-store-back" type="button" onClick={() => { setDepartment('featured'); openPage('featured'); }}><ArrowLeft size={17} aria-hidden="true"/> Back to Store</button>}
@@ -438,6 +466,7 @@ export default function StoreHub({ initialCategory, onOpenLocker, onOpenGauntlet
       <button type="button" className="bk-store-button bk-store-locker" onClick={onOpenLocker}><Archive size={17} aria-hidden="true"/> My Locker</button>
     </header>
 
+    {cartEntry}
     {page !== 'rewards' && <div className="bk-store-departments" role="group" aria-label="Shop departments">
       {departments.map(item => <button key={item.id} type="button" aria-pressed={page !== 'previews' && department === item.id}
         onClick={() => { setDepartment(item.id); setFilter('all'); setPage(item.id === 'all' ? 'catalog' : 'featured'); }}>{item.label}</button>)}
@@ -457,7 +486,7 @@ export default function StoreHub({ initialCategory, onOpenLocker, onOpenGauntlet
     ].filter(group => department === group.id).map(group => <section key={group.id} aria-labelledby={'bk-store-' + group.id + '-title'} className="bk-store-shop">
       <span className="bk-store-kicker">{group.kicker}</span>
       <header className="bk-store-shop-header"><h2 id={'bk-store-' + group.id + '-title'}>{group.title}</h2></header>
-      <div className="bk-store-grid">{group.products.map(product => <ProductCard key={product.id} product={product} onOpen={showProduct}/>)}</div>
+      <div className="bk-store-grid">{group.products.map(product => <ProductCard key={product.id} product={product} onOpen={showProduct} price={cart.prices[product.id]} action={cartAction(product.id, product.name)}/>)}</div>
     </section>)}
     {page === 'featured' && department !== 'featured' && <button ref={viewAll} className="bk-store-button bk-store-view-all" type="button" onClick={() => { setDepartment('all'); setFilter('all'); openPage('catalog'); }}>View All Items <ChevronRight size={17} aria-hidden="true"/></button>}
 
@@ -466,7 +495,7 @@ export default function StoreHub({ initialCategory, onOpenLocker, onOpenGauntlet
       {categoryButtons}
       <p className="bk-store-count" role="status">{matchingProducts.length} {matchingProducts.length === 1 ? 'item' : 'items'} · Catalog preview</p>
       <div className="bk-store-grid bk-store-catalog-grid" aria-label="Catalog products">
-        {matchingProducts.map(product => <ProductCard key={product.id} product={product} onOpen={showProduct}/>)}
+        {matchingProducts.map(product => <ProductCard key={product.id} product={product} onOpen={showProduct} price={cart.prices[product.id]} action={cartAction(product.id, product.name)}/>)}
       </div>
     </div>}
 
@@ -474,7 +503,7 @@ export default function StoreHub({ initialCategory, onOpenLocker, onOpenGauntlet
       <p className="bk-store-intro">Review the packs and characters in development. Open any card to see its included items and available previews.</p>
       {[{ title: 'Characters', products: characterProducts }, { title: 'Packs', products: previewPacks }].map(group => <section className="bk-store-shop" key={group.title} aria-label={group.title}>
         <header className="bk-store-shop-header"><h2>{group.title}</h2></header>
-        <div className="bk-store-grid">{group.products.map(product => <ProductCard key={product.id} product={product} onOpen={showProduct}/>)}</div>
+        <div className="bk-store-grid">{group.products.map(product => <ProductCard key={product.id} product={product} onOpen={showProduct} price={cart.prices[product.id]} action={cartAction(product.id, product.name)}/>)}</div>
       </section>)}
     </div>}
 
@@ -482,6 +511,13 @@ export default function StoreHub({ initialCategory, onOpenLocker, onOpenGauntlet
       <StoreRewards onOpenLocker={onOpenLocker} onOpenGauntlet={onOpenGauntlet}/>
     </Suspense>}
 
-    {selection && (page !== 'previews' || canReviewPreviews) && ((selection.product.showcase || selection.product.id === 'bkf-youngboy' || selection.product.id === 'frostbite' || selection.product.id === 'gold-standard') ? <BKFConceptDialog product={selection.product} onClose={() => setSelection(null)}/> : <ProductDialog selection={selection} onClose={() => setSelection(null)}/>)}
+    {selection && (page !== 'previews' || canReviewPreviews) && (
+      (selection.product.showcase || ['bkf-youngboy', 'frostbite', 'gold-standard'].includes(selection.product.id))
+        ? <BKFConceptDialog product={selection.product} onClose={() => setSelection(null)}
+            cartPrice={cart.prices[selection.product.id]} action={cartAction(selection.product.id)}
+            characterOwned={owned.has(selection.product.id)} loading={loading}/>
+        : <ProductDialog selection={selection} onClose={() => setSelection(null)} action={cartAction(selection.product.id)}/>
+    )}
+    {cartDialog}
   </section>;
 }

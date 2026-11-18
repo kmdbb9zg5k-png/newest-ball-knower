@@ -1,25 +1,14 @@
 import { useMemo, useState, type CSSProperties } from 'react';
 import { ArrowLeft, ChevronLeft, ChevronRight, Coins, Crown, Footprints, Gem, Glasses, Hand, HardHat, Package, RotateCcw, Shirt, ShoppingCart, Star, UserRound } from 'lucide-react';
+import { PANTS, type StorePants as Pants } from './storeGearCatalog';
+import type { StoreGearCartAction } from './storeCart';
 import './pantsShop.css';
 
 type Rarity = 'legendary' | 'elite' | 'rare';
-type Pants = { id: string; name: string; rarity: Rarity; price: number; accent: string; description: string };
 type Filter = 'all' | Rarity | 'common';
 type Sort = 'newest' | 'low' | 'high' | 'name';
 export type PantsNavigation = 'featured' | 'characters' | 'clothing' | 'helmets' | 'jerseys' | 'pants' | 'accessories' | 'cleats' | 'bundles' | 'coins';
 
-const PANTS: readonly Pants[] = [
-  { id: 'gold-standard', name: 'Gold Standard', rarity: 'legendary', price: 2500, accent: '#f5bd36', description: 'A signature BK look. Metallic gold padding, black side stripes, premium detailing and game-day dominance.' },
-  { id: 'frostbite', name: 'Frostbite', rarity: 'elite', price: 2000, accent: '#30c9ff', description: 'Frosted silver performance pants with ice-blue lightning and crystalline paneling.' },
-  { id: 'shadow-ops', name: 'Shadow Ops', rarity: 'elite', price: 2000, accent: '#b6b8c5', description: 'Stealth-black technical panels and carbon-fiber textures for a covert game-day look.' },
-  { id: 'bloodline', name: 'Bloodline', rarity: 'legendary', price: 2750, accent: '#fc214d', description: 'Crimson lightning tracks across deep-black, padded performance pants.' },
-  { id: 'purple-reign', name: 'Purple Reign', rarity: 'elite', price: 2500, accent: '#b15bff', description: 'Royal-purple shine, black panels and metallic gold accents.' },
-  { id: 'camo-elite', name: 'Camo Elite', rarity: 'rare', price: 1500, accent: '#a9bc60', description: 'Tactical woodland camo with black thigh pads and olive-green detailing.' },
-  { id: 'neon-strike', name: 'Neon Strike', rarity: 'elite', price: 2250, accent: '#baff00', description: 'Electric neon-lime stripes over black performance fabric and game-day padding.' },
-  { id: 'chrome-phantom', name: 'Chrome Phantom', rarity: 'legendary', price: 2750, accent: '#dce5f1', description: 'High-gloss chrome armor detailing over black technical panels.' },
-  { id: 'desert-storm', name: 'Desert Storm', rarity: 'rare', price: 1750, accent: '#e8bb81', description: 'Sand-colored digital camouflage with contrasting black panels.' },
-  { id: 'titanium-edge', name: 'Titanium Edge', rarity: 'elite', price: 2250, accent: '#3facff', description: 'Black carbon-fiber textures, bold blue stripes and reinforced padded knees.' },
-];
 const formatCoins = (price: number) => price.toLocaleString('en-US');
 const pantsImage = (id: string) => `/store/bk-pants-${id}.webp`;
 const sideLinks: { id: PantsNavigation; label: string; icon: typeof Star }[] = [
@@ -41,11 +30,11 @@ const matchingGear = [
   { name: 'Gold Gloves', price: 500, icon: Hand },
 ] as const;
 
-export default function PantsShop({ onNavigate }: { onNavigate: (destination: PantsNavigation) => void }) {
+export default function PantsShop({ onNavigate, cartAction }: { cartAction: StoreGearCartAction; onNavigate: (destination: PantsNavigation) => void }) {
   const [filter, setFilter] = useState<Filter>('all');
   const [sort, setSort] = useState<Sort>('newest');
   const [selectedId, setSelectedId] = useState('gold-standard');
-  const [notice, setNotice] = useState<'buy' | 'three-d' | 'gear' | null>(null);
+  const [notice, setNotice] = useState<'three-d' | 'gear' | null>(null);
   const selected = PANTS.find(item => item.id === selectedId) ?? PANTS[0];
   const visible = useMemo(() => {
     const items = PANTS.filter(item => filter === 'all' || item.rarity === filter);
@@ -83,11 +72,11 @@ export default function PantsShop({ onNavigate }: { onNavigate: (destination: Pa
           <label className="bk-p-sort"><span className="bk-p-sr">Sort pants</span><select aria-label="Sort pants" value={sort} onChange={event => setSort(event.target.value as Sort)}><option value="newest">Sort: Newest</option><option value="low">Price: Low to High</option><option value="high">Price: High to Low</option><option value="name">Name: A-Z</option></select></label>
         </div>
         {visible.length === 0 ? <p className="bk-p-empty" role="status">No pants in this rarity tier yet.</p> : <div className="bk-p-grid" aria-label="Ten premium pants">
-          {visible.map(item => <button key={item.id} className="bk-p-item" type="button" style={styleFor(item)} aria-pressed={selectedId === item.id} onClick={() => choose(item.id)} data-pants={item.id}>
+          {visible.map(item => <div className="bk-store-card-with-action" key={item.id}><button className="bk-p-item" type="button" style={styleFor(item)} aria-pressed={selectedId === item.id} onClick={() => choose(item.id)} data-pants={item.id}>
             <span className="bk-p-item-image"><img src={pantsImage(item.id)} alt={`${item.name} BK football pants`} loading="lazy" decoding="async"/></span>
             <span className="bk-p-tier" data-rarity={item.rarity}>{item.rarity === 'legendary' ? <Crown size={12}/> : item.rarity === 'elite' ? <Gem size={12}/> : <span aria-hidden="true">△</span>}{item.rarity}</span>
             <strong>{item.name}</strong><span className="bk-p-cost"><span className="bk-p-coin">BK</span>{formatCoins(item.price)}</span>
-          </button>)}
+          </button>{cartAction(item.id, item.name)}</div>)}
         </div>}
       </div>
 
@@ -102,8 +91,8 @@ export default function PantsShop({ onNavigate }: { onNavigate: (destination: Pa
           <h2><Crown size={25} aria-hidden="true"/>{selected.name}</h2>
           <div className="bk-p-detail-tier">{selected.rarity} pants</div>
           <p className="bk-p-desc">{selected.description}</p>
-          <button type="button" className="bk-p-buy" onClick={() => setNotice('buy')}><span className="bk-p-price"><span className="bk-p-coin">BK</span>{formatCoins(selected.price)}</span><span>Buy Now</span><ShoppingCart size={20} aria-hidden="true"/></button>
-          {notice && <p className="bk-p-notice" role="status">{notice === 'three-d' ? '360° pants model is not available yet. This view shows the approved front and back artwork.' : notice === 'gear' ? 'Matching gear is a visual preview. Accessories are not for sale yet.' : 'Preview price only. BK Coin checkout is not enabled, and no coins have been deducted.'}</p>}
+          {cartAction(selected.id)}
+          {notice && <p className="bk-p-notice" role="status">{notice === 'three-d' ? '360° pants model is not available yet. This view shows the approved front and back artwork.' : 'Matching gear is a visual preview. Accessories are not for sale yet.'}</p>}
           <div className="bk-p-matching"><h3>Complete the Look</h3><div className="bk-p-matching-grid">
             {matchingGear.map(({ name, price }, index) => <button type="button" key={name} onClick={() => setNotice('gear')} aria-label={`${name}, ${formatCoins(price)} proposed BK Coins`}><span className="bk-p-matching-pic" style={{ backgroundPosition: `${index * 100 / 3}% center` }} aria-hidden="true"/><span className="bk-p-mini-price"><span className="bk-p-coin">BK</span>{formatCoins(price)}</span></button>)}
           </div></div>

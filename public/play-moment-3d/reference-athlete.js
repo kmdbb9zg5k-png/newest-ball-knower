@@ -1,3 +1,4 @@
+import {gameAthleteScale} from './game-athlete.js';
 import {sanitizeGameGear,gearColor} from './game-gear.js';
 import {playerPresence} from './player-presence.js?v=visual-upgrade-1';
 // Full-game reference body with skinned team materials and distance-matched motion.
@@ -668,6 +669,9 @@ export class MeshyAthletes{
   locals[hips].t[0]=this.base[hips].t[0];locals[hips].t[2]=this.base[hips].t[2];
   const world=new Array(locals.length),resolve=index=>world[index]||(world[index]=this.parents[index]<0?compose(locals[index].t,locals[index].r,locals[index].s):mul(resolve(this.parents[index]),compose(locals[index].t,locals[index].r,locals[index].s)));
   const left=this.namedNodes['mixamorig:LeftHand'],right=this.namedNodes['mixamorig:RightHand'],leftForearm=this.namedNodes['mixamorig:LeftForeArm'],rightForearm=this.namedNodes['mixamorig:RightForeArm'],chest=this.namedNodes['mixamorig:Spine2'],head=this.namedNodes['mixamorig:Head'];this.handTransforms.set(p.index,{hips:resolve(hips),head:Number.isInteger(head)?resolve(head):null,left:Number.isInteger(left)?resolve(left):null,right:Number.isInteger(right)?resolve(right):null,leftForearm:Number.isInteger(leftForearm)?resolve(leftForearm):null,rightForearm:Number.isInteger(rightForearm)?resolve(rightForearm):null,chest:Number.isInteger(chest)?resolve(chest):null});
+  if(p.gameAthlete&&this.fieldCharacter){
+   this.customPose={index:p.index,joint:name=>resolve(this.namedNodes['mixamorig:'+name])};
+  }
   const supportNames=p.fallen?[['LeftFoot',.07],['RightFoot',.07],['LeftLeg',.10],['RightLeg',.10],['Hips',.16],['Spine2',.18],['Head',.17],['LeftForeArm',.07],['RightForeArm',.07]]:[['LeftFoot',.065],['RightFoot',.065],['LeftToeBase',.04],['RightToeBase',.04]];this.supports.set(p.index,supportNames.map(([name,radius])=>({point:pointFromMatrix(resolve(this.namedNodes['mixamorig:'+name])),radius})));
   this.frameModels.delete(p.index);
   const bones=new Float32Array(this.joints.length*16);this.joints.forEach((joint,i)=>bones.set(mul(resolve(joint),this.inverseBind.subarray(i*16,i*16+16)),i*16));return bones;
@@ -714,8 +718,18 @@ export class MeshyAthletes{
   this.renderer.queueShadowCaster(lightVP=>{const gl=this.gl;gl.useProgram(this.depthProgram);gl.bindVertexArray(this.vao);gl.uniformMatrix4fv(this.depthUniforms.lightVP,false,lightVP);for(const p of actors){gl.uniformMatrix4fv(this.depthUniforms.model,false,this.modelFor(p));gl.uniformMatrix4fv(this.depthUniforms.bones,false,this.frameBones.get(p.index));gl.drawElements(gl.TRIANGLES,this.indexCount,this.indexType,0)}gl.bindVertexArray(null);return actors.length});return true;
  }
  draw(actors,phase,time){if(!this.ready)return false;this.phase=phase;const gl=this.gl;this.lastStates=actors.map(p=>meshyAnimationState(p,phase));gl.useProgram(this.program);gl.bindVertexArray(this.vao);gl.uniformMatrix4fv(this.uniforms.vp,false,this.renderer.vp);gl.uniform3fv(this.uniforms.eye,this.renderer.eye);for(let i=0;i<3;i++){gl.activeTexture(gl.TEXTURE0+i);gl.bindTexture(gl.TEXTURE_2D,this.textures[i])}gl.uniform1i(this.uniforms.baseMap,0);gl.uniform1i(this.uniforms.normalMap,1);gl.uniform1i(this.uniforms.ormMap,2);gl.uniform1i(this.uniforms.numberMap,3);gl.disable(gl.BLEND);gl.depthMask(true);
-  for(const p of actors){const gear=sanitizeGameGear(p.gameGear);for(const key of Object.keys(gear))gl.uniform4fv(this.uniforms['gear'+key[0].toUpperCase()+key.slice(1)],gearColor(gear[key],p.kitPrimary));const number=this.renderer.textures.get('meshy-number-'+jerseyIdentityKey(p));gl.activeTexture(gl.TEXTURE3);gl.bindTexture(gl.TEXTURE_2D,number||this.textures[0]);gl.uniform1f(this.uniforms.hasNumber,number?1:0);const rgb=value=>[1,3,5].map(i=>parseInt((value||'#000000').slice(i,i+2),16)/255);gl.uniform1f(this.uniforms.customKit,p.kitJersey?1:0);gl.uniform3fv(this.uniforms.kitColor,rgb(p.kitJersey));gl.uniform3fv(this.uniforms.kitTrim,rgb(p.kitTrim));gl.uniform3fv(this.uniforms.kitPrimary,rgb(p.kitPrimary));gl.uniformMatrix4fv(this.uniforms.model,false,this.modelFor(p));gl.uniformMatrix4fv(this.uniforms.bones,false,this.frameBones?.get(p.index)||this.bonesFor(p,phase,time)); gl.uniform1f(this.uniforms.rival,p.team?1:0);gl.uniform1f(this.uniforms.controlled,p.hasBall?1:0);gl.uniform1f(this.uniforms.playerSeed,((p.index*37+p.team*11)%17)/16);gl.drawElements(gl.TRIANGLES,this.indexCount,this.indexType,0);this.renderer.drawCalls++}
-  this.frameBones=null;gl.bindVertexArray(null);return true;
+  const custom=this.fieldCharacter&&this.customPose;
+  let chosen=null;
+  for(const p of actors){
+   if(p.gameAthlete&&custom&&custom.index===p.index){chosen=p;continue;}
+   const gear=sanitizeGameGear(p.gameGear);for(const key of Object.keys(gear))gl.uniform4fv(this.uniforms['gear'+key[0].toUpperCase()+key.slice(1)],gearColor(gear[key],p.kitPrimary));const number=this.renderer.textures.get('meshy-number-'+jerseyIdentityKey(p));gl.activeTexture(gl.TEXTURE3);gl.bindTexture(gl.TEXTURE_2D,number||this.textures[0]);gl.uniform1f(this.uniforms.hasNumber,number?1:0);const rgb=value=>[1,3,5].map(i=>parseInt((value||'#000000').slice(i,i+2),16)/255);gl.uniform1f(this.uniforms.customKit,p.kitJersey?1:0);gl.uniform3fv(this.uniforms.kitColor,rgb(p.kitJersey));gl.uniform3fv(this.uniforms.kitTrim,rgb(p.kitTrim));gl.uniform3fv(this.uniforms.kitPrimary,rgb(p.kitPrimary));const model=this.modelFor(p);
+   const dimensions=p.gameAthlete&&gameAthleteScale(p.gameAthlete);
+   gl.uniformMatrix4fv(this.uniforms.model,false,dimensions?mul(model,scale(dimensions.width,dimensions.height,dimensions.width)):model);gl.uniformMatrix4fv(this.uniforms.bones,false,this.frameBones?.get(p.index)||this.bonesFor(p,phase,time)); gl.uniform1f(this.uniforms.rival,p.team?1:0);gl.uniform1f(this.uniforms.controlled,p.hasBall?1:0);gl.uniform1f(this.uniforms.playerSeed,((p.index*37+p.team*11)%17)/16);gl.drawElements(gl.TRIANGLES,this.indexCount,this.indexType,0);this.renderer.drawCalls++}
+  this.frameBones=null;gl.bindVertexArray(null);
+  this.fieldCharacterDraws=0;
+  if(chosen)this.fieldCharacterDraws=this.fieldCharacter.draw(this.modelFor(chosen),custom.joint,!chosen.fallen&&chosen.action!=='hurdle');
+  this.customPose=null;
+  return true;
  }
  ballAnchor(p){
   const phase=arguments[1]||this.phase||'run';if(!this.ready||!p)return null;const hands=this.handTransforms.get(p.index);if(!hands)return null;

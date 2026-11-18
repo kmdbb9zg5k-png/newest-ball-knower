@@ -1,25 +1,14 @@
 import { useMemo, useState, type CSSProperties } from 'react';
 import { ArrowLeft, ChevronLeft, ChevronRight, Coins, Crown, Footprints, Gem, Glasses, Hand, HardHat, Package, RotateCcw, Shirt, ShoppingCart, Star, UserRound } from 'lucide-react';
+import { HELMETS, type StoreHelmet as Helmet } from './storeGearCatalog';
+import type { StoreGearCartAction } from './storeCart';
 import './helmetShop.css';
 
 type Rarity = 'legendary' | 'elite' | 'rare';
-type Helmet = { id: string; name: string; rarity: Rarity; price: number; accent: string; description: string };
 type Filter = 'all' | Rarity | 'common';
 type Sort = 'newest' | 'low' | 'high' | 'name';
 export type HelmetNavigation = 'featured' | 'characters' | 'clothing' | 'helmets' | 'jerseys' | 'pants' | 'accessories' | 'cleats' | 'bundles' | 'coins';
 
-const HELMETS: readonly Helmet[] = [
-  { id: 'gold-standard', name: 'Gold Standard', rarity: 'legendary', price: 2500, accent: '#f5bd36', description: 'A signature BK look. Premium mirrored gold finish, elite detail, and game-day dominance.' },
-  { id: 'frostbite', name: 'Frostbite', rarity: 'elite', price: 2000, accent: '#30c9ff', description: 'Ice-white armor, frozen silver shell and electric blue visor accents.' },
-  { id: 'shadow-ops', name: 'Shadow Ops', rarity: 'elite', price: 2000, accent: '#b6b8c5', description: 'Stealth-black carbon weave and dark-tinted game-day visor.' },
-  { id: 'bloodline', name: 'Bloodline', rarity: 'legendary', price: 2750, accent: '#fc214d', description: 'Crimson lightning cuts through a dark high-gloss shell.' },
-  { id: 'purple-reign', name: 'Purple Reign', rarity: 'elite', price: 2500, accent: '#b15bff', description: 'Royal violet chrome, gold crown details and a midnight visor.' },
-  { id: 'camo-elite', name: 'Camo Elite', rarity: 'rare', price: 1500, accent: '#a9bc60', description: 'Woodland camouflage, armored trim and blackout facemask.' },
-  { id: 'neon-strike', name: 'Neon Strike', rarity: 'elite', price: 2250, accent: '#baff00', description: 'Electric-lime highlights over a glossy jet-black shell.' },
-  { id: 'chrome-phantom', name: 'Chrome Phantom', rarity: 'legendary', price: 2750, accent: '#dce5f1', description: 'Mirror-polished chrome and a fierce black smoked visor.' },
-  { id: 'desert-storm', name: 'Desert Storm', rarity: 'rare', price: 1750, accent: '#e8bb81', description: 'Sand-colored digital camo with matching tan facemask.' },
-  { id: 'titanium-edge', name: 'Titanium Edge', rarity: 'elite', price: 2250, accent: '#3facff', description: 'Carbon-black titanium weave with vivid blue accents.' },
-];
 const formatCoins = (price: number) => price.toLocaleString('en-US');
 const helmetImage = (id: string) => `/store/bk-helmet-${id}.webp`;
 const sideLinks: { id: HelmetNavigation; label: string; icon: typeof Star }[] = [
@@ -42,11 +31,11 @@ const matchingGear = [
   { name: 'Gold Visor', price: 500, icon: Glasses },
 ] as const;
 
-export default function HelmetShop({ onNavigate }: { onNavigate: (destination: HelmetNavigation) => void }) {
+export default function HelmetShop({ onNavigate, cartAction }: { cartAction: StoreGearCartAction; onNavigate: (destination: HelmetNavigation) => void }) {
   const [filter, setFilter] = useState<Filter>('all');
   const [sort, setSort] = useState<Sort>('newest');
   const [selectedId, setSelectedId] = useState('gold-standard');
-  const [notice, setNotice] = useState<'buy' | 'three-d' | 'gear' | null>(null);
+  const [notice, setNotice] = useState<'three-d' | 'gear' | null>(null);
   const selected = HELMETS.find(item => item.id === selectedId) ?? HELMETS[0];
   const visible = useMemo(() => {
     const items = HELMETS.filter(item => filter === 'all' || item.rarity === filter);
@@ -84,11 +73,11 @@ export default function HelmetShop({ onNavigate }: { onNavigate: (destination: H
           <label className="bk-h-sort"><span className="bk-h-sr">Sort helmets</span><select aria-label="Sort helmets" value={sort} onChange={event => setSort(event.target.value as Sort)}><option value="newest">Sort: Newest</option><option value="low">Price: Low to High</option><option value="high">Price: High to Low</option><option value="name">Name: A-Z</option></select></label>
         </div>
         {visible.length === 0 ? <p className="bk-h-empty" role="status">No helmets in this rarity tier yet.</p> : <div className="bk-h-grid" aria-label="Ten premium helmets">
-          {visible.map(item => <button key={item.id} className="bk-h-item" type="button" style={styleFor(item)} aria-pressed={selectedId === item.id} onClick={() => choose(item.id)} data-helmet={item.id}>
+          {visible.map(item => <div className="bk-store-card-with-action" key={item.id}><button className="bk-h-item" type="button" style={styleFor(item)} aria-pressed={selectedId === item.id} onClick={() => choose(item.id)} data-helmet={item.id}>
             <span className="bk-h-item-image"><img src={helmetImage(item.id)} alt={`${item.name} BK football helmet`} loading="lazy" decoding="async"/></span>
             <span className="bk-h-tier" data-rarity={item.rarity}>{item.rarity === 'legendary' ? <Crown size={12}/> : item.rarity === 'elite' ? <Gem size={12}/> : <span aria-hidden="true">△</span>}{item.rarity}</span>
             <strong>{item.name}</strong><span className="bk-h-cost"><span className="bk-h-coin">BK</span>{formatCoins(item.price)}</span>
-          </button>)}
+          </button>{cartAction(item.id, item.name)}</div>)}
         </div>}
       </div>
 
@@ -103,8 +92,8 @@ export default function HelmetShop({ onNavigate }: { onNavigate: (destination: H
           <h2><Crown size={25} aria-hidden="true"/>{selected.name}</h2>
           <div className="bk-h-detail-tier">{selected.rarity} helmet</div>
           <p className="bk-h-desc">{selected.description}</p>
-          <button type="button" className="bk-h-buy" onClick={() => setNotice('buy')}><span className="bk-h-price"><span className="bk-h-coin">BK</span>{formatCoins(selected.price)}</span><span>Buy Now</span><ShoppingCart size={20} aria-hidden="true"/></button>
-          {notice && <p className="bk-h-notice" role="status">{notice === 'three-d' ? '360° model is not available yet. This is the approved helmet artwork.' : notice === 'gear' ? 'Matching gear is a visual preview. Accessories are not for sale yet.' : 'Preview price only. BK Coin checkout is not enabled, and no coins have been deducted.'}</p>}
+          {cartAction(selected.id)}
+          {notice && <p className="bk-h-notice" role="status">{notice === 'three-d' ? '360° model is not available yet. This is the approved helmet artwork.' : 'Matching gear is a visual preview. Accessories are not for sale yet.'}</p>}
           <div className="bk-h-matching"><h3>Complete the Look</h3><div className="bk-h-matching-grid">
             {matchingGear.map(({ name, price }, index) => <button type="button" key={name} onClick={() => setNotice('gear')} aria-label={`${name}, ${formatCoins(price)} proposed BK Coins`}><span className="bk-h-matching-pic" style={{ backgroundPosition: `${index * 100 / 3}% center` }} aria-hidden="true"/><span className="bk-h-mini-price"><span className="bk-h-coin">BK</span>{formatCoins(price)}</span></button>)}
           </div></div>

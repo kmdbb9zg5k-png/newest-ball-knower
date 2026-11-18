@@ -64,5 +64,5 @@ export async function createRoutePresentation(scene,runner,camera,host,player,ma
   camera.position.set(cameraAnchor.x,portrait?7.5:6,cameraAnchor.z-(portrait?11:10));
   camera.lookAt(cameraAnchor.x,1,cameraAnchor.z+(dbPlayer?1:4));
  }
- return {draw,setDefender(next){defender?.setAthlete(next);},dispose(){defender?.dispose();qb.dispose();}};
+ return {draw,storeDefenderLoaded:defender?.storeCharacterLoaded ?? false,setDefender(next){defender?.setAthlete(next);},dispose(){defender?.dispose();qb.dispose();}};
 }

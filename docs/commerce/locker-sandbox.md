@@ -72,3 +72,7 @@ Career body previews always use the customized live athlete, including when a us
 Standalone/Community Combine restores verified account clothing before constructing its session athlete. A running drill uses a stable appearance snapshot; changing outfits takes effect on the next workout, without restarting or resetting an attempt. Regular player previews update immediately.
 
 Additional checks: `scripts/athlete-wardrobe-check.ts` exercises workout → game → workout persistence, fixed competitive ratings, NPC isolation and premium grant clearing. `scripts/athlete-wardrobe-browser.mjs` checks actual material uniforms in the real renderer across career, camp, weekly workouts, practice and the player-controlled Community defender, plus a mocked verified-purchase restoration on entry. Browser instrumentation exists only in the test Vite plugin.
+
+## Playable Store characters
+
+The game reads verified character purchases from `ball_knower_entitlements`. Character checkout fulfillment will need to write a `source = 'purchase'` entitlement for the buyer's `auth_user_id`, using the product ID in `storeCatalog.ts` as the SKU. Character checkout is currently unavailable. Clothing sandbox transactions do not confer character access.

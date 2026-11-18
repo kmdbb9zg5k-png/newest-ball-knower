@@ -2,9 +2,10 @@ import {loadCombineAsset,invalidateCombineAsset} from './asset-loading.js';
 import * as T from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { createPlayerAppearance } from './player-appearance.js';
+import {gameAthlete,gameAthleteScale} from '../public/play-moment-3d/game-athlete.js';
 import {createBodyShape,bodyMass} from './body-shape.js';
 
-// Native 52-bone athlete and its own captured clips; no cross-rig retargeting.
+// Native 52-bone athlete and its captured Combine clips.
 export const COMBINE_CHARACTER_URL = '/play-moment-3d/assets/combine-native-athlete-v1.glb?v=native-1';
 const v=(x=0,y=0,z=0)=>new T.Vector3(x,y,z);
 const position=o=>o.getWorldPosition(v());
@@ -58,9 +59,29 @@ export async function loadCombineRunner(player,showroom=false,showroomSkin=false
   }
   const start=Object.fromEntries(Object.entries(bones).map(([name,b])=>[name,{p:b.position.clone(),q:b.quaternion.clone()}]));
   reset();
+  let disposed = false;
+  let practiceCharacter = null;
+  const storeAsset = player.practiceCharacterId && !showroom
+    ? await import('../characterPurchases').then(({purchasedCharacterAsset}) => purchasedCharacterAsset(player.practiceCharacterId))
+    : null;
+  if (storeAsset) {
+    try {
+      const {loadPracticeCharacter} = await import('./practice-character.js');
+      practiceCharacter = await loadPracticeCharacter(storeAsset.url, bones, storeAsset.fitId);
+    } catch (error) {
+      disposeRunner();
+      throw error;
+    }
+    body.visible = false;
+    root.add(practiceCharacter.model);
+  }
   let gaitPhase=0,lastDistance=0,idleTime=0,walkWeight=0,idleWeight=0;
   function setAthlete(next){
     shape(next);
+    if (practiceCharacter) {
+      const dimensions = gameAthleteScale(gameAthlete(next));
+      practiceCharacter.setDimensions(dimensions.width, dimensions.height);
+    }
     gaitPhase=0;lastDistance=0;idleTime=0;walkWeight=0;idleWeight=0;
     const bulk=['OL','DL'].includes(next.position)?1.06:['TE','LB'].includes(next.position)?1.03:1;
     const height=T.MathUtils.clamp((next.heightInches||72)/72,.91,1.12);
@@ -97,6 +118,7 @@ export async function loadCombineRunner(player,showroom=false,showroomSkin=false
       b.quaternion.slerpQuaternions(start[name].q,b.quaternion.clone(),blend);
     }
     body.position.y=0;root.updateMatrixWorld(true);
+    practiceCharacter?.pose(root);
   }
   // Isolated two-foot jump pose on the same rig used by the 40. Targets are
   // solved at the origin, then the entire athlete is placed in the lane.
@@ -122,6 +144,7 @@ export async function loadCombineRunner(player,showroom=false,showroomSkin=false
       solve([side+'Arm',side+'ForeArm',side+'Hand'],v(sign*(.29+stumble*.18),.8+reach*.35+stumble*.25,armZ-stumble*.2),v(sign*.4,.85,armZ-.2));
     }
     body.position.y=0;root.position.set(0,state.height,state.visualDistance-stumble*.15);root.updateMatrixWorld(true);
+    practiceCharacter?.pose(root, !airborne);
   }
   // A planted lunge reaches the line before the body turns and pushes away.
   function poseShuttleTurn(state){
@@ -139,6 +162,7 @@ export async function loadCombineRunner(player,showroom=false,showroomSkin=false
       if(front&&bones.LeftHandMiddle4)aim(bones.LeftHand,bones.LeftHandMiddle4,position(bones.LeftHand).add(v(0,-.13,.025)));
     }
     body.position.y=0;root.updateMatrixWorld(true);
+    practiceCharacter?.pose(root);
   }
   // Bench targets use the native skeleton at the origin, with a supported
   // back, planted feet and a shared hand/bar height throughout each repetition.
@@ -161,10 +185,11 @@ export async function loadCombineRunner(player,showroom=false,showroomSkin=false
       const thumb=bones[side+'HandThumb2'];if(thumb)thumb.quaternion.multiply(new T.Quaternion().setFromAxisAngle(v(1,0,0),.65));
     }
     body.position.y=0;root.updateMatrixWorld(true);
-    const grip=side=>position(bones[side+'Hand']).lerp(position(bones[side+'HandMiddle1']),.75);
+    practiceCharacter?.pose(root, false);
+    const grip=side=>practiceCharacter?.hand(side, root) ?? position(bones[side+'Hand']).lerp(position(bones[side+'HandMiddle1']),.75);
     return grip('Left').add(grip('Right')).multiplyScalar(.5);
   }
-  const palm=side=>position(bones[side+'Hand']).lerp(position(bones[side+'HandMiddle1']),.65);
+  const palm=side=>practiceCharacter?.hand(side,root) ?? position(bones[side+'Hand']).lerp(position(bones[side+'HandMiddle1']),.65);
   function poseReceiver(state,dt){
     root.position.set(0,0,0);root.rotation.set(0,0,0);root.updateMatrixWorld(true);
     const moving=Math.hypot(state.vx,state.vz);
@@ -184,6 +209,7 @@ export async function loadCombineRunner(player,showroom=false,showroomSkin=false
       }
     }
     root.updateMatrixWorld(true);
+    practiceCharacter?.pose(root);
     return palm('Left').add(palm('Right')).multiplyScalar(.5);
   }
   function poseDefender(state,dt){
@@ -222,7 +248,7 @@ export async function loadCombineRunner(player,showroom=false,showroomSkin=false
       }
     }
     if(state.lookAtBall){const dx=state.ball[0]-state.x,dz=state.ball[2]-state.z,angle=Math.atan2(Math.sin(Math.atan2(dx,dz)-state.heading),Math.cos(Math.atan2(dx,dz)-state.heading));bones.Head.quaternion.multiply(new T.Quaternion().setFromAxisAngle(v(0,1,0),T.MathUtils.clamp(angle,-1.1,1.1)));}
-    root.updateMatrixWorld(true);return state.intercepted?hand:palm('Left').add(palm('Right')).multiplyScalar(.5);
+    root.updateMatrixWorld(true);practiceCharacter?.pose(root);return state.intercepted?hand:palm('Left').add(palm('Right')).multiplyScalar(.5);
   }
   function poseRB(state,dt,defender=false){
     root.position.set(0,0,0);root.rotation.set(0,0,0);root.updateMatrixWorld(true);
@@ -249,7 +275,7 @@ export async function loadCombineRunner(player,showroom=false,showroomSkin=false
       if(state.move==='stiff'&&age<.65&&!fall){const reach=Math.sin(Math.PI*Math.min(1,age/.65));solve(['LeftArm','LeftForeArm','LeftHand'],v(.26,1.20,.25+reach*.55),v(.43,1.04,.34));}
       if(state.move==='spin'&&age<.65&&!fall)solve(['LeftArm','LeftForeArm','LeftHand'],v(.20,1.10,.20),v(.4,.91,.10));
     }
-    root.updateMatrixWorld(true);return palm('Right');
+    root.updateMatrixWorld(true);practiceCharacter?.pose(root, !fall);return palm('Right');
   }
   function poseHandoff(released=false){
     root.position.set(0,0,0);root.rotation.set(0,0,0);root.updateMatrixWorld(true);reset();bones.Hips.position.y=.92/sourceScale;body.updateMatrixWorld(true);
@@ -287,8 +313,7 @@ export async function loadCombineRunner(player,showroom=false,showroomSkin=false
     root.updateMatrixWorld(true);
   }
   pose(0,0,true);
-  let disposed=false;
   root.disposeCombineRunner=disposeRunner;
-  return {root,pose,poseCreator,poseJump,poseBench,poseShuttleTurn,poseReceiver,poseDefender,poseRB,poseHandoff,poseQuarterback,setAthlete,dispose:disposeRunner};
-  function disposeRunner(){if(disposed)return;disposed=true;appearance.dispose();mixer.stopAllAction();mixer.uncacheRoot(body);const images=new Set();body.traverse(o=>{o.skeleton?.dispose();for(const m of(Array.isArray(o.material)?o.material:[o.material]))if(m)for(const value of Object.values(m))if(value?.isTexture&&value.image)images.add(value.image);});for(const image of images)image.close?.();}
+  return {root,storeCharacterLoaded:Boolean(practiceCharacter),pose,poseCreator,poseJump,poseBench,poseShuttleTurn,poseReceiver,poseDefender,poseRB,poseHandoff,poseQuarterback,setAthlete,dispose:disposeRunner};
+  function disposeRunner(){if(disposed)return;disposed=true;practiceCharacter?.dispose();appearance.dispose();mixer.stopAllAction();mixer.uncacheRoot(body);const images=new Set();body.traverse(o=>{o.skeleton?.dispose();for(const m of(Array.isArray(o.material)?o.material:[o.material]))if(m)for(const value of Object.values(m))if(value?.isTexture&&value.image)images.add(value.image);});for(const image of images)image.close?.();}
 }
