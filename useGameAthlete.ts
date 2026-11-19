@@ -1,22 +1,26 @@
 import { useEffect, useState } from 'react';
-import { accountGameAthlete, equippedCharacter, GAME_ATHLETE_CHANGED } from './gameAthletePreference';
+import type { Session } from '@supabase/supabase-js';
+import { currentGameAthlete, equippedCharacter, GAME_ATHLETE_CHANGED } from './gameAthletePreference';
 import { GAME_ATHLETE_KEY } from './public/play-moment-3d/game-athlete.js';
 import { supabase } from './supabase';
 import { usePurchasedCharacters } from './usePurchasedCharacters';
 
 export function useGameAthlete(enabled: boolean) {
-  const [profile, setProfile] = useState<{ saved: ReturnType<typeof accountGameAthlete>; loading: boolean }>({ saved: null, loading: true });
+  const [profile, setProfile] = useState<{ saved: Awaited<ReturnType<typeof currentGameAthlete>>; loading: boolean }>({ saved: null, loading: true });
   const { owned, loading } = usePurchasedCharacters(enabled);
   useEffect(() => {
     if (!enabled) return;
+    let request = 0;
     let active = true;
-    const update = () => {
-      void Promise.resolve(supabase?.auth.getSession()).then(result => {
-        if (active) setProfile({ saved: accountGameAthlete(result?.data.session ?? null), loading: false });
-      });
+    const refresh = async (session?: Session | null) => {
+      const latest = ++request;
+      const current = session === undefined ? (await supabase?.auth.getSession())?.data.session ?? null : session;
+      const saved = await currentGameAthlete(current);
+      if (active && latest === request) setProfile({ saved, loading: false });
     };
+    const update = () => { void refresh(); };
     const subscription = supabase?.auth.onAuthStateChange((_event, session) => {
-      if (active) setProfile({ saved: accountGameAthlete(session), loading: false });
+      void refresh(session);
     }).data.subscription;
     const onStorage = (event: StorageEvent) => {
       if (!event.key || event.key === GAME_ATHLETE_KEY) update();
