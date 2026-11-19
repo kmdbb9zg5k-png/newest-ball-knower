@@ -11,7 +11,8 @@ export async function mockCharacterPurchases(context, purchases, codeGrant = [],
   const access_token = [encode({ alg: 'HS256', typ: 'JWT' }),
     encode({ sub: user.id, aud: 'authenticated', role: 'authenticated', exp: expires_at }),
     'test-fixture-only'].join('.');
-  const session = { user, access_token, refresh_token: 'fixture-only', token_type: 'bearer', expires_at };
+  // Seed a pre-equip session. The auth user endpoint has the newest selection.
+  const session = { user: { ...user, user_metadata: {} }, access_token, refresh_token: 'fixture-only', token_type: 'bearer', expires_at };
   let redeemed = false;
 
   await context.addInitScript(value => {

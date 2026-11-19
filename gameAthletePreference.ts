@@ -13,7 +13,7 @@ export function accountGameAthlete(session: Session | null) {
   const user = session?.user;
   const account = user && !user.is_anonymous ? user : null;
   if (!account) return readGuestGameAthlete();
-  const remote = gameAthlete(account.user_metadata[metadataKey]);
+  const remote = gameAthlete(account.user_metadata?.[metadataKey]);
   if (remote) return remote;
   try {
     const owner = localStorage.getItem(GAME_ATHLETE_OWNER_KEY);
@@ -24,6 +24,23 @@ export function accountGameAthlete(session: Session | null) {
   }
 }
 
+export async function currentGameAthlete(session: Session | null) {
+  const cached = accountGameAthlete(session);
+  if (!supabase || !session?.user || session.user.is_anonymous) return cached;
+
+  try {
+    // An existing browser session can retain old user metadata after another
+    // device equips a character. Read the account with this session's token.
+    const { data, error } = await supabase.auth.getUser(session.access_token);
+    if (!error && data.user?.id === session.user.id) {
+      return accountGameAthlete({ ...session, user: data.user });
+    }
+  } catch {
+    // A temporary account read failure leaves this session's saved choice usable.
+  }
+  return cached;
+}
+
 export function equippedCharacter(preference: ReturnType<typeof gameAthlete>, owned: ReadonlySet<string>) {
   return preference && owned.has(preference.character)
     ? characters.find(product => product.id === preference.character)
@@ -32,11 +49,11 @@ export function equippedCharacter(preference: ReturnType<typeof gameAthlete>, ow
 
 export async function resolveGameAthlete() {
   const session = (await supabase?.auth.getSession())?.data.session ?? null;
-  const saved = accountGameAthlete(session);
+  const saved = await currentGameAthlete(session);
   const character = saved?.character ? equippedCharacter(saved, await purchasedCharacterIds()) : undefined;
-  if (saved?.character) {
+  if (session) {
     const current = (await supabase?.auth.getSession())?.data.session;
-    if (current?.user.id !== session?.user.id) throw new Error('Your account changed. Retry to load your character.');
+    if (current?.user.id !== session.user.id) throw new Error('Your account changed. Retry to load your character.');
   }
   if (saved?.character && !character) throw new Error('Could not load your equipped character. Retry or check your selection in the Locker.');
   return { saved, character };

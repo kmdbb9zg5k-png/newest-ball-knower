@@ -25,6 +25,7 @@ try {
   page.setDefaultTimeout(90000);
   await page.goto(base+'/combine.html?drill=dash&character=bkf-kickflip');
   await page.getByText(/Could not load your equipped character/).waitFor();
+  assert.ok(await page.evaluate(() => !JSON.parse(localStorage.getItem('sb-gpnboygoosrmeydwjpvk-auth-token')).user.user_metadata.bk_game_athlete));
   assert.equal(await page.locator('[data-character="store-character"]').count(), 0);
   console.log('PASS expired and unpurchased unlocks cannot equip a character');
   purchases.push({ sku: 'bkf-kickflip', source: 'purchase', expires_at: null });
