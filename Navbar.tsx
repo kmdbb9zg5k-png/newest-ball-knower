@@ -77,6 +77,9 @@ export const Navbar:React.FC<NavbarProps>=({currentTab,newsEnabled=currentTab===
   const avatarUrl=currentUser?.avatarUrl||(currentUser?`https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(currentUser.name)}`:'');
   const [failedAvatarUrl,setFailedAvatarUrl]=useState('');
   const compactFantasyChrome=currentTab==='lobby'||currentTab==='draft'||currentTab==='simulation';
+  const headerSpacerClass = currentTab === 'locker'
+    ? 'h-[calc(81px+env(safe-area-inset-top))] md:h-[calc(125px+env(safe-area-inset-top))]'
+    : `${compactFantasyChrome ? 'h-[calc(58px+env(safe-area-inset-top))]' : 'h-[calc(72px+env(safe-area-inset-top))]'} md:h-[calc(116px+env(safe-area-inset-top))]`;
 
   const navigation=createPortal(<><header ref={headerRef} data-profile-chrome={currentTab==='locker'?'true':undefined} className={`fixed inset-x-0 top-0 z-40 w-full border-b border-[var(--bk-team-accent)]/15 bg-[#090c12]/90 backdrop-blur-xl ${currentTab==='home'?'bk-home-broadcast-header':'bk-broadcast-header'}`}>
     <div className={`mx-auto flex max-w-5xl items-center justify-between gap-2 pl-[max(.75rem,env(safe-area-inset-left))] pr-[max(.75rem,env(safe-area-inset-right))] pt-[env(safe-area-inset-top)] sm:pl-[max(1.5rem,env(safe-area-inset-left))] sm:pr-[max(1.5rem,env(safe-area-inset-right))] ${compactFantasyChrome?'min-h-[calc(58px+env(safe-area-inset-top))]':'min-h-[calc(72px+env(safe-area-inset-top))]'}`}>
@@ -108,5 +111,5 @@ export const Navbar:React.FC<NavbarProps>=({currentTab,newsEnabled=currentTab===
     </dialog>
   </>,document.body);
 
-  return <><div aria-hidden="true" className={`${compactFantasyChrome?'h-[calc(58px+env(safe-area-inset-top))]':'h-[calc(72px+env(safe-area-inset-top))]'} md:h-[calc(116px+env(safe-area-inset-top))]`}/>{showNews&&<div className="bk-home-news-space" aria-hidden="true"/>}{navigation}</>;
+  return <><div aria-hidden="true" className={headerSpacerClass}/>{showNews&&<div className="bk-home-news-space" aria-hidden="true"/>}{navigation}</>;
 };
