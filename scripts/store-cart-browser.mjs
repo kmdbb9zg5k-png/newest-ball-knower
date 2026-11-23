@@ -92,12 +92,12 @@ try {
    await page.locator('[data-store-product="frostbite"]').click();
    await page.getByRole('button',{name:'Add to cart',exact:true}).click();
    await page.getByRole('button',{name:'View cart',exact:true}).click();
-   await dialog.getByText('Frostbite',{exact:true}).waitFor();
-   await dialog.getByText('BKF Nicki',{exact:true}).waitFor();
-   await dialog.getByText('Gold Standard Helmet',{exact:true}).waitFor();
-   assert.equal(await dialog.getByText('Saved for later · Checkout coming soon',{exact:true}).count(),2);
-   await dialog.getByText('$1.00',{exact:true}).last().waitFor();
-   assert.equal(await dialog.getByText('$1.00',{exact:true}).count(),2);
+   const cartRow = name => dialog.locator('.bk-cart-item').filter({has:page.getByText(name,{exact:true})});
+   await cartRow('Frostbite').getByText('$1.00',{exact:true}).waitFor();
+   for (const name of ['BKF Nicki','Gold Standard Helmet']) {
+    assert.ok(await cartRow(name).getByText('Saved for later · Checkout coming soon',{exact:true}).isVisible());
+   }
+   assert.ok(await dialog.locator('.bk-cart-total').getByText('$1.00',{exact:true}).isVisible());
    enableProviders = true;
    pendingProvider = 'paypal';
    await dialog.getByRole('button',{name:'Refresh purchases'}).click();
