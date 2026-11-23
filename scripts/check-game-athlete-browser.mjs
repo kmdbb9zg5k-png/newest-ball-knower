@@ -66,38 +66,63 @@ try {
     assert.deepEqual(errors,[]);
     await page.close();
   }
-  // Match the Two-Minute roster before/after at the normal phone camera.
-  let rosterFrame;
-  for(const mode of ['original','smoothed']){
+  // Match the previous roster and the new joints through a normal-control play.
+  const rosterFrames=new Map();
+  for(const revision of ['previous','sculpted']){
     const page=await demo.newPage(),errors=[];
     page.on('pageerror',error=>errors.push(error.message));
-    await page.goto(base+'/play-moment-3d-preview.html?qa=1&manualFrames=1&mode=two-minute&team=JCY&opponent=BRK'+(mode==='original'?'&originalRoster=1':''));
+    await page.goto(base+'/play-moment-3d-preview.html?qa=1&manualFrames=1&mode=two-minute&team=JCY&opponent=BRK'+(revision==='previous'?'&previousRoster=1':''));
     await page.waitForFunction(()=>window.bk3dDiagnostics?.().athletes.ready);
-    await page.evaluate(()=>window.bk3dTest.seed(742));
+    await page.evaluate(()=>{window.bk3dTest.manualFrames();window.bk3dTest.seed(742)});
     await page.locator('#filterRun').click();
     await page.locator('#call-run-5').click();
     await page.locator('#breakHuddle').click();
     await page.keyboard.down('ArrowUp');
     await page.locator('#snap').dispatchEvent('pointerdown');
-    await page.evaluate(()=>window.bk3dTest.step(2.25));
-    const state=await page.evaluate(()=>window.bk3dDiagnostics());
-    assert.equal(state.glError,0);
-    assert.equal(state.athletes.softenRoster,mode==='smoothed');
-    const match={camera:state.camera,phase:state.phase,positions:state.players.map(({x,z,action})=>[x,z,action])};
-    if(rosterFrame){
-      assert.equal(match.phase,rosterFrame.phase);
-      assert.deepEqual(match.positions,rosterFrame.positions,'Compare exactly the same roster pose');
-      for(const key of ['eye','target']){
-        assert.ok(match.camera[key].every((value,i)=>Math.abs(value-rosterFrame.camera[key][i])<.002),
-          'Camera must match within a subpixel tolerance at gameplay distance');
+
+    async function checkRosterFrame(label,state){
+      assert.equal(state.glError,0);
+      assert.equal(state.athletes.softenRoster,true);
+      assert.equal(state.athletes.rosterJointPolish,revision==='sculpted');
+      const match={camera:state.camera,phase:state.phase,positions:state.players.map(({x,z,action})=>[x,z,action])};
+      const previous=rosterFrames.get(label);
+      if(previous){
+        assert.equal(match.phase,previous.phase);
+        assert.deepEqual(match.positions,previous.positions,'Compare exactly the same roster pose');
+        for(const key of ['eye','target']){
+          assert.ok(match.camera[key].every((value,i)=>Math.abs(value-previous.camera[key][i])<.002),
+            'Camera must match within a subpixel tolerance at gameplay distance');
+        }
+      }else rosterFrames.set(label,match);
+      await captureFrame(page,output+'/two-minute-roster-'+revision+'-'+label+'.png');
+    }
+    const step=seconds=>page.evaluate(t=>{window.bk3dTest.step(t);return window.bk3dDiagnostics()},seconds);
+    await checkRosterFrame('handoff',await step(1.6));
+    await checkRosterFrame('running',await step(.65));
+    let contact=false,landed=false,nextPlay=false;
+    for(let i=0;i<60;i++){
+      const state=await step(.15);
+      if(!contact&&state.contact){
+        contact=true;
+        await checkRosterFrame('contact',state);
       }
-    }else rosterFrame=match;
-    await captureFrame(page,output+'/two-minute-roster-'+mode+'.png');
+      if(contact&&!landed&&state.contact?.elapsed/state.contact?.duration>.70){
+        landed=true;
+        await checkRosterFrame('landing',state);
+      }
+      if(state.drive.plays>0&&state.playbook.open){nextPlay=true;break;}
+    }
+    assert.ok(contact&&landed&&nextPlay,'Normal controls reach contact, landing, and the next play');
     await page.keyboard.up('ArrowUp');
+    if(revision==='sculpted'){
+      const frames=await page.evaluate(()=>{window.bk3dTest.resumeFrames();return window.bk3dDiagnostics().frames});
+      await page.waitForFunction(before=>window.bk3dDiagnostics().frames>before+2,frames);
+      assert.equal(await page.evaluate(()=>window.bk3dDiagnostics().glError),0);
+    }
     assert.deepEqual(errors,[]);
     await page.close();
   }
-  console.log('PASS Two-Minute roster with matched original and smoothed running poses');
+  console.log('PASS Two-Minute roster with matched handoff, running, contact and landing frames');
   await demo.close();
   console.log('PASS authored running back, matched normal-camera frames, reference rig, and completed plays');
   // Release the comparison's SwiftShader contexts before the larger avatar suite.
