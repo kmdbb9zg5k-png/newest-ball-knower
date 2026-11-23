@@ -88,7 +88,7 @@ document.getElementById('game').addEventListener('webglcontextlost', () => {
   reportLegendsFailure();
 });
 try {
-  const {start}=await import('/play-moment-3d/game.js?v=authored-runner-2');
+  const {start}=await import('/play-moment-3d/game.js?v=authored-runner-3');
   await start();
   if (!graphicsLost) reportArenaField('ready');
 } catch(error) {

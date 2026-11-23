@@ -240,12 +240,34 @@ uniform bool authoredRunner;
 uniform vec4 gearGloves;uniform vec4 gearLeftSleeve;uniform vec4 gearRightSleeve;uniform vec4 gearLeftWrist;uniform vec4 gearRightWrist;uniform vec4 gearCleats;uniform vec4 gearFacemask;
 out vec4 color;
 vec3 film(vec3 v){return clamp((v*(2.51*v+.03))/(v*(2.43*v+.59)+.14),0.,1.);}
+// Distance-filtered fabric and lower-frequency folds follow the athlete's
+// bind pose. The same surface stays matte under each stadium light.
+float runnerTextile(vec3 p, vec3 n){
+ vec3 detail=p*vec3(335.,385.,340.);
+ vec3 footprint=fwidth(detail);
+ float aa=1.-smoothstep(.38,1.15,max(footprint.x,max(footprint.y,footprint.z)));
+ vec3 axis=abs(n);
+ return dot(axis, vec3(sin(detail.y)*sin(detail.z),sin(detail.x)*sin(detail.z),sin(detail.x)*sin(detail.y)))*aa;
+}
+vec3 runnerMaterialNormal(vec3 n,float wrinkle,vec3 surface){
+ vec3 dx=dFdx(surface),dy=dFdy(surface);
+ vec3 slopeX=cross(dy,n),slopeY=cross(n,dx);
+ float magnitude=dot(dx,slopeX);
+ if(abs(magnitude)<.00000001)return n;
+ vec3 slope=dFdx(wrinkle)*slopeX+dFdy(wrinkle)*slopeY;
+ return normalize(n-sign(magnitude)*slope/max(abs(magnitude),.00000001));
+}
 void main(){vec4 sampleColor=authoredRunner?vec4(.22,.22,.22,1.):texture(baseMap,uv);if(sampleColor.a<.04)discard;vec3 albedo=pow(sampleColor.rgb,vec3(2.2));
  // Complete garment regions avoid the fragmented hue mask that left dark
  // seams and baked lettering scattered over away uniforms and player skin.
  float jersey=garment.x,pants=garment.y,cloth=garment.z,equipment=authoredRunner?0.:garment.w;
  vec3 jerseyColor=mix(mix(vec3(.065,.105,.18),vec3(.88,.90,.89),rival),kitColor,customKit);
  vec3 pantsColor=mix(jerseyColor*.8,vec3(.73,.77,.78),rival);
+ if(authoredRunner){
+  // Team color remains on the chest and helmet. A neutral gray woven base
+  // gives the pants believable material separation from the jersey.
+  pantsColor=mix(jerseyColor*.65,vec3(.57,.60,.63),.76);
+ }
  vec3 trim=mix(mix(vec3(.68,.53,.28),vec3(.48,.075,.055),rival),kitTrim,customKit);
  float fabric=clamp(dot(sampleColor.rgb,vec3(.2126,.7152,.0722))/.22,.97,1.025);
  albedo=mix(albedo,pow(jerseyColor*fabric,vec3(2.2)),jersey);
@@ -255,7 +277,7 @@ void main(){vec4 sampleColor=authoredRunner?vec4(.22,.22,.22,1.):texture(baseMap
  float pantStripe=(1.-smoothstep(.012,.021,abs(bindPosition.z+.012)))*smoothstep(.5,.8,abs(bindNormal.x))*pants;
  float sleeveStripe=(1.-smoothstep(.008,.016,abs(bindPosition.y-1.30)))*smoothstep(.19,.27,abs(bindPosition.x))*jersey;
  albedo=mix(albedo,pow(trim,vec3(2.2)),max(pantStripe,sleeveStripe));
- if(enhancedUniformMaterials){
+ if(enhancedUniformMaterials&&!authoredRunner){
   float side=abs(bindPosition.x);
   float sleeve=jersey*smoothstep(.194,.236,side)*smoothstep(1.245,1.301,bindPosition.y)*(1.-smoothstep(1.400,1.456,bindPosition.y));
   float thighPanel=pants*smoothstep(.112,.162,side)*smoothstep(.35,.71,abs(bindNormal.x));
@@ -305,28 +327,44 @@ void main(){vec4 sampleColor=authoredRunner?vec4(.22,.22,.22,1.):texture(baseMap
  albedo=mix(albedo,pow(shellColor,vec3(2.2)),shell);
  float cage=equipment*opening*smoothstep(.103,.120,helmetBind.z);
  albedo=mix(albedo,pow(mix(vec3(.32,.35,.38),gearFacemask.rgb,gearFacemask.a),vec3(2.2)),cage);
+ int material=authoredRunner?int(round(garment.w)):-1;
+ float runnerFold=0.;
  if(authoredRunner){
-  int material=int(round(garment.w));
   shell=material==3?1.:0.;
   cage=material==4?1.:0.;
-  if(material==0)albedo=pow(vec3(.44,.275,.185),vec3(2.2));
-  if(material==3)albedo=pow(mix(kitPrimary,trim,1.-smoothstep(.013,.022,abs(bindPosition.x))),vec3(2.2));
+  if(material==0){
+   float warm=.5+.5*sin(bindPosition.y*33.+abs(bindPosition.x)*21.+bindPosition.z*14.);
+   albedo=pow(mix(vec3(.34,.204,.141),vec3(.46,.292,.215),warm*.63),vec3(2.2));
+  }
+  if(material==3)albedo=pow(kitPrimary,vec3(2.2));
   if(material==4)albedo=pow(mix(vec3(.34,.37,.42),gearFacemask.rgb,gearFacemask.a),vec3(2.2));
-  if(material==5)albedo=pow(mix(trim,gearGloves.rgb,gearGloves.a),vec3(2.2));
+  if(material==5)albedo=pow(mix(mix(vec3(.19,.21,.24),trim,.32),gearGloves.rgb,gearGloves.a),vec3(2.2));
   if(material==6)albedo=pow(mix(vec3(.135,.15,.17),gearCleats.rgb,gearCleats.a),vec3(2.2));
   if(material==7)albedo=pow(trim,vec3(2.2));
   if(material==8)albedo=vec3(.009,.013,.02);
-  if(material==9)albedo=pow(mix(kitPrimary,vec3(.92),.18),vec3(2.2));
+  if(material==9)albedo=pow(mix(kitPrimary,vec3(.77,.80,.83),.42),vec3(2.2));
+  float width=abs(bindPosition.x);
+  float edge=smoothstep(.095,.20,width)*jersey;
+  float sideStripe=(1.-smoothstep(.015,.031,abs(bindPosition.z+.012)))*smoothstep(.53,.76,abs(bindNormal.x))*pants;
+  albedo=mix(albedo,pow(trim,vec3(2.2)),sideStripe*.52);
+  float folds=sin(bindPosition.y*94.+width*34.+sin(bindPosition.z*29.)*.90);
+  float fabricSeam=pow(max(folds,0.),5.);
+  float sideFold=(edge*.78+(1.-smoothstep(.96,1.17,bindPosition.y))*.25*jersey)*.8;
+  float kneeFold=pants*(1.-smoothstep(.09,.15,abs(bindPosition.y-.48)));
+  runnerFold=.0014*(sideFold+kneeFold*.36)*fabricSeam;
+  albedo*=1.+runnerTextile(bindPosition,bindNormal)*(.055*cloth+.018*float(material==0));
+  albedo*=1.-fabricSeam*(sideFold*.12+kneeFold*.04)*(1.-ink.a*printMask);
  }
  vec3 N=normalize(normal);
- if(!authoredRunner){
+ if(authoredRunner)N=runnerMaterialNormal(N,runnerFold,world);
+ else{
   vec3 T=normalize(tangent-N*dot(N,tangent)),B=normalize(cross(N,T))*handedness;
   vec3 mapped=texture(normalMap,uv).xyz*2.-1.;
   mapped.xy*=mix(mix(.55,.22,cloth),enhancedUniformMaterials?.07:.18,equipment);
   N=normalize(mat3(T,B,N)*mapped);
  }
  vec3 V=normalize(eye-world),L0=normalize(vec3(-.48,.82,-.31)),L1=normalize(vec3(.62,.69,.38)),L2=normalize(vec3(-.20,.72,.65));float d0=max(dot(N,L0),0.),d1=max(dot(N,L1),0.),d2=max(dot(N,L2),0.);vec3 ambient=mix(vec3(.075,.09,.105),vec3(.20,.25,.34),N.y*.5+.5);vec3 lit=ambient+vec3(1.52,1.43,1.24)*d0+vec3(.38,.50,.72)*d1+vec3(.20,.24,.33)*d2;
- vec3 orm=authoredRunner?vec3(1.,.62,cage*.35):texture(ormMap,uv).rgb;float rough=clamp(orm.g,.18,.96),metal=mix(orm.b,0.,cloth);metal=mix(metal,.08,equipment);rough=mix(rough,.86,cloth);rough=mix(rough,.25,shell);rough=mix(rough,.38,cage);vec3 H=normalize(L0+V),F0=mix(vec3(.028),albedo,metal),fresnel=F0+(1.-F0)*pow(1.-max(dot(N,V),0.),5.);float spec=pow(max(dot(N,H),0.),mix(90.,10.,rough)),rim=pow(1.-max(dot(N,V),0.),2.6);vec3 rimColor=mix(vec3(.22,.31,.42),vec3(.42,.18,.14),rival);vec3 rgb=albedo*lit+fresnel*spec*(.35+1.35*(1.-rough))+rimColor*rim*(.105+controlled*.11);// Dielectric helmet clearcoat reflects the stadium banks. Fabric stays matte.
+ vec3 orm=authoredRunner?vec3(1.,material==0?.66:.72,cage*.35):texture(ormMap,uv).rgb;float rough=clamp(orm.g,.18,.96),metal=mix(orm.b,0.,cloth);metal=mix(metal,.08,equipment);rough=mix(rough,.86,cloth);rough=mix(rough,.25,shell);rough=mix(rough,authoredRunner?.46:.38,cage);vec3 H=normalize(L0+V),F0=mix(vec3(.028),albedo,metal),fresnel=F0+(1.-F0)*pow(1.-max(dot(N,V),0.),5.);float spec=pow(max(dot(N,H),0.),mix(90.,10.,rough)),rim=pow(1.-max(dot(N,V),0.),2.6);vec3 rimColor=mix(vec3(.22,.31,.42),vec3(.42,.18,.14),rival);vec3 rgb=albedo*lit+fresnel*spec*(.35+1.35*(1.-rough))+rimColor*rim*(.105+controlled*.11);// Dielectric helmet clearcoat reflects the stadium banks. Fabric stays matte.
  vec3 reflection=reflect(-V,N);
  float bankReflection=pow(max(dot(reflection,L0),0.),100.)+pow(max(dot(reflection,L1),0.),80.)*.65;
  float coatFresnel=.045+.22*pow(1.-max(dot(N,V),0.),5.);
@@ -343,6 +381,16 @@ void main(){vec4 sampleColor=authoredRunner?vec4(.22,.22,.22,1.):texture(baseMap
   float foldOcclusion=mix(.78,1.,orm.r);
   rgb*=mix(1.,foldOcclusion,cloth*(1.-ink.a*printMask));
   rgb+=albedo*cloth*d2*.13;
+ }
+ if(authoredRunner){
+  // Coated equipment picks up the floodlights. Cloth and skin retain a
+  // diffuse response with contact darkening under the sleeves and helmet.
+  float shoulderShade=jersey*smoothstep(.12,.23,abs(bindPosition.x))*(1.-smoothstep(1.26,1.35,bindPosition.y))*.31;
+  float neckShade=float(material==0)*smoothstep(1.40,1.53,bindPosition.y)*.30;
+  float below=1.-smoothstep(-.76,.19,N.y);
+  rgb*=1.-max(shoulderShade,neckShade)*(.48+.52*below);
+  float broadSpec=pow(max(dot(normalize(L1+V),N),0.),34.);
+  rgb+=vec3(.46,.57,.68)*broadSpec*(shell*.17+cage*.10);
  }
  float heroRim=pow(1.-max(dot(N,V),0.),4.2)*controlled;rgb+=vec3(.46,.31,.09)*heroRim;float fog=smoothstep(55.,190.,distance(eye,world));rgb=mix(rgb,vec3(.016,.026,.046),fog*.68);color=vec4(pow(film(rgb*1.08),vec3(1./2.2)),1.);}`;
 
@@ -386,7 +434,7 @@ export class MeshyAthletes{
     const controller=new AbortController();
     const timeout=setTimeout(()=>controller.abort(),4000);
     try{
-     const model=await fetch('/play-moment-3d/assets/running-back-prototype-v1.glb?v=2',{cache:'force-cache',signal:controller.signal});
+     const model=await fetch('/play-moment-3d/assets/running-back-prototype-v1.glb?v=3',{cache:'force-cache',signal:controller.signal});
      if(!model.ok)throw Error('Running back mesh '+model.status);
      this.runnerMesh=uploadRunnerPrototype(gl,parseGLB(await model.arrayBuffer()),this.joints.map(i=>json.nodes[i].name));
     }catch(error){this.runnerError=String(error?.message||error);console.warn('Running back prototype unavailable; using the reference mesh.',this.runnerError)}
