@@ -80,7 +80,14 @@ try {
   }
   const page = await browser.newPage({ viewport: { width: 375, height: 812 } });
   await page.goto(`${origin}/navigation-review/index.html?scenario=empty`);
-  await page.getByRole('heading', { name: 'Your game starts here.', exact: true }).waitFor();
+  const quickLinks = page.getByRole('navigation', { name: 'Quick links', exact: true });
+  await quickLinks.waitFor();
+  assert.equal(await page.getByRole('region', { name: 'Your next action', exact: true }).count(), 0, 'no current-league action without a league');
+  const actionStatus = page.getByTestId('review-action');
+  for (const [label, outcome] of [['Create League', 'Create league requested'], ['Join League', 'Join league requested']]) {
+    await quickLinks.getByRole('button', { name: label, exact: true }).click();
+    await actionStatus.filter({ hasText: outcome }).waitFor();
+  }
   await page.goto(`${origin}/navigation-review/index.html?scenario=draft`);
   await page.getByRole('button', { name: 'Enter Draft', exact: true }).waitFor();
   await page.goto(`${origin}/navigation-review/index.html?scenario=offline`);
