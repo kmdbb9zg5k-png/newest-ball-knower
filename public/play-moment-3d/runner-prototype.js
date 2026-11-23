@@ -20,7 +20,7 @@ export function uploadRunnerPrototype(gl, { json, accessor }, jointNames) {
  const regions=new Float32Array(count*4);
  for(let i=0;i<count;i++){
   const material=ids[i], jersey=Number(material===1), pants=Number(material===2);
-  if(!Number.isInteger(material)||material<0||material>9)throw Error('Invalid prototype material');
+  if(!Number.isInteger(material)||material<0||material>11)throw Error('Invalid prototype material');
   regions.set([jersey,pants,Math.max(jersey,pants),material],i*4);
  }
  const vao=gl.createVertexArray();

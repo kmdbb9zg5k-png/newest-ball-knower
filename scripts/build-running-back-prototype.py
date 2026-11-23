@@ -19,7 +19,7 @@ import bpy
 import bmesh
 from mathutils import Vector
 
-SKIN, JERSEY, PANTS, HELMET, CAGE, GLOVE, CLEAT, TRIM, DARK, SOCK = range(10)
+SKIN, JERSEY, PANTS, HELMET, CAGE, GLOVE, CLEAT, TRIM, DARK, SOCK, SEAM, LACE = range(12)
 TAU = math.tau
 
 source, target, donor_path = map(lambda s: str(Path(s).resolve()), sys.argv[sys.argv.index('--') + 1:])
@@ -196,7 +196,19 @@ def jersey_shell():
                 target = Vector(center)+radial
                 current.append(vertex(target,bind,JERSEY,(k/len(opening),j/(len(profile)-1))))
             stitch(previous,current)
+            prior = previous
             previous = current
+        # A folded, stitched cuff follows the same short-sleeve vertices.
+        cuff_center = Vector(profile[-1][0])
+        cuff = []
+        for fraction in (.938,.985):
+            loop = []
+            for i,j in zip(prior,current):
+                near = Vector(vertices[i]).lerp(Vector(vertices[j]),fraction)
+                near += (Vector(vertices[j])-cuff_center).normalized()*.0016
+                loop.append(vertex(near,rigid(arm),SEAM,(len(loop)/len(current),fraction)))
+            cuff.append(loop)
+        stitch(*cuff)
 
 jersey_shell()
 torso([(1.418,.017,.067,.057,shoulders),(1.429,.016,.070,.059,shoulders),
@@ -317,6 +329,16 @@ for sign, side in [(1, 'Left'), (-1, 'Right')]:
         ((x(.335),-.099,.859),.008,.008,hand_bind),
     ], GLOVE, samples=12)
 
+    # Raised grip ridges and a thin fastening tab on the glove back.
+    for offset in (-.014,0,.014):
+        along([
+            ((x(.342+offset),-.083,.895),.0020,.0020,hand_bind),
+            ((x(.349+offset),-.097,.875),.0023,.0023,hand_bind),
+            ((x(.354+offset),-.097,.862),.0018,.0018,hand_bind),
+        ], DARK, samples=7)
+    ellipsoid((x(.334),-.066,.918),(.016,.0035,.009),
+              binding((forearm,.24),(hand,.76)),DARK,samples=12,levels=5)
+
     thigh, shin, ankle, toe_bind = map(rigid, (hip, knee, foot, toe))
     following = binding((hip, .47), (knee, .53))
     def trouser_folds(row, angle):
@@ -362,6 +384,21 @@ for sign, side in [(1, 'Left'), (-1, 'Right')]:
         ((x(.247), -.105, .050), .036, .021, toe_bind),
         ((x(.25), -.122, .049), .022, .017, toe_bind),
     ], CLEAT)
+    # Crossed laces sit close to the tongue. Use the shoe's own foot-toe
+    # weight transition so the lace and upper flex together on toe-off.
+    lace_binding = binding((foot,.75),(toe,.25))
+    for i in range(3):
+        center = .201+i*.012
+        y = .013-i*.021
+        z = .111-i*.008
+        start = ankle if i==0 else lace_binding
+        end = lace_binding if i<2 else toe_bind
+        for direction in (-1,1):
+            along([
+                ((x(center-.020*direction),y+.010,z-.008),.0021,.0021,start),
+                ((x(center),y,z),.0022,.0022,lace_binding),
+                ((x(center+.020*direction),y-.010,z-.010),.0020,.0020,end),
+            ], LACE, samples=7)
     # Firm, flatter outsole wraps around the forefoot and takes small studs.
     ellipsoid((x(.218),-.042,.039),(.054,.102,.0155),
               binding((foot,.36),(toe,.64)),DARK,samples=22,levels=6)
@@ -444,6 +481,11 @@ for sign in (-1,1):
     ellipsoid((sign*.111,-.051,1.529),(.018,.038,.041),head,HELMET,samples=18,levels=9)
     ellipsoid((sign*.120,-.069,1.554),(.006,.016,.014),head,CAGE,samples=14,levels=7)
     ellipsoid((sign*.123,-.026,1.535),(.009,.015,.019),head,DARK,samples=14,levels=7)
+    # Washer, recessed screw head and a shallow back strap fastener.
+    ellipsoid((sign*.125,-.071,1.554),(.003,.008,.008),head,DARK,samples=14,levels=6)
+    ellipsoid((sign*.128,-.071,1.554),(.0028,.0048,.0048),head,CAGE,samples=12,levels=6)
+    bar([(sign*.130,-.074,1.554),(sign*.130,-.068,1.554)],.0009,DARK,sides=6)
+    ellipsoid((sign*.109,.023,1.491),(.004,.010,.008),head,DARK,samples=12,levels=6)
 ellipsoid((0,-.114,1.478),(.044,.013,.011),head,DARK,samples=16,levels=7)
 
 mesh = bpy.data.meshes.new('Running_Back')

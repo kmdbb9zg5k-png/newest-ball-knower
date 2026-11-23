@@ -1,4 +1,4 @@
-import {uploadRunnerPrototype} from './runner-prototype.js?v=1';
+import {uploadRunnerPrototype} from './runner-prototype.js?v=2';
 import {gameAthleteScale} from './game-athlete.js';
 import {sanitizeGameGear,gearColor} from './game-gear.js';
 import {playerPresence} from './player-presence.js?v=visual-upgrade-1';
@@ -343,6 +343,8 @@ void main(){vec4 sampleColor=authoredRunner?vec4(.22,.22,.22,1.):texture(baseMap
   if(material==7)albedo=pow(trim,vec3(2.2));
   if(material==8)albedo=vec3(.009,.013,.02);
   if(material==9)albedo=pow(mix(kitPrimary,vec3(.77,.80,.83),.42),vec3(2.2));
+  if(material==10)albedo=pow(jerseyColor*.76,vec3(2.2));
+  if(material==11)albedo=pow(mix(vec3(.54,.56,.58),kitTrim,.24),vec3(2.2));
   float width=abs(bindPosition.x);
   float edge=smoothstep(.095,.20,width)*jersey;
   float sideStripe=(1.-smoothstep(.015,.031,abs(bindPosition.z+.012)))*smoothstep(.53,.76,abs(bindNormal.x))*pants;
@@ -351,7 +353,19 @@ void main(){vec4 sampleColor=authoredRunner?vec4(.22,.22,.22,1.):texture(baseMap
   float fabricSeam=pow(max(folds,0.),5.);
   float sideFold=(edge*.78+(1.-smoothstep(.96,1.17,bindPosition.y))*.25*jersey)*.8;
   float kneeFold=pants*(1.-smoothstep(.09,.15,abs(bindPosition.y-.48)));
-  runnerFold=.0014*(sideFold+kneeFold*.36)*fabricSeam;
+  // Two facing stitch lines follow the cut of the back yoke and outer leg.
+  // The screen-space filter removes shimmer once the thread is subpixel.
+  float yokeHeight=1.375-.17*width;
+  float yoke=abs(bindPosition.y-yokeHeight);
+  float yokeAA=max(.0008,fwidth(yoke));
+  float shoulderPanel=(1.-smoothstep(.002,.003+yokeAA,abs(yoke-.003)))*jersey;
+  shoulderPanel*=smoothstep(.055,.085,width)*(1.-smoothstep(.208,.252,width));
+  float sideseam=abs(abs(bindPosition.z+.016)-.018);
+  float legStitch=(1.-smoothstep(.0015,.0027+fwidth(sideseam),sideseam))*pants*smoothstep(.68,.84,abs(bindNormal.x));
+  float thread=max(shoulderPanel,legStitch);
+  float threadMask=1.-smoothstep(.004,.017,max(fwidth(bindPosition.y),fwidth(bindPosition.x)));
+  runnerFold=.0014*(sideFold+kneeFold*.36)*fabricSeam+thread*.0007*threadMask;
+  albedo*=1.-.17*thread*threadMask;
   albedo*=1.+runnerTextile(bindPosition,bindNormal)*(.055*cloth+.018*float(material==0));
   albedo*=1.-fabricSeam*(sideFold*.12+kneeFold*.04)*(1.-ink.a*printMask);
  }
@@ -434,7 +448,7 @@ export class MeshyAthletes{
     const controller=new AbortController();
     const timeout=setTimeout(()=>controller.abort(),4000);
     try{
-     const model=await fetch('/play-moment-3d/assets/running-back-prototype-v1.glb?v=4',{cache:'force-cache',signal:controller.signal});
+     const model=await fetch('/play-moment-3d/assets/running-back-prototype-v1.glb?v=5',{cache:'force-cache',signal:controller.signal});
      if(!model.ok)throw Error('Running back mesh '+model.status);
      this.runnerMesh=uploadRunnerPrototype(gl,parseGLB(await model.arrayBuffer()),this.joints.map(i=>json.nodes[i].name));
     }catch(error){this.runnerError=String(error?.message||error);console.warn('Running back prototype unavailable; using the reference mesh.',this.runnerError)}
