@@ -1,6 +1,6 @@
 import {
   ACESFilmicToneMapping, Camera, DirectionalLight, Group, HemisphereLight, Matrix4,
-  Object3D, Scene, Vector3, WebGLRenderer,
+  Mesh, Object3D, Scene, Texture, Vector3, WebGLRenderer,
 } from 'three';
 import { loadPracticeCharacter, sourceJointNames } from './combine/practice-character.js';
 import { gameAthleteScale } from './public/play-moment-3d/game-athlete.js';
@@ -32,28 +32,68 @@ export async function loadFieldCharacter(field: Field, profile: Profile, bindPos
     root.add(source[name]);
   }
   readPose(bindPose);
-  const rig = await loadPracticeCharacter(character.url, source, character.fitId, matchMedia('(pointer: coarse)').matches ? 1024 : undefined);
+  const touch = matchMedia('(pointer: coarse)').matches;
+  // Keep the original texture resolution on desktop. Touch devices only
+  // raise the existing mobile cap for the single equipped character.
+  const textureLimit = touch ? 1536 : undefined;
+  const rig = await loadPracticeCharacter(character.url, source, character.fitId, textureLimit);
   const body = gameAthleteScale(profile);
   rig.setDimensions(body.width, body.height);
   root.add(rig.model);
-  scene.add(root, new HemisphereLight(0xd6e9ff, 0x687462, 1.65));
-  const light = new DirectionalLight(0xffead2, 2.15);
-  light.position.set(-12, 20, 6);
-  scene.add(light);
+  scene.add(root, new HemisphereLight(0xd6e9ff, 0x687462, 1.42));
+  const stadiumKey = new DirectionalLight(0xffead2, 1.88);
+  stadiumKey.position.set(-12, 20, 6);
+  const cameraFill = new DirectionalLight(0xd7e8ff, 1.16);
+  const rim = new DirectionalLight(0xaccfff, 1.25);
+  const lightTarget = new Object3D();
+  cameraFill.target = lightTarget;
+  rim.target = lightTarget;
+  scene.add(stadiumKey, cameraFill, rim, lightTarget);
 
   const renderer = new WebGLRenderer({ canvas: field.canvas, context: field.gl });
   renderer.autoClear = false;
   renderer.toneMapping = ACESFilmicToneMapping;
+  const anisotropy = Math.max(1, Math.min(touch ? 4 : 8, renderer.capabilities.getMaxAnisotropy()));
+  const textures = new Set<Texture>();
+  rig.model.traverse(object => {
+    if (!(object instanceof Mesh)) return;
+    for (const material of Array.isArray(object.material) ? object.material : [object.material]) {
+      for (const value of Object.values(material)) {
+        if (value instanceof Texture) textures.add(value);
+      }
+    }
+  });
+  for (const texture of textures) texture.anisotropy = anisotropy;
+  const presentation = {
+    textureLimit: textureLimit ?? null,
+    textureCount: textures.size,
+    largestTexture: Math.max(0, ...Array.from(textures, texture =>
+      Math.max(texture.image?.width ?? 0, texture.image?.height ?? 0))),
+    anisotropy,
+  };
   const camera = new Camera();
   const target = new Vector3();
+  const viewSide = new Vector3();
 
   return {
+    presentation,
     draw(transform: ArrayLike<number>, pose: JointMatrix, grounded: boolean) {
       matrix.fromArray(transform).decompose(root.position, root.quaternion, root.scale);
       root.scale.setScalar(1.17);
       readPose(pose);
       rig.pose(root, grounded);
       camera.position.fromArray(field.eye);
+      lightTarget.position.copy(root.position);
+      lightTarget.position.y += 1;
+      viewSide.subVectors(camera.position, lightTarget.position);
+      viewSide.y = 0;
+      viewSide.normalize();
+      cameraFill.position.copy(lightTarget.position).addScaledVector(viewSide, 7);
+      cameraFill.position.y += 7;
+      rim.position.copy(lightTarget.position).addScaledVector(viewSide, -6);
+      rim.position.x += viewSide.z * 3;
+      rim.position.z -= viewSide.x * 3;
+      rim.position.y += 5;
       camera.lookAt(target.fromArray(field.target));
       camera.updateMatrixWorld(true);
       camera.projectionMatrix.fromArray(field.vp).multiply(camera.matrixWorld);
