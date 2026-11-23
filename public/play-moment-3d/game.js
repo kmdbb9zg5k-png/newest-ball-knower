@@ -16,8 +16,8 @@ export{RUNS,PASSES}from'./playbook.js?v=contact-camera-11';
 import{Renderer,pose,segment,hex,mul,ry,translate,scale}from'./renderer.js?v=field-visual-45';
 import{drawAthlete,prepareJerseys,advanceMotion}from'./athlete.js?v=reference-motion-45';
 import{createMeshyAthletes}from'./meshy-athlete.js?v=complete-flow-46';
-import{createMeshyAthletes as createReferenceAthletes}from'./reference-athlete.js?v=game-athlete-1';
-import{makeStadium}from'./stadium.js?v=contact-camera-11';
+import{createMeshyAthletes as createReferenceAthletes}from'./reference-athlete.js?v=game-athlete-2';
+import{makeStadium}from'./stadium.js?v=five-minute-sidelines-1';
 import{createGameplayReplayRecorder}from'./replay.js';
 import {miniClock,miniGameFromSearch,miniInitialDrive,miniSession,miniRatings,miniSnap,miniWhistle,miniBetweenPlays,miniTimeout,miniSpike,miniFinish} from './mini-games.js?v=football-arena-4';
 import {createMiniGamesUI} from './mini-games-ui.js?v=bk-legends-1';
@@ -494,7 +494,10 @@ export async function start(){
  // Keep the detailed mesh/materials while bounding phone pixel and shadow work.
  if(fullGame&&matchMedia('(pointer: coarse)').matches)r.setQuality('balanced');
  const gearProfile=readGameGearProfile(),gearPlayerId=legends?null:gameGearRosterId(gearProfile,miniConfig?.matchup.home),savedGameGear=sanitizeGameGear(gearProfile?.gameGear);
- const stadium=makeStadium(r),meshy=fullGame||gameAthlete?createReferenceAthletes(r):createMeshyAthletes(r);let actors=[],frameId=0,elapsed=0,last=0,raf=0,messageUntil=0,recoveryLeft=0,postPlayElapsed=0,deadBallFocus=null,exchange=null,transitionFade=0,activeContact=null,pendingWhistle=null,pendingPlayMessage=null,pendingDriveEnd=null,soundContext=null,highlightFrames=[],lastHighlight=[],highlightSampleAt=-1,replaying=false,replayCursor=0,replayEndPhase='dead';
+ const fiveMinuteGraphics=miniConfig?.mode==='five-minute'&&!legends;
+ const stadium=makeStadium(r,{fiveMinute:fiveMinuteGraphics});
+ const meshy=fullGame||gameAthlete?createReferenceAthletes(r,{enhancedUniformMaterials:fiveMinuteGraphics}):createMeshyAthletes(r);
+ let actors=[],frameId=0,elapsed=0,last=0,raf=0,messageUntil=0,recoveryLeft=0,postPlayElapsed=0,deadBallFocus=null,exchange=null,transitionFade=0,activeContact=null,pendingWhistle=null,pendingPlayMessage=null,pendingDriveEnd=null,soundContext=null,highlightFrames=[],lastHighlight=[],highlightSampleAt=-1,replaying=false,replayCursor=0,replayEndPhase='dead';
  let playbookOpen=true,bookFilter='all',bookFormation='all',optionChoice='give',bookChoice={mode:'run',index:0};
  let mode='run',selected=0,assist=initialAssistMode(location.search),phase='pre',paused=false,ended=false,flight=null,lastFlightEnd=null,looseBall=null,carrier=null,jukeUntil=0,jukeReady=0,simTime=0,lastSkill=null,lastSkillAt=-10,impactShake=0,catchStyle='rac',runDirection=1,mikeIndex=16,motioned=false,receiverMotion=null,prePanel=null,playArtVisible=false,plantReady=0,turfFx=[],nextTurfFx=0,contactFx=null;
  const redZone=new URLSearchParams(location.search).get('scenario')==='redzone';
