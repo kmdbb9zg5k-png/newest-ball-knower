@@ -24,6 +24,21 @@ await assert.rejects(()=>loadNewsFeed({useSportsApi:true,fetchImpl:request,signa
 assert.deepEqual(calls,[],'cancelled load must not launch fallback requests');
 const parsed=parseNewsFeed({...legacy,articles:[article,article,{...article,url:'https://user:pass@publisher.example/'}]},false);
 assert.equal(parsed.articles.length,1);assert.equal(parsed.articles[0].published,null,'missing publication time must not become retrieval time');
+
+const now=Date.parse('2026-11-22T18:00:00Z');
+const fetchedAtOffset=(offset:number)=>new Date(now+offset).toISOString();
+assert.equal(parseNewsFeed({...versioned,updatedAt:fetchedAtOffset(-15*60_000)},true,now).stale,false,
+  'the versioned feed accepts a response exactly 15 minutes old');
+assert.throws(()=>parseNewsFeed({...versioned,updatedAt:fetchedAtOffset(-15*60_000-1)},true,now),/news_stale/,
+  'the versioned feed rejects a response one millisecond past the cutoff');
+assert.equal(parseNewsFeed({...legacy,fetchedAt:fetchedAtOffset(60_000)},false,now).stale,false,
+  'the legacy feed allows exactly 60 seconds of clock skew');
+for(const fetchedAt of [undefined,'invalid',fetchedAtOffset(60_001)]){
+  const feed=parseNewsFeed({...legacy,fetchedAt},false,now);
+  assert.equal(feed.stale,true,'the legacy feed flags missing, invalid, and excessively future timestamps');
+  assert.equal(feed.articles[0]?.headline,article.headline,'legacy articles remain available with a freshness warning');
+}
+
 for(const provider of [undefined,'Unverified provider','<script>alert(1)</script>']){
   assert.equal(parseNewsFeed({...legacy,provider},false).provider,'News provider','Missing or unverified source must not acquire Currents branding');
   assert.equal(parseNewsFeed({...versioned,provider},true).provider,'News provider');
