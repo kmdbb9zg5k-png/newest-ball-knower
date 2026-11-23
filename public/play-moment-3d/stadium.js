@@ -1,11 +1,11 @@
-import{fiveMinuteSidelines,stadiumCorners,stadiumDetails}from'./stadium-architecture.js?v=five-minute-sidelines-1';
+import{stadiumCorners,stadiumDetails}from'./stadium-architecture.js?v=stadium-finish-36';
 import{installSceneMaterials}from'./scene-materials.js?v=reference-scene-31';
 import{pose,mul,rx,rz,translate,scale,segment,hex}from'./renderer.js?v=football-foundation-44';
 import{installNightStadium}from'./night-stadium.js';
 const C=hex;
 function canvas(w,h){const c=document.createElement('canvas');c.width=w;c.height=h;return[c,c.getContext('2d')]}
 let seed=31;function random(){seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296}
-export function makeStadium(r,{fiveMinute=false}={}){
+export function makeStadium(r){
  const art=installSceneMaterials(r),fans=[],staffSprites=[],staffFallback=[],crowdFallback=[],staticParts=[],goalParts=[],lamps=[];let crowdGeometry=false;const add=(...args)=>(crowdGeometry?crowdFallback:staticParts).push(args);
  seed=31;
  const turfScale=Math.min(2,(r.gl?.getParameter?.(r.gl.MAX_TEXTURE_SIZE)||4096)/2048);
@@ -35,7 +35,6 @@ export function makeStadium(r,{fiveMinute=false}={}){
  const [ribbon,rc]=canvas(128,2048),ribbonGradient=rc.createLinearGradient(0,0,128,0);ribbonGradient.addColorStop(0,'#07111a');ribbonGradient.addColorStop(.48,'#233843');ribbonGradient.addColorStop(1,'#07111a');rc.fillStyle=ribbonGradient;rc.fillRect(0,0,128,2048);for(let y=0;y<2048;y+=128){const hot=(y/128)%3===0;rc.fillStyle=hot?'#d7b966':'#6f93a7';rc.fillRect(18,y+16,92,5);rc.fillStyle=hot?'#745e2f':'#263f51';rc.fillRect(30,y+34,68,44);rc.fillStyle='#e8edf0';for(let x=37;x<93;x+=14)rc.fillRect(x,y+46,5,18);rc.fillStyle='#0b151e';rc.fillRect(18,y+96,92,3)}r.texture('led-ribbon',ribbon);
  add('cube',pose(0,-.22,60,88,.4,148),C('#222e31'));
  add('plane',pose(0,.01,60,53.333,1,120),[1,1,1,1],'turf');
- if(fiveMinute)fiveMinuteSidelines(r,add);
  // The turf receives the scene lights directly; no pale light-pool decals.
  // Concrete bowl and continuous seating tiers. Spectators are cheap instances.
  for(const side of[-1,1]){

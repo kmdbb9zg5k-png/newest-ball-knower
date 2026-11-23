@@ -1,6 +1,38 @@
-// Restore continuous shading across the generated mesh's split UV vertices.
-// Run once during asset loading; topology, UVs, weights and animation stay intact.
 const smooth=(a,b,v)=>{const t=Math.max(0,Math.min(1,(v-a)/(b-a)));return t*t*(3-2*t)};
+// Sculpt the existing skinned mesh in bind space. Leave skin, boots and the
+// open face cage alone so the animation and equipment still fit the same rig.
+export function shapeReferenceFootballPlayer(source, regions, bodyVertices) {
+ const positions=new Float32Array(source);
+ for(let i=0;i<positions.length/3;i++){
+  const at=i*3,x=source[at],y=source[at+1],z=source[at+2];
+  if(i<bodyVertices){
+   const jersey=regions[i*4],side=Math.abs(x);
+   const pad=jersey*smooth(.105,.205,side)*(1-smooth(.233,.30,side))*
+     smooth(1.225,1.32,y)*(1-smooth(1.405,1.47,y));
+   const chest=jersey*(1-smooth(.13,.24,side))*smooth(1.04,1.16,y)*(1-smooth(1.325,1.40,y));
+   positions[at]+=Math.sign(x)*pad*.034;
+   positions[at+1]+=pad*.026;
+   positions[at+2]+=z*(pad*.14+chest*.16);
+   continue;
+  }
+  if(z>.10&&y<1.65)continue;
+  const back=1-smooth(.016,.067,z);
+  const shell=back*smooth(1.50,1.57,y)+(1-back)*smooth(1.602,1.66,y);
+  if(shell===0)continue;
+  const center=[0,1.594,-.011],radii=[.127,.132,.130];
+  const radius=Math.hypot(x/radii[0],(y-center[1])/radii[1],(z-center[2])/radii[2]);
+  const blend=shell*smooth(.78,.93,radius)*.82;
+  if(blend===0)continue;
+  // Bound radial movement to preserve clearance around the original head.
+  const scale=Math.min(1.13,Math.max(.89,1/radius));
+  positions[at]=x*(1+(scale-1)*blend);
+  positions[at+1]=y+(y-center[1])*(scale-1)*blend;
+  positions[at+2]=z+(z-center[2])*(scale-1)*blend;
+ }
+ return positions;
+}
+
+// Restore continuous shading across split UV vertices without changing rig topology.
 export function refineAthleteSurface(sourcePositions,sourceNormals,sourceTangents,indices,{regularizeHelmet=true}={}){
  const positions=new Float32Array(sourcePositions),normals=new Float32Array(sourceNormals),tangents=new Float32Array(sourceTangents);
  const count=positions.length/3,groups=new Map(),groupFor=new Array(count);

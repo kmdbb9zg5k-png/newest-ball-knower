@@ -10,7 +10,7 @@ type Field = { canvas: HTMLCanvasElement; gl: WebGL2RenderingContext; vp: ArrayL
 type Profile = Parameters<typeof gameAthleteScale>[0] & { character: string };
 type JointMatrix = (name: string) => ArrayLike<number> | undefined;
 
-export async function loadFieldCharacter(field: Field, profile: Profile, bindPose: JointMatrix) {
+export async function loadFieldCharacter(field: Field, profile: Profile, bindPose: JointMatrix, { gameplayLighting = false } = {}) {
   const character = await purchasedCharacterAsset(profile.character);
   if (!character) return null;
 
@@ -40,6 +40,13 @@ export async function loadFieldCharacter(field: Field, profile: Profile, bindPos
   const light = new DirectionalLight(0xffead2, 2.15);
   light.position.set(-12, 20, 6);
   scene.add(light);
+  if (gameplayLighting) {
+    // The gameplay camera usually sees the back of the equipped athlete.
+    // Fill that side so black clothing still shows its folds and silhouette.
+    const fill = new DirectionalLight(0xbad7ff, 1.45);
+    fill.position.set(8, 11, -15);
+    scene.add(fill);
+  }
 
   const renderer = new WebGLRenderer({ canvas: field.canvas, context: field.gl });
   renderer.autoClear = false;
