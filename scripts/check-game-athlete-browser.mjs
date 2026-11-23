@@ -11,6 +11,50 @@ const base='http://127.0.0.1:4194';
 let browser;
 try {
   browser=await chromium.launch({args:['--no-sandbox','--enable-unsafe-swiftshader','--use-angle=swiftshader']});
+  const demo=await browser.newContext({viewport:{width:844,height:390},hasTouch:true,isMobile:true,serviceWorkers:'block'});
+  await demo.route('**/api/**',route=>route.fulfill({json:{available:false,tracks:[]}}));
+  let matchedPlay;
+  for(const comparison of ['reference','prototype']){
+    const page=await demo.newPage();
+    const errors=[];
+    page.on('pageerror',error=>errors.push(error.message));
+    page.setDefaultTimeout(90000);
+    await page.goto(base+'/play-moment-3d-preview.html?qa=1&manualFrames=1&mode=five-minute&team=MIL&opponent=SLC'+(comparison==='reference'?'&referenceRunner=1':''));
+    await page.waitForFunction(expectPrototype=>{
+      const rig=window.bk3dDiagnostics?.().athletes;
+      return rig?.ready&&(!expectPrototype||rig.runnerPrototype.loaded||rig.runnerPrototype.error);
+    },comparison==='prototype');
+    await page.evaluate(()=>{window.bk3dTest.manualFrames();window.bk3dTest.seed(742)});
+    await page.locator('#filterRun').click();
+    await page.locator('#call-run-5').click();
+    await page.locator('#breakHuddle').click();
+    await page.keyboard.down('ArrowUp');
+    await page.locator('#snap').dispatchEvent('pointerdown');
+    await page.evaluate(()=>window.bk3dTest.step(1.6));
+    const frame=await page.evaluate(()=>window.bk3dDiagnostics());
+    assert.equal(frame.glError,0);
+    assert.deepEqual(frame.athletes.runnerPrototype,{loaded:comparison==='prototype',draws:comparison==='prototype'?1:0,error:null});
+    const play={id:frame.playId,phase:frame.phase,camera:frame.camera,players:frame.players.map(({x,z,hasBall})=>({x,z,hasBall}))};
+    if(matchedPlay)assert.deepEqual(play,matchedPlay,'compare the same play with the same camera and player positions');
+    else matchedPlay=play;
+    await page.screenshot({path:output+'/running-back-'+comparison+'.png'});
+    if(comparison==='prototype'){
+      await page.evaluate(()=>window.bk3dTest.resumeFrames());
+      await page.waitForFunction(before=>window.bk3dDiagnostics().frames>before+2,frame.frames);
+      await page.evaluate(()=>window.bk3dTest.manualFrames());
+    }
+    for(let i=0;i<24;i++){
+      const state=await page.evaluate(()=>{window.bk3dTest.step(.32);return window.bk3dDiagnostics()});
+      assert.equal(state.glError,0);
+      if(state.drive.plays>0)break;
+    }
+    await page.keyboard.up('ArrowUp');
+    assert.ok(await page.evaluate(()=>window.bk3dDiagnostics().drive.plays>0));
+    assert.deepEqual(errors,[]);
+    await page.close();
+  }
+  await demo.close();
+  console.log('PASS authored running back, matched normal-camera frames, reference rig, and completed plays');
   const context=await browser.newContext({viewport:{width:844,height:390},hasTouch:true,isMobile:true,serviceWorkers:'block'});
   await context.route('**/api/**',route=>route.fulfill({json:{available:false,tracks:[]}}));
   const purchases = [
