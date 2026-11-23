@@ -10,6 +10,15 @@ const server=await preview({preview:{host:'127.0.0.1',port:4194,strictPort:true}
 const base='http://127.0.0.1:4194';
 let browser;
 const launchBrowser=()=>chromium.launch({args:['--no-sandbox','--enable-unsafe-swiftshader','--use-angle=swiftshader']});
+async function captureFrame(page,path){
+  // The hand-stepped WebGL canvas is already painted. Capture its current
+  // compositor frame without waiting for an animation-driven repaint.
+  const session=await page.context().newCDPSession(page);
+  try{
+    const {data}=await session.send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false,optimizeForSpeed:true});
+    await writeFile(path,Buffer.from(data,'base64'));
+  }finally{await session.detach();}
+}
 try {
   browser=await launchBrowser();
   const demo=await browser.newContext({viewport:{width:844,height:390},hasTouch:true,isMobile:true,serviceWorkers:'block'});
@@ -40,7 +49,7 @@ try {
       const play={id:frame.playId,phase:frame.phase,camera:frame.camera,players:frame.players.map(({x,z,hasBall})=>({x,z,hasBall}))};
       if(matchedFrames.has(label))assert.deepEqual(play,matchedFrames.get(label),'compare the same play with the same camera and player positions');
       else matchedFrames.set(label,play);
-      await page.screenshot({path:output+'/running-back-'+comparison+'-'+label+'.png'});
+      await captureFrame(page,output+'/running-back-'+comparison+'-'+label+'.png');
     }
     if(comparison==='prototype'){
       await page.evaluate(()=>window.bk3dTest.resumeFrames());
@@ -83,7 +92,7 @@ try {
           'Camera must match within a subpixel tolerance at gameplay distance');
       }
     }else rosterFrame=match;
-    await page.screenshot({path:output+'/two-minute-roster-'+mode+'.png'});
+    await captureFrame(page,output+'/two-minute-roster-'+mode+'.png');
     await page.keyboard.up('ArrowUp');
     assert.deepEqual(errors,[]);
     await page.close();
@@ -139,11 +148,7 @@ try {
       assert.equal((await page.evaluate(()=>window.bk3dDiagnostics())).glError,0);
     }
     console.log('PASS',mode,'custom rig, RB slot, dimensions, gameplay frame sequence');
-    const capture=await context.newCDPSession(page);
-    try{
-      const {data}=await capture.send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false,optimizeForSpeed:true});
-      await writeFile(output+'/'+mode+'.png',Buffer.from(data,'base64'));
-    }finally{await capture.detach();}
+    await captureFrame(page,output+'/'+mode+'.png');
   }
   for(const drill of ['dash','broad-jump','shuttle','bench','routes','one-on-one','rb','db']){
     await page.goto(base+'/combine.html?drill='+drill+'&character=bkf-phantom');
