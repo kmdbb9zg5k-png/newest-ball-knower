@@ -3,19 +3,26 @@
 Usage:
 blender -b --python scripts/build-running-back-prototype.py -- \
   public/play-moment-3d/assets/reference-helmeted-athlete-v1.glb \
-  public/play-moment-3d/assets/running-back-prototype-v1.glb
+  public/play-moment-3d/assets/running-back-prototype-v1.glb \
+  path/to/american-football-player-ready.glb
+
+The third input is the CC0 Innerscene American football player · ready asset:
+https://www.innerscene.com/tools/library/3d-parts/american-football-player-ready-3d-person-team-sports-aad6f516
+Only the anatomical head, eyebrow, and eye geometry are reused. The rest of
+the geometry is authored below and uses the existing Ball Knower skeleton.
 """
 import math
 import sys
 from pathlib import Path
 
 import bpy
+import bmesh
 from mathutils import Vector
 
 SKIN, JERSEY, PANTS, HELMET, CAGE, GLOVE, CLEAT, TRIM, DARK, SOCK = range(10)
 TAU = math.tau
 
-source, target = map(lambda s: str(Path(s).resolve()), sys.argv[sys.argv.index('--') + 1:])
+source, target, donor_path = map(lambda s: str(Path(s).resolve()), sys.argv[sys.argv.index('--') + 1:])
 bpy.ops.wm.read_factory_settings(use_empty=True)
 bpy.ops.import_scene.gltf(filepath=source)
 rig = next(obj for obj in bpy.context.scene.objects if obj.type == 'ARMATURE')
@@ -198,21 +205,74 @@ torso([(1.418,.017,.067,.057,shoulders),(1.429,.016,.070,.059,shoulders),
 torso([(1.422, .023, .052, .044, neck), (1.464, .023, .047, .045, neck),
        (1.492, .016, .049, .042, head)], SKIN, samples=28)
 
-# Head volume follows a shorter jaw, cheek/temple taper and a broad brow.
-torso([
-    (1.469,-.051,.031,.039,head),(1.483,-.043,.044,.051,head),
-    (1.501,-.030,.055,.064,head),(1.525,-.021,.068,.074,head),
-    (1.543,-.018,.075,.077,head),(1.562,-.013,.075,.076,head),
-    (1.584,-.012,.074,.073,head),(1.608,-.012,.060,.060,head),
-    (1.626,-.011,.022,.024,head),
-], SKIN, samples=32)
-along([
-    ((0,-.085,1.567),.008,.008,head),((0,-.093,1.552),.010,.006,head),
-    ((0,-.107,1.536),.011,.009,head),((0,-.105,1.525),.015,.006,head),
-], SKIN, samples=12)
-for sign in (-1,1):
-    ellipsoid((sign*.028,-.087,1.555),(.016,.006,.0045),head,DARK, samples=12,levels=5)
-    ellipsoid((sign*.070,-.012,1.537),(.011,.019,.025),head,SKIN,samples=12,levels=7)
+def donor_face():
+    """Fit an anatomical CC0 head to the existing armature and helmet."""
+    existing=set(bpy.context.scene.objects)
+    bpy.ops.import_scene.gltf(filepath=donor_path)
+    objects=set(bpy.context.scene.objects)-existing
+    body=next(o for o in objects if o.name.startswith('Jordan | anatomical body'))
+    source_mesh=body.data
+    face_map={}
+    points=[]
+    triangles=[]
+    for poly in source_mesh.polygons:
+        if not all(source_mesh.vertices[k].co.z>1.358 and abs(source_mesh.vertices[k].co.x)<.09 for k in poly.vertices):
+            continue
+        face=[]
+        for k in poly.vertices:
+            if k not in face_map:
+                face_map[k]=len(points)
+                points.append(tuple(source_mesh.vertices[k].co))
+            face.append(face_map[k])
+        triangles.append(face)
+    temporary=bpy.data.meshes.new('Donor head crop')
+    temporary.from_pydata(points,[],triangles)
+    bm=bmesh.new()
+    bm.from_mesh(temporary)
+    bmesh.ops.remove_doubles(bm, verts=list(bm.verts),dist=.00007)
+    bm.to_mesh(temporary)
+    bm.free()
+    crop=bpy.data.objects.new('Donor head crop',temporary)
+    bpy.context.collection.objects.link(crop)
+    bpy.context.view_layer.objects.active=crop
+    modifier=crop.modifiers.new('Mobile head budget','DECIMATE')
+    modifier.ratio=.075
+    bpy.ops.object.modifier_apply(modifier=modifier.name)
+
+    def fit(point):
+        x,y,z=point
+        neck = max(0., min(1., (z-1.358)/.049))
+        collar = .50 + .50*neck*(2-neck)
+        scalp = max(0., min(1., (z-1.510)/.085))
+        return (x*.948*collar, .018 + (y*.818+.060)*collar,
+                1.435 + (z-1.358)*.98 - .031*scalp*scalp*(3-2*scalp))
+
+    def append_surface(source,material,kfilter=None,brow=False):
+        lookup={}
+        for poly in source.polygons:
+            if kfilter and not kfilter(poly):
+                continue
+            ids=[]
+            for k in poly.vertices:
+                if k not in lookup:
+                    point=source.vertices[k].co
+                    if brow:
+                        x,y,z=point
+                        point=(x,y,1.488+(z-1.488)*.56)
+                    lookup[k]=vertex(fit(point),head,material,(0,0))
+                ids.append(lookup[k])
+            faces.append(tuple(ids))
+
+    append_surface(crop.data,SKIN)
+    eyes=next(o for o in objects if o.name=='low-poly')
+    # Neutral equipment region supplies the tiny dark eye silhouette.
+    append_surface(eyes.data,DARK,lambda poly: sum(eyes.data.vertices[k].co.y for k in poly.vertices)/len(poly.vertices)<-.209)
+    brows=next(o for o in objects if o.name.startswith('eyebrow001'))
+    append_surface(brows.data,DARK,brow=True)
+    for obj in objects|{crop}:
+        bpy.data.objects.remove(obj,do_unlink=True)
+
+donor_face()
 
 for sign, side in [(1, 'Left'), (-1, 'Right')]:
     arm, forearm, hand = side + 'Arm', side + 'ForeArm', side + 'Hand'
@@ -326,7 +386,20 @@ rows = [
     (1.684,.049,.008,.065,0),
     (1.694,.003,.011,.004,0),
 ]
-samples = 48
+# Round the silhouette between profile loops without changing the fit.
+profile=rows
+rows=[]
+for i,(left,right) in enumerate(zip(profile,profile[1:])):
+    past=profile[max(0,i-1)]
+    ahead=profile[min(i+2,len(profile)-1)]
+    middle=[(-a+9*b+9*c-d)/16 for a,b,c,d in zip(past,left,right,ahead)]
+    middle[0]=max(left[0],min(right[0],middle[0]))
+    middle[1]=max(.003,middle[1])
+    middle[3]=max(.004,middle[3])
+    middle[4]=max(0.,middle[4])
+    rows.extend((left,middle))
+rows.append(profile[-1])
+samples = 64
 helmet_layers = [[
     Vector((w*math.sin(angle), y-d*math.cos(angle), z))
     for j in range(samples+1)
@@ -352,8 +425,8 @@ def mirrored_bar(half, radius):
     bar([(-x,y,z) for x,y,z in half[:-1]]+list(reversed(half)),radius)
 
 mirrored_bar([
-    (.106,-.078,1.580),(.102,-.113,1.574),(.079,-.143,1.565),
-    (.041,-.162,1.560),(0,-.165,1.559),
+    (.106,-.078,1.580),(.102,-.113,1.571),(.079,-.143,1.554),
+    (.041,-.162,1.545),(0,-.165,1.544),
 ], .0045)
 mirrored_bar([
     (.111,-.065,1.548),(.104,-.110,1.531),(.080,-.149,1.518),
@@ -365,7 +438,7 @@ mirrored_bar([
 ], .0053)
 for sign in (-1,1):
     bar([(sign*.104,-.091,1.571),(sign*.104,-.102,1.541),(sign*.095,-.112,1.481)],.0041)
-    bar([(sign*.071,-.148,1.562),(sign*.061,-.157,1.514),(sign*.057,-.151,1.472)],.0041)
+    bar([(sign*.071,-.148,1.550),(sign*.061,-.157,1.514),(sign*.057,-.151,1.472)],.0041)
     bar([(sign*.105,-.044,1.534),(sign*.085,-.076,1.496),(sign*.055,-.102,1.476),
          (sign*.023,-.111,1.473)],.0058,DARK)
     ellipsoid((sign*.111,-.051,1.529),(.018,.038,.041),head,HELMET,samples=18,levels=9)
