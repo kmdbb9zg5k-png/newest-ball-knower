@@ -11,6 +11,7 @@ try{
  await page.route('**/*',async route=>{
   const req=route.request(),url=new URL(req.url());
   if(url.origin!=='http://127.0.0.1:3093')return route.abort();
+  if(url.pathname==='/api/store-commerce')return route.fulfill({status:403,json:{available:false}});
   if(url.pathname==='/api/locker-commerce'){
    const user=req.headers().authorization?.replace('Bearer ','');const body=req.postDataJSON();
    if(body?.action==='checkout'){checkoutCount++;return route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({error:'Test checkout unavailable. Try again.'})});}
@@ -27,8 +28,15 @@ try{
  await page.getByRole('status').filter({hasText:'Gold Standard equipped'}).waitFor();assert.equal(await page.evaluate(()=>window.readOutfit().top),'top-gold');assert.equal(restoreCount,1);
  assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('ballknower_player_wardrobe_v1')||'{}').top),undefined);
  await page.getByRole('button',{name:/My Wardrobe/}).click();await page.getByRole('button',{name:'Try on Gold Standard'}).waitFor();
- await page.evaluate(()=>window.switchBuyer('buyer-b'));await page.waitForFunction(()=>window.readOutfit().top==='top-standard');assert.equal(await page.getByRole('button',{name:'Try on Gold Standard'}).count(),0);
- await page.evaluate(()=>window.switchBuyer('buyer-a'));await page.getByRole('button',{name:'Try on Gold Standard'}).waitFor();
+ const switchBuyer=async buyer=>{
+  const refreshed=page.waitForResponse(async response=>new URL(response.url()).pathname==='/api/locker-commerce'&&
+   response.request().method()==='GET'&&response.ok()&&await response.request().headerValue('authorization')===`Bearer ${buyer}`);
+  await page.evaluate(value=>window.switchBuyer(value),buyer);
+  await refreshed;
+ };
+ const goldTop=page.getByRole('button',{name:'Try on Gold Standard',exact:true});
+ await switchBuyer('buyer-b');await goldTop.waitFor({state:'hidden'});assert.equal(await page.evaluate(()=>window.readOutfit().top),'top-standard');
+ await switchBuyer('buyer-a');await goldTop.waitFor();assert.equal(await page.evaluate(()=>window.readOutfit().top),'top-gold');
  owned=[];await page.evaluate(()=>window.refreshLocker());await page.waitForFunction(()=>window.readOutfit().top==='top-standard');assert.equal(await page.getByRole('button',{name:'Try on Gold Standard'}).count(),0);
  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);assert.deepEqual(errors,[]);
  console.log('PASS 320px sandbox shop: honest checkout failure, restore, account-owned equip, no local premium grant, account switch/revocation and no overflow.');

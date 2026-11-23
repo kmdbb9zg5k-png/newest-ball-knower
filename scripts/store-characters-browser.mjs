@@ -27,29 +27,39 @@ try {
     await page.goto(origin);
     await page.getByRole('navigation',{name:width<768?'Primary navigation':'Desktop primary navigation',exact:true}).getByRole('button',{name:'Store',exact:true}).click();
     const store=page.getByRole('region',{name:'Store',exact:true});await store.waitFor();
-    await store.getByRole('heading',{name:'The Locker',exact:true}).waitFor();
+    const heading=store.getByRole('heading',{name:/^BK\s+STORE$/i,level:2});
+    await heading.waitFor();
     const departments=store.getByRole('group',{name:'Shop departments'});
-    for (const img of await store.locator('.bk-store-product img').all()) {
-      await img.scrollIntoViewIfNeeded(); await img.evaluate(i=>i.decode());
+    const headingBox=await heading.boundingBox();
+    assert.ok(headingBox.y >= (width<768?58:110),'Store title clears fixed navigation');
+    const featuredFits=store.locator('.bk-cinema-fit');
+    await featuredFits.first().waitFor();
+    assert.deepEqual(await featuredFits.locator('strong').allTextContents(),['Gold Standard','Gray Standard','Ivory Standard','Black Tie']);
+    assert.deepEqual(await featuredFits.locator('img').evaluateAll(images=>images.map(img=>img.getAttribute('src'))),
+      ['/store/gold-standard.webp','/store/tunnel-fit.webp','/store/ivory-standard.webp','/store/black-tie.webp']);
+    assert.equal(await store.locator('.bk-cinema-character-art img').last().getAttribute('src'),'/store/bkf-outlaw.webp');
+    await store.getByRole('button',{name:/view all extras/i}).click();
+    const categories=store.getByRole('group',{name:'Shop categories'});
+    for (const [name, ids] of [
+      ['Tunnel Fits',['tunnel-fit','gold-standard','black-tie','ivory-standard']],
+      ['Characters',['bfk-dee','bk-femme','bkf-street-boss','bkf-youngboy','frostbite','bkf-iron-wolf','bkf-phantom','bkf-outlaw','bkf-kickflip','bkf-lowrider']],
+      ['Player Customization',['ink-pack']],
+      ['Celebrations',['end-zone-backflip']],
+    ]) {
+      await categories.getByRole('button',{name,exact:true}).click();
+      assert.deepEqual(await store.locator('[data-store-product]').evaluateAll(cards=>cards.map(card=>card.dataset.storeProduct)),ids);
     }
-    await page.evaluate(()=>window.scrollTo(0,0));
-    await page.screenshot({path:`artifacts/store-characters/locker-${width}.png`});
-    const headingBox=await store.getByRole('heading',{name:'The Locker',exact:true}).boundingBox();
-    assert.ok(headingBox.y >= (width<768?58:110),'Locker title clears fixed navigation');
-    for (const [name, expected, absent] of [['Characters','bkf-lowrider','tunnel-fit'],['Clothing','tunnel-fit','bkf-lowrider'],['Accessories','chrome-grip','bkf-lowrider']]) {
-      await departments.getByRole('button',{name,exact:true}).click();
-      assert.equal(await store.locator(`[data-store-product="${expected}"]`).count(),1);
-      assert.equal(await store.locator(`[data-store-product="${absent}"]`).count(),0);
-    }
-    await departments.getByRole('button',{name:'Clothing',exact:true}).click();
-    for (const id of ['black-tie','ivory-standard']) assert.equal(await store.locator(`[data-store-product="${id}"]`).count(),1);
-    await departments.getByRole('button',{name:'All Items',exact:true}).click();
-    await store.getByRole('button',{name:'Celebrations',exact:true}).click();
-    assert.equal(await store.locator('[data-store-product="end-zone-backflip"]').count(),1);
-    await departments.getByRole('button',{name:'Featured',exact:true}).click();
+    await departments.getByRole('button',{name:'Accessories',exact:true}).click();
+    const accessories=page.getByRole('region',{name:'BK Accessories Collection',exact:true});
+    assert.equal(await accessories.locator('.bk-a-detail-photo img').getAttribute('src'),'/store/bk-accessory-gold-standard.webp');
+    await accessories.getByRole('button',{name:width<768?'Back to Store':'BK Store',exact:true}).click();
+    await store.getByRole('button',{name:/view all tunnel fits/i}).click();
+    assert.equal(await store.locator('[data-store-product="tunnel-fit"] img').getAttribute('src'),'/store/tunnel-fit.webp');
+    assert.equal(await store.locator('[data-store-product="gold-standard"] img').getAttribute('src'),'/store/gold-standard.webp');
     const before=await page.evaluate(()=>localStorage.getItem('ballknower_solo_my_player_v2'));
     for(const id of (process.env.STORE_TEST_CHARACTERS?.split(',') || ['bkf-outlaw','bkf-kickflip','bkf-lowrider','bkf-iron-wolf','black-tie','ivory-standard'])){
       checkpoint(`${width}px ${id}: opening product`);
+      await departments.getByRole('button',{name:['black-tie','ivory-standard'].includes(id)?'Clothing':'Characters',exact:true}).click();
       const card=store.locator(`[data-store-product="${id}"]`);await card.scrollIntoViewIfNeeded();await card.locator('img').evaluate(i=>i.decode());await card.click();
       const dialog=page.locator(`[data-bkf-collection="${id}"]`);await dialog.waitFor();
       const tabs=dialog.getByRole('group',{name:'Product view'});assert.equal(await tabs.getByRole('button').count(),3);
@@ -83,6 +93,9 @@ try {
     }
     assert.equal(await page.evaluate(()=>localStorage.getItem('ballknower_solo_my_player_v2')),before,'Saved athlete preserved');
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1),false);
+    await page.goto(`${origin}/?storeCharacters=1`);
+    await store.locator('[data-store-product="bkf-lowrider"]').waitFor();
+    assert.equal(await store.locator('[data-store-product="tunnel-fit"], [data-store-product="ink-pack"]').count(),0,'A character link opens only the Characters department');
     assert.deepEqual(errors,[]);console.log(`PASS ${width}px: all character posters, photos, 3D rotation, disposal, saved athlete isolation`);
     checkpoint(`${width}px: closing context`);
     await context.close();

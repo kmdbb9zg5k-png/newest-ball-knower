@@ -83,7 +83,7 @@ export default function CleatShop({ onNavigate, cartAction }: { cartAction: Stor
       <aside className="bk-c-detail" style={styleFor(selected)} aria-label={`${selected.name} cleats details`}>
         <div className="bk-c-detail-image" data-gold={selected.id === 'gold-standard' ? 'true' : undefined}>
           <button type="button" className="bk-c-360" onClick={() => setNotice('three-d')} aria-label="360-degree preview status"><RotateCcw size={22}/><span>360°</span></button>
-          <img key={selected.id} src={selected.id === 'gold-standard' ? '/store/bk-cleat-gold-preview.webp' : cleatsImage(selected.id)} alt={`${selected.name} cleats concept artwork`}/>
+          <img key={selected.id} src={cleatsImage(selected.id)} alt={`${selected.name} cleats concept artwork`}/>
           <button type="button" className="bk-c-step bk-c-step-left" onClick={() => move(-1)} aria-label="Previous cleats"><ChevronLeft size={29}/></button>
           <button type="button" className="bk-c-step bk-c-step-right" onClick={() => move(1)} aria-label="Next cleats"><ChevronRight size={29}/></button>
         </div>

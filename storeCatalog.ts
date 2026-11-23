@@ -4,6 +4,8 @@ import type { Outfit } from './playerWardrobe';
 export const STORE_CATEGORIES = [
   { id: 'game-gear', label: 'Game Gear' },
   { id: 'tunnel-fits', label: 'Tunnel Fits' },
+  { id: 'characters', label: 'Characters' },
+  { id: 'customization', label: 'Player Customization' },
   { id: 'profile', label: 'Profile' },
   { id: 'celebrations', label: 'Celebrations' },
   { id: 'franchise', label: 'Franchise' },
@@ -25,7 +27,6 @@ export type StoreProduct = {
   includes: readonly string[];
   use: string;
   tryOn?: TryOn;
-  department?: 'clothing';
   posterOnly?: boolean;
   practiceRig?: string;
   fitPracticeRig?: boolean;
@@ -80,7 +81,7 @@ export const STORE_PRODUCTS: readonly StoreProduct[] = [
     id: 'bfk-dee', name: 'BKF Dee',
     summary: 'Black leather, burgundy top & matching high-tops',
     description: 'BKF Dee pairs a black leather jacket with a burgundy crop top, loose leather cargo pants and burgundy, black and white sneakers. Explore the full poster and full-body A-pose photo. Wearable items, purchasing and gifting are not available yet.',
-    priceCents: 0, categories: ['tunnel-fits', 'bundles'],
+    priceCents: 0, categories: ['characters'],
     includes: ['Black leather jacket', 'Burgundy crop top', 'Black leather cargo pants', 'Burgundy, black and white sneakers', 'BK necklace', 'Earrings'],
     use: 'BKF Dee outfit pack · Photo collection',
     showcase: { look: '/store/bfk-dee-apose-v2.webp', collection: 'BKF Dee · Burgundy & Chrome Collection', theme: 'dee', pose: 'A-pose' },
@@ -90,7 +91,7 @@ export const STORE_PRODUCTS: readonly StoreProduct[] = [
     fitPracticeRig: true,
     summary: 'Leather jacket, crop top, cargos & silver accessories',
     description: 'BKF Nicki pairs a black leather jacket and white crop top with loose leather cargos, black-and-white sneakers and silver accessories. Explore the campaign poster, full-body A-pose and detailed rotating 3D showcase.',
-    priceCents: 0, categories: ['tunnel-fits', 'bundles'],
+    priceCents: 0, categories: ['characters'],
     includes: ['Leather jacket', 'White crop top', 'Black cargo pants', 'Black-and-white sneakers', 'BK necklace', 'Earrings'],
     use: 'BKF Nicki outfit pack · Character showcase',
     showcase: { model: 'https://v3b.fal.media/files/b/0ab1f89e/7V-fQltpUHPX18nf2I0aG_model.glb', look: '/store/bkf-nicki-apose-v1.webp', collection: 'BKF Nicki · Leather Collection', theme: 'nicki' },
@@ -99,7 +100,7 @@ export const STORE_PRODUCTS: readonly StoreProduct[] = [
     id: 'bkf-street-boss', name: 'Street Boss',
     summary: 'Black hoodie, cargo pants, iced chain & high-tops',
     description: 'An original, tough female streetwear character with braids, an oversized black zip hoodie over a white tee, baggy black cargos, black-and-white high-top sneakers and silver accessories. View the original campaign poster and the separate full-body A-pose photograph. A 3D model, wearable items and checkout are not available yet.',
-    priceCents: 0, categories: ['tunnel-fits', 'bundles'],
+    priceCents: 0, categories: ['characters'],
     includes: ['Oversized black zip hoodie', 'White tee', 'Baggy black cargo pants', 'Black-and-white high-top sneakers', 'Silver chain', 'Watch'],
     use: 'Street Boss outfit pack · Photo collection',
     showcase: { look: '/store/bkf-street-boss-apose.webp', collection: 'Street Boss · Blacktop Collection', theme: 'street-boss', pose: 'A-pose' },
@@ -143,7 +144,7 @@ export const STORE_PRODUCTS: readonly StoreProduct[] = [
     summary: 'Shiesty mask, black hoodie, cargos, gold & boots',
     description: 'Street-luxury concept pack featuring an upright 3D athlete: black ski mask, oversized black BK hoodie, baggy brown cargo trousers, rugged tan boots, Cuban-link gold chain and diamond-style watch.',
     priceCents: 0,
-    categories: ['tunnel-fits', 'bundles'],
+    categories: ['characters'],
     includes: ['Black BK hoodie', 'Brown baggy cargo pants', 'Black shiesty mask', 'Gold Cuban-link chain', 'Diamond-style watch', 'Tan boots'],
     use: 'Streetwear concept collection',
   },
@@ -154,7 +155,7 @@ export const STORE_PRODUCTS: readonly StoreProduct[] = [
     summary: 'Ice-silver puffer, white mask & glacier cargos',
     description: 'An icy streetwear concept featuring a glossy silver-white quilted puffer, white knit balaclava, pale-gray cargo trousers, silver Cuban-link chain, diamond-style watch and icy white boots.',
     priceCents: 0,
-    categories: ['tunnel-fits', 'bundles'],
+    categories: ['characters'],
     includes: ['Ice-silver quilted puffer', 'White knit balaclava', 'Ice-gray cargo pants', 'Silver Cuban-link chain', 'Diamond-style watch', 'Icy white high-top boots'],
     use: 'Streetwear concept collection',
   },
@@ -163,7 +164,7 @@ export const STORE_PRODUCTS: readonly StoreProduct[] = [
     fitPracticeRig: true,
     summary: 'Charcoal & silver · Wolf character streetwear',
     description: 'An original wolf character in a washed-charcoal BK hoodie, oversized cargo pants, silver chain and black-and-silver sneakers. Explore the full poster, standing reference and detailed 360° model.',
-    priceCents: 0, categories: ['tunnel-fits', 'bundles'],
+    priceCents: 0, categories: ['characters'],
     includes: ['Iron Wolf character', 'Charcoal BK hoodie', 'Oversized charcoal cargos', 'Silver chain', 'Black-and-silver sneakers'],
     use: 'Charcoal & Silver collection concept preview',
     showcase: { model: '/store/bkf-iron-wolf-athlete-v1.glb', look: '/store/bkf-iron-wolf-look.webp', collection: 'Charcoal & Silver Collection', theme: 'iron-wolf' },
@@ -173,13 +174,13 @@ export const STORE_PRODUCTS: readonly StoreProduct[] = [
     fitPracticeRig: true,
     summary: 'Shadow kit · Tactical hoodie, chrome mask & boots',
     description: 'The Phantom moves in silence: a matte-black layered tactical streetwear hoodie, dark chrome face mask, technical cargo trousers, silver BK chain, black lace-up boots and a metal watch. An original cinematic masked streetwear character.',
-    priceCents: 0, categories: ['tunnel-fits', 'bundles'],
+    priceCents: 0, categories: ['characters'],
     includes: ['Black tactical hoodie-jacket', 'Chrome-trim mask', 'Black technical cargo trousers', 'Black combat boots', 'Silver BK chain', 'Silver wristwatch'],
     use: 'Shadow collection concept preview',
     showcase: { model: 'https://v3b.fal.media/files/b/0ab1f248/LwJJTnq5TIJ6S9RsHOcW0_model.glb', look: 'https://v3b.fal.media/files/b/0ab1f21d/aEW__qpU6k2Ik8P7TywbO_lUUJVFfQ.png', collection: 'Shadow Collection', theme: 'phantom' },
   },
   {
-    id: 'black-tie', name: 'Black Tie', department: 'clothing',
+    id: 'black-tie', name: 'Black Tie',
     summary: 'Country Boy · Classic black tuxedo',
     description: 'Country Boy dressed for the spotlight: a tailored black tuxedo, crisp white dress shirt, black bow tie and polished dress shoes. Explore the campaign cover, realistic reference and full 360° showcase. Wearable garments and checkout are not available yet.',
     priceCents: 0, categories: ['tunnel-fits', 'bundles'],
@@ -188,7 +189,7 @@ export const STORE_PRODUCTS: readonly StoreProduct[] = [
     showcase: { model: '/store/black-tie-athlete-v1.glb', look: '/store/black-tie-look.webp', collection: 'Country Boy · Formal Collection', theme: 'black-tie' },
   },
   {
-    id: 'ivory-standard', name: 'Ivory Standard', department: 'clothing',
+    id: 'ivory-standard', name: 'Ivory Standard',
     summary: 'Country Boy · Ivory tunnel fit',
     description: 'A coordinated ivory tunnel fit on the Country Boy showcase model: a cream hoodie, matching joggers and clean light trainers. Explore the campaign cover, realistic reference and full 360° showcase. Wearable garments and checkout are not available yet.',
     priceCents: 0, categories: ['tunnel-fits', 'bundles'],
@@ -201,7 +202,7 @@ export const STORE_PRODUCTS: readonly StoreProduct[] = [
     fitPracticeRig: true,
     summary: 'Country Boy · Plaid, denim & cowboy boots',
     description: 'Red plaid over a white tank. A weathered cowboy hat, classic denim, engraved belt buckle and stitched leather boots. The original Country Boy showcase character.',
-    priceCents: 0, categories: ['tunnel-fits', 'bundles'],
+    priceCents: 0, categories: ['characters'],
     includes: ['Cowboy hat', 'Red plaid shirt', 'White tank top', 'Denim jeans', 'Western belt buckle', 'Cowboy boots'],
     use: 'Country collection',
     showcase: { model: '/store/bkf-outlaw-athlete-v1.glb', look: '/store/bkf-outlaw-look.webp', collection: 'Country Collection', theme: 'outlaw' },
@@ -211,7 +212,7 @@ export const STORE_PRODUCTS: readonly StoreProduct[] = [
     fitPracticeRig: true,
     summary: 'Skater · Layered BKF tee & baggy denim',
     description: 'Washed-black BKF tee over cream sleeves. A knit beanie, baggy denim with a wallet chain, and worn skate shoes. The original Kickflip showcase character.',
-    priceCents: 0, categories: ['tunnel-fits', 'bundles'],
+    priceCents: 0, categories: ['characters'],
     includes: ['BKF knit beanie', 'Layered BKF tee', 'Cream long sleeves', 'Baggy black denim', 'Wallet chain', 'Skate shoes'],
     use: 'Skate collection',
     showcase: { model: '/store/bkf-kickflip-athlete-v1.glb', look: '/store/bkf-kickflip-look.webp', collection: 'Skate Collection', theme: 'kickflip' },
@@ -221,7 +222,7 @@ export const STORE_PRODUCTS: readonly StoreProduct[] = [
     fitPracticeRig: true,
     summary: 'Plaid, baggy khakis & clean white kicks',
     description: 'Charcoal plaid over a white tank. A black paisley bandana, baggy khakis and crisp white sneakers, finished with a silver chain. Classic lowrider-inspired streetwear on its own showcase character.',
-    priceCents: 0, categories: ['tunnel-fits', 'bundles'],
+    priceCents: 0, categories: ['characters'],
     includes: ['Black paisley bandana', 'Plaid short-sleeve shirt', 'White ribbed tank', 'Baggy khaki pants', 'Silver chain', 'White low-top sneakers'],
     use: 'Lowrider collection',
     showcase: { model: '/store/bkf-lowrider-athlete-v1.glb', look: '/store/bkf-lowrider-look.webp', collection: 'Lowrider Collection', theme: 'lowrider' },
@@ -232,7 +233,7 @@ export const STORE_PRODUCTS: readonly StoreProduct[] = [
     summary: 'Three original tattoo designs',
     description: 'Choose from three blackwork designs to customize your athlete in the player builder.',
     priceCents: 199,
-    categories: ['tunnel-fits'],
+    categories: ['customization'],
     includes: ['Lightning tattoo', 'Geometric band tattoo', 'Laurel tattoo'],
     use: 'My Player builder',
   },
@@ -283,5 +284,14 @@ export const storeImage = (id: string) => id === 'bkf-street-boss'
   : id === 'frostbite-look'
   ? 'https://v3b.fal.media/files/b/0ab1ea94/hSYeTuHMXg21r6ipNqX7c_ByU6fl61.png'
   : '/store/' + id + '.webp';
+export const storeCoverImage = (id: string) => {
+  switch (id) {
+    case 'gold-standard': return '/store/gold-standard.webp';
+    case 'frostbite': return '/store/lineup-frostbite.webp';
+    case 'bkf-phantom': return '/store/lineup-bkf-phantom.webp';
+    default: return storeImage(id);
+  }
+};
+
 const usd = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
 export const storePrice = (product: StoreProduct) => product.proposedCoins ? `${product.proposedCoins.toLocaleString('en-US')} BK Coins` : (product.showcase || product.id === 'bkf-youngboy' || product.id === 'frostbite') ? 'Coming soon' : usd.format(product.priceCents / 100);

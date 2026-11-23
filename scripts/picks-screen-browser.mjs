@@ -27,6 +27,7 @@ async function contextFor(engine,width,{hungSync=false,legacyPick=false,historyC
       if(boardMode==='hang')return;
       if(boardMode==='failure'){status=503;data={available:false,games:[]}}
       else if(boardMode==='empty')data={available:true,linesAvailable:false,games:[]};
+      else if(boardMode==='partial-lines')data={...fixture,fetchedAt:new Date().toISOString(),games:[{...game,awaySpread:null},...fixture.games.slice(1)]};
       else data={...fixture,fetchedAt:new Date(Date.now()-(boardMode==='stale'?16*60_000:0)).toISOString()};
     }else if(path==='/api/prediction-picks'){
       if(hungSync)return;
@@ -96,6 +97,18 @@ try{
       assert.ok(await page.getByText('Picks open when kickoff time is confirmed.').isVisible());assert.ok(await page.locator('.bk-picks-team-buttons button').first().isDisabled());
       await weekSelect.selectOption({label:'Week 1'});
       const pick=first.getByRole('button',{name:'Philadelphia Eagles -3.5',exact:true});
+      c.setMode('partial-lines');
+      await page.getByRole('button',{name:'Refresh picks',exact:true}).click();
+      const spreadPending=first.getByText('Spread pending',{exact:true});
+      await spreadPending.waitFor();
+      assert.ok(await first.getByRole('button',{name:'Dallas Cowboys spread pending',exact:true}).isDisabled());
+      await page.waitForFunction(()=>!document.querySelector('.bk-picks-refresh')?.disabled);
+      assert.ok(await pick.isEnabled(),'the posted spread remains selectable');
+      assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'the spread note must fit narrow screens');
+      c.setMode('ok');
+      await page.getByRole('button',{name:'Refresh picks',exact:true}).click();
+      await spreadPending.waitFor({state:'hidden'});
+      await page.waitForFunction(()=>!document.querySelector('.bk-picks-refresh')?.disabled);
       await pick.evaluate(button=>{button.click();button.click()});
       await page.waitForFunction(()=>document.querySelector('.bk-picks-summary-heading')?.textContent.includes('1 selected')&&document.querySelector('.bk-picks-summary-heading')?.textContent.includes('1 unsent'));
       assert.equal(c.boardRequests[0].method,'GET','default board keeps its GET request');

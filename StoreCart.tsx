@@ -59,6 +59,13 @@ export default function StoreCart({ cart, onClose, onOpenAuth, onOpenProfile }: 
   const checkoutPrices: StorePrices = status?.catalogPrices ?? {};
   const checkoutIds = cart.ids.filter(id => canCheckOutStoreItem(id, checkoutPrices));
   const savedCount = cart.ids.length - checkoutIds.length;
+  const pendingProvider = status?.pending ? status.pendingProvider : null;
+  function clearCheckoutReturn() {
+    const url = new URL(window.location.href);
+    if (!url.searchParams.has('store_checkout')) return;
+    url.searchParams.delete('store_checkout');
+    window.history.replaceState(window.history.state, '', url.pathname + url.search + url.hash);
+  }
   async function refresh() {
     const id = ++refreshId.current;
     setError('');
@@ -110,7 +117,7 @@ export default function StoreCart({ cart, onClose, onOpenAuth, onOpenProfile }: 
       setBusy(false);
     }
   }
-  return <dialog ref={dialog} className="bk-store-dialog bk-cart-dialog" aria-labelledby="bk-cart-title" onClose={onClose}>
+  return <dialog ref={dialog} className="bk-store-dialog bk-cart-dialog" aria-labelledby="bk-cart-title" onClose={() => { clearCheckoutReturn(); onClose(); }}>
     <div className="bk-store-dialog-content">
       <header className="bk-store-dialog-header"><h2 id="bk-cart-title"><ShoppingBag size={24}/> Your cart</h2><button type="button" className="bk-store-icon-button" aria-label="Close cart" onClick={() => dialog.current?.close()}><X/></button></header>
       <p>Save gear, outfits, and characters in one cart.</p>
@@ -134,23 +141,24 @@ export default function StoreCart({ cart, onClose, onOpenAuth, onOpenProfile }: 
           {needsSignIn && <button type="button" className="bk-store-button" onClick={onOpenAuth}>Sign in</button>}
           {redemptionMessage && <>
             <p role="status">{redemptionMessage}</p>
-            <button type="button" className="bk-store-button" onClick={onOpenProfile}>Choose character in Profile</button>
+            <button type="button" className="bk-store-button" onClick={() => { clearCheckoutReturn(); onOpenProfile(); }}>Choose character in Profile</button>
           </>}
         </form>
-        {status?.owned?.length > 0 && <p role="status">{status.mode === 'test' ? 'Test checkout verified.' : 'Order verified. Find outfits in My Locker and playable characters in Profile.'}</p>}
+        {status?.owned?.length > 0 && <p role="status">{status.mode === 'test' ? 'Verified test purchases are on your test account.' : 'Find purchased outfits in My Locker and playable characters in Profile.'}</p>}
         {status?.mode === 'test' && <p role="status">Test checkout — no real money or live ownership.</p>}
-        {status && (status.stripe || status.paypal) && !status.signedIn && <p>Sign in to check out and save purchases to your account.</p>}
+        {checkoutIds.length > 0 && (status?.stripe || status?.paypal) && !status.signedIn && <button type="button" className="bk-store-button" disabled={busy} onClick={onOpenAuth}>Sign in to check out</button>}
         {status && savedCount > 0 && checkoutIds.length > 0 && <p>Only checkout-ready items are included in this total. The rest stay in your cart.</p>}
         {!status?.stripe && !status?.paypal && <p>{status ? 'Payments are not open yet. Your cart is saved for later.' : error ? 'Checkout is unavailable. Your cart is saved.' : 'Checking checkout availability…'}</p>}
         <div className="bk-cart-payment-actions">
-          <button type="button" className="bk-store-button bk-store-button-gold" disabled={busy || !checkoutIds.length || !status?.signedIn || !status?.stripe} onClick={() => checkout('stripe')}>{busy ? 'Opening checkout…' : 'Checkout · Card / Apple Pay / Google Pay'}</button>
-          <button type="button" className="bk-store-button" disabled={busy || !checkoutIds.length || !status?.signedIn || !status?.paypal} onClick={() => checkout('paypal')}>Checkout with PayPal</button>
+          <button type="button" className="bk-store-button bk-store-button-gold" disabled={busy || !checkoutIds.length || !status?.signedIn || !status?.stripe || pendingProvider === 'paypal'} onClick={() => checkout('stripe')}>{busy ? 'Opening checkout…' : pendingProvider === 'stripe' ? 'Resume card checkout' : 'Checkout · Card / Apple Pay / Google Pay'}</button>
+          <button type="button" className="bk-store-button" disabled={busy || !checkoutIds.length || !status?.signedIn || !status?.paypal || pendingProvider === 'stripe'} onClick={() => checkout('paypal')}>{pendingProvider === 'paypal' ? 'Resume PayPal checkout' : 'Checkout with PayPal'}</button>
         </div>
         {status?.stripe && <p className="bk-store-purchase-status">Have a promo code? Enter it on the card checkout page.</p>}
         <p className="bk-store-purchase-status">Available wallets appear on supported devices at checkout. Items unlock after checkout is verified.</p>
         <button className="bk-store-button" type="button" disabled={busy} onClick={refresh}>Refresh purchases</button>
       </>}
-      {status?.pending && <><p role="status">A checkout is pending. Finish it before starting another cart.</p><button className="bk-store-button" disabled={busy} onClick={async () => { setBusy(true); try { await request({ action: 'cancel' }); await refresh(); } catch(e) { setError(e instanceof Error ? e.message : 'Could not cancel checkout.'); } finally { setBusy(false); } }}>Cancel pending card checkout</button></>}
+      {status?.pending && <p role="status">A checkout is pending. Finish it before starting another cart.</p>}
+      {status?.canCancelPendingCard && <button type="button" className="bk-store-button" disabled={busy} onClick={async () => { setBusy(true); try { await request({ action: 'cancel' }); await refresh(); } catch(e) { setError(e instanceof Error ? e.message : 'Could not cancel checkout.'); } finally { setBusy(false); } }}>Cancel pending card checkout</button>}
       {error && <p role="alert">{error}</p>}
       <button type="button" className="bk-store-button" onClick={() => dialog.current?.close()}>Continue shopping</button>
     </div>

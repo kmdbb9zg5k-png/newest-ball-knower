@@ -10,7 +10,7 @@ import { readOutfit } from './playerWardrobe';
 import { readLockerState, refreshLocker, subscribeLocker } from './lockerCommerceClient';
 import {
   STORE_CATEGORIES, STORE_PRODUCTS,
-  practiceAsset, storeImage, storePrice, type StoreCategory, type StoreFilter, type StoreProduct,
+  practiceAsset, storeCoverImage, storeImage, storePrice, type StoreCategory, type StoreFilter, type StoreProduct,
 } from './storeCatalog';
 import StoreCart, { useStoreCart } from './StoreCart';
 import { formatStoreAmount } from './storeCart';
@@ -40,10 +40,10 @@ const departments = [
   { id: 'clothing', label: 'Clothing' }, { id: 'helmets', label: 'Helmets' }, { id: 'jerseys', label: 'Jerseys' }, { id: 'pants', label: 'Pants' }, { id: 'cleats', label: 'Cleats' }, { id: 'accessories', label: 'Accessories' },
   { id: 'all', label: 'All Items' },
 ] as const;
-const isCharacter = (product: StoreProduct) => product.department !== 'clothing' && (product.posterOnly || Boolean(product.showcase) || ['bkf-youngboy', 'frostbite'].includes(product.id));
+const isCharacter = (product: StoreProduct) => product.categories.includes('characters');
 const characterProducts = STORE_PRODUCTS.filter(isCharacter);
 const previewPacks = STORE_PRODUCTS.filter(product => !isCharacter(product) && product.categories.includes('bundles'));
-const clothingProducts = STORE_PRODUCTS.filter(product => product.categories.includes('tunnel-fits') && !isCharacter(product) && product.id !== 'ink-pack');
+const clothingProducts = STORE_PRODUCTS.filter(product => product.categories.includes('tunnel-fits'));
 
 const tunnelPhotos = [
   { file: 'tunnel-look', label: 'Full outfit', alt: 'Athlete wearing the graphite Gray Standard in a stadium tunnel' },
@@ -59,8 +59,7 @@ const goldPhotos = [
 function ProductCard({ product, onOpen, price, action }: { product: StoreProduct; onOpen: (product: StoreProduct) => void; price?: number; action: ReactNode }) {
   return <div className="bk-store-card-with-action"><button className="bk-store-product" type="button" data-store-product={product.id} onClick={() => onOpen(product)}>
     <span className={"bk-store-card-art" + (product.showcase || isCharacter(product) || product.id === 'gold-standard' || product.id === 'tunnel-fit' ? ' bk-store-card-art--portrait' : '')}>
-      <img src={storeImage(product.id === 'tunnel-fit' ? 'tunnel-look' : product.id === 'gold-standard' ? 'gold-standard-realistic' : product.id)} alt="" loading="lazy" decoding="async"
-        onError={event => { const fallback = product.showcase?.look ?? storeImage(product.id); if (event.currentTarget.getAttribute('src') !== fallback) event.currentTarget.src = fallback; }}/>
+      <img src={storeCoverImage(product.id)} alt="" loading="lazy" decoding="async"/>
     </span>
     <span className="bk-store-product-text">
       <strong>{product.name}</strong>
@@ -322,7 +321,7 @@ function TunnelProductPage({ product, onBack, inCart, onAdd, onCart }: { product
 }
 
 export default function StoreHub({ initialCategory, onOpenLocker, onOpenGauntlet, onOpenAuth, onOpenProfile }: {
-  initialCategory?: StoreCategory | 'characters';
+  initialCategory?: StoreCategory;
   onOpenLocker: () => void;
   onOpenGauntlet: () => void;
   onOpenAuth: () => void;
@@ -355,7 +354,7 @@ export default function StoreHub({ initialCategory, onOpenLocker, onOpenGauntlet
   }
   const cartEntry = <div className="bk-store-cart-entry"><button className="bk-store-button" type="button" onClick={openCart}>Cart ({cart.ids.length})</button></div>;
   const gearShop = (shop: ReactNode) => <><div className="bk-store bk-store-gear-cart">{cartEntry}</div>{shop}{cartDialog}</>;
-  const [page, setPage] = useState<StorePage>(initialCategory ? 'catalog' : 'featured');
+  const [page, setPage] = useState<StorePage>(initialCategory && initialCategory !== 'characters' ? 'catalog' : 'featured');
   const [filter, setFilter] = useState<StoreFilter>(initialCategory === 'characters' ? 'all' : initialCategory ?? 'all');
   const [selection, setSelection] = useState<Selection | null>(null);
   const [tunnelProduct, setTunnelProduct] = useState<StoreProduct | null>(null);

@@ -18,7 +18,6 @@ const sideLinks: { id: HelmetNavigation; label: string; icon: typeof Star }[] = 
   { id: 'helmets', label: 'Helmets', icon: HardHat },
   { id: 'jerseys', label: 'Jerseys', icon: Shirt },
   { id: 'pants', label: 'Pants', icon: Shirt },
-  { id: 'jerseys', label: 'Jerseys', icon: Shirt },
   { id: 'accessories', label: 'Accessories', icon: Glasses },
   { id: 'cleats', label: 'Cleats', icon: Footprints },
   { id: 'bundles', label: 'Bundles', icon: Package },
@@ -82,9 +81,9 @@ export default function HelmetShop({ onNavigate, cartAction }: { cartAction: Sto
       </div>
 
       <aside className="bk-h-detail" style={styleFor(selected)} aria-label={`${selected.name} helmet details`}>
-        <div className="bk-h-detail-image" data-gold={selected.id === 'gold-standard' ? 'true' : undefined}>
+        <div className="bk-h-detail-image">
           <button type="button" className="bk-h-360" onClick={() => setNotice('three-d')} aria-label="360-degree preview status"><RotateCcw size={22}/><span>360°</span></button>
-          <img key={selected.id} src={selected.id === 'gold-standard' ? '/store/bk-helmet-gold-preview.webp' : helmetImage(selected.id)} alt={`${selected.name} helmet concept artwork`}/>
+          <img key={selected.id} src={helmetImage(selected.id)} alt={`${selected.name} helmet concept artwork`}/>
           <button type="button" className="bk-h-step bk-h-step-left" onClick={() => move(-1)} aria-label="Previous helmet"><ChevronLeft size={29}/></button>
           <button type="button" className="bk-h-step bk-h-step-right" onClick={() => move(1)} aria-label="Next helmet"><ChevronRight size={29}/></button>
         </div>
