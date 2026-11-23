@@ -68,7 +68,8 @@ try {
    enableProviders = false;
   }
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1),false);
-  await page.reload();await dialog.waitFor();await dialog.getByText('$5.98',{exact:true}).waitFor();
+  await page.goto('http://127.0.0.1:4189/?store_checkout=cancel');
+  await dialog.waitFor();await dialog.getByText('$5.98',{exact:true}).waitFor();
   await dialog.getByRole('button',{name:'Remove Gray Standard',exact:true}).click();
   await dialog.getByText('$2.99',{exact:true}).first().waitFor();
   assert.equal(await dialog.locator('.bk-cart-item').count(),1);
@@ -137,6 +138,7 @@ try {
    await dialog.getByText('Characters unlocked. 1 ready to play.').waitFor();
    await dialog.getByText('Your cart is empty.',{exact:false}).waitFor();
    await dialog.getByRole('button',{name:'Choose character in Profile',exact:true}).click();
+   assert.equal(new URL(page.url()).searchParams.has('store_checkout'),false);
    const guide = page.getByRole('dialog',{name:'Make every game count.',exact:true});
    await guide.waitFor();
    await page.keyboard.press('Escape');

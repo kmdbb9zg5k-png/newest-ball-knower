@@ -60,6 +60,12 @@ export default function StoreCart({ cart, onClose, onOpenAuth, onOpenProfile }: 
   const checkoutIds = cart.ids.filter(id => canCheckOutStoreItem(id, checkoutPrices));
   const savedCount = cart.ids.length - checkoutIds.length;
   const pendingProvider = status?.pending ? status.pendingProvider : null;
+  function clearCheckoutReturn() {
+    const url = new URL(window.location.href);
+    if (!url.searchParams.has('store_checkout')) return;
+    url.searchParams.delete('store_checkout');
+    window.history.replaceState(window.history.state, '', url.pathname + url.search + url.hash);
+  }
   async function refresh() {
     const id = ++refreshId.current;
     setError('');
@@ -111,7 +117,7 @@ export default function StoreCart({ cart, onClose, onOpenAuth, onOpenProfile }: 
       setBusy(false);
     }
   }
-  return <dialog ref={dialog} className="bk-store-dialog bk-cart-dialog" aria-labelledby="bk-cart-title" onClose={onClose}>
+  return <dialog ref={dialog} className="bk-store-dialog bk-cart-dialog" aria-labelledby="bk-cart-title" onClose={() => { clearCheckoutReturn(); onClose(); }}>
     <div className="bk-store-dialog-content">
       <header className="bk-store-dialog-header"><h2 id="bk-cart-title"><ShoppingBag size={24}/> Your cart</h2><button type="button" className="bk-store-icon-button" aria-label="Close cart" onClick={() => dialog.current?.close()}><X/></button></header>
       <p>Save gear, outfits, and characters in one cart.</p>
@@ -135,7 +141,7 @@ export default function StoreCart({ cart, onClose, onOpenAuth, onOpenProfile }: 
           {needsSignIn && <button type="button" className="bk-store-button" onClick={onOpenAuth}>Sign in</button>}
           {redemptionMessage && <>
             <p role="status">{redemptionMessage}</p>
-            <button type="button" className="bk-store-button" onClick={onOpenProfile}>Choose character in Profile</button>
+            <button type="button" className="bk-store-button" onClick={() => { clearCheckoutReturn(); onOpenProfile(); }}>Choose character in Profile</button>
           </>}
         </form>
         {status?.owned?.length > 0 && <p role="status">{status.mode === 'test' ? 'Verified test purchases are on your test account.' : 'Find purchased outfits in My Locker and playable characters in Profile.'}</p>}
