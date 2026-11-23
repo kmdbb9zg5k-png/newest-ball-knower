@@ -88,7 +88,7 @@ document.getElementById('game').addEventListener('webglcontextlost', () => {
   reportLegendsFailure();
 });
 try {
-  const {start}=await import('/play-moment-3d/game.js?v=roster-joints-1');
+  const {start}=await import('/play-moment-3d/game.js?v=skill-player-model-1');
   await start();
   if (!graphicsLost) reportArenaField('ready');
 } catch(error) {

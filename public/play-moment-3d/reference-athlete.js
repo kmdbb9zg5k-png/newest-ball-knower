@@ -276,7 +276,7 @@ void main(){vec4 sampleColor=authoredRunner?vec4(.22,.22,.22,1.):texture(baseMap
  float jersey=garment.x,pants=garment.y,cloth=garment.z,equipment=authoredRunner?0.:garment.w;
  vec3 jerseyColor=mix(mix(vec3(.065,.105,.18),vec3(.88,.90,.89),rival),kitColor,customKit);
  vec3 pantsColor=mix(jerseyColor*.8,vec3(.73,.77,.78),rival);
- if(authoredRunner){
+ if(authoredRunner&&enhancedUniformMaterials){
   // Team color remains on the chest and helmet. A neutral gray woven base
   // gives the pants believable material separation from the jersey.
   pantsColor=mix(jerseyColor*.65,vec3(.57,.60,.63),.76);
@@ -348,9 +348,20 @@ void main(){vec4 sampleColor=authoredRunner?vec4(.22,.22,.22,1.):texture(baseMap
   cage=material==4?1.:0.;
   if(material==0){
    float warm=.5+.5*sin(bindPosition.y*33.+abs(bindPosition.x)*21.+bindPosition.z*14.);
-   albedo=pow(mix(vec3(.34,.204,.141),vec3(.46,.292,.215),warm*.63),vec3(2.2));
+   vec3 baseSkin=mix(vec3(.31,.166,.104),vec3(.70,.47,.33),playerSeed);
+   vec3 skinTone=enhancedUniformMaterials?mix(vec3(.34,.204,.141),vec3(.46,.292,.215),warm*.63):baseSkin*(1.+warm*.19);
+   albedo=pow(skinTone,vec3(2.2));
   }
-  if(material==3)albedo=pow(kitPrimary,vec3(2.2));
+  if(material==3){
+   vec3 paint=kitPrimary;
+   if(!enhancedUniformMaterials){
+    float width=abs(bindPosition.x);
+    float edge=fwidth(width);
+    float centerStripe=1.-smoothstep(.010-edge,.014+edge,width);
+    paint=mix(paint,rival>.5?jerseyColor:trim,centerStripe*.92);
+   }
+   albedo=pow(paint,vec3(2.2));
+  }
   if(material==4)albedo=pow(mix(vec3(.34,.37,.42),gearFacemask.rgb,gearFacemask.a),vec3(2.2));
   if(material==5)albedo=pow(mix(mix(vec3(.19,.21,.24),trim,.32),gearGloves.rgb,gearGloves.a),vec3(2.2));
   if(material==6)albedo=pow(mix(vec3(.135,.15,.17),gearCleats.rgb,gearCleats.a),vec3(2.2));
@@ -432,7 +443,7 @@ const depthFragment=`#version 300 es
 precision highp float;void main(){}`;
 
 export class MeshyAthletes{
- constructor(renderer,{enhancedUniformMaterials=false,runnerPrototype=false,softenRoster=false,rosterJointPolish=softenRoster}={}){this.renderer=renderer;this.enhancedUniformMaterials=enhancedUniformMaterials;this.runnerPrototype=runnerPrototype;this.softenRoster=softenRoster;this.rosterJointPolish=rosterJointPolish;this.gl=renderer.gl;this.ready=false;this.error='';this.triangles=0;this.clipNames=[];this.lastStates=[];this.poseStates=new Map();this.handTransforms=new Map();this.supports=new Map();this.frameBones=null;this.frameModels=new Map();this.loadPromise=this.load()}
+ constructor(renderer,{enhancedUniformMaterials=false,runnerPrototype=false,skillPlayerPrototype=false,softenRoster=false,rosterJointPolish=softenRoster}={}){this.renderer=renderer;this.enhancedUniformMaterials=enhancedUniformMaterials;this.runnerPrototype=runnerPrototype;this.skillPlayerPrototype=skillPlayerPrototype;this.softenRoster=softenRoster;this.rosterJointPolish=rosterJointPolish;this.gl=renderer.gl;this.ready=false;this.error='';this.triangles=0;this.clipNames=[];this.lastStates=[];this.poseStates=new Map();this.handTransforms=new Map();this.supports=new Map();this.frameBones=null;this.frameModels=new Map();this.loadPromise=this.load()}
  async load(){
   try{
    const url=globalThis.BK_MESHY_GLTF_URL||ASSET,response=await fetch(url,{cache:'force-cache'});if(!response.ok)throw new Error('Detailed player '+response.status);
@@ -465,14 +476,14 @@ export class MeshyAthletes{
    this.parents=new Int16Array(json.nodes.length).fill(-1);json.nodes.forEach((node,index)=>(node.children||[]).forEach(child=>{this.parents[child]=index}));this.namedNodes=Object.fromEntries(json.nodes.map((node,index)=>[node.name,index]));
    this.base=json.nodes.map(node=>({t:[...(node.translation||[0,0,0])],r:[...(node.rotation||[0,0,0,1])],s:[...(node.scale||[1,1,1])]}));
    this.clips=json.animations.map(animation=>{let duration=0;const channels=animation.channels.map(channel=>{const sampler=animation.samplers[channel.sampler],times=accessor(sampler.input),values=accessor(sampler.output);duration=Math.max(duration,times[times.length-1]||0);return{node:channel.target.node,path:channel.target.path,times,values,size:channel.target.path==='rotation'?4:3}});return{name:animation.name,duration,channels}});this.clipNames=this.clips.map(clip=>clip.name);
-   if(this.runnerPrototype){
+   if(this.runnerPrototype||this.skillPlayerPrototype){
     const controller=new AbortController();
     const timeout=setTimeout(()=>controller.abort(),4000);
     try{
      const model=await fetch('/play-moment-3d/assets/running-back-prototype-v1.glb?v=5',{cache:'force-cache',signal:controller.signal});
-     if(!model.ok)throw Error('Running back mesh '+model.status);
+     if(!model.ok)throw Error('Authored athlete mesh '+model.status);
      this.runnerMesh=uploadRunnerPrototype(gl,parseGLB(await model.arrayBuffer()),this.joints.map(i=>json.nodes[i].name));
-    }catch(error){this.runnerError=String(error?.message||error);console.warn('Running back prototype unavailable; using the reference mesh.',this.runnerError)}
+    }catch(error){this.runnerError=String(error?.message||error);console.warn('Authored athlete mesh unavailable; using the reference mesh.',this.runnerError)}
     finally{clearTimeout(timeout)}
    }
    this.ready=true;
@@ -831,7 +842,12 @@ export class MeshyAthletes{
   const model=mul(translate(p.x,lift+.025-floor,p.z),basis);this.frameModels.set(p.index,{actor:p,model});return model;
 
  }
- geometryFor(p){return this.runnerMesh&&p.role==='RB'&&!p.team&&!p.gameAthlete?this.runnerMesh:this}
+ geometryFor(p){
+  if(!this.runnerMesh||p.gameAthlete)return this;
+  const homeRunner=this.runnerPrototype&&p.role==='RB'&&!p.team;
+  const skillPlayer=this.skillPlayerPrototype&&!p.gameGear&&(p.role==='WR'||p.role==='DB');
+  return homeRunner||skillPlayer?this.runnerMesh:this;
+ }
  queueShadows(actors,phase,time){
   if(!this.ready)return false;this.phase=phase;this.frameBones=new Map();this.frameModels.clear();
   // Resolve both bodies before reaching: opposing hands must use this frame's
