@@ -11,6 +11,7 @@ on:
       - 'public/play-moment-3d-preview.html'
       - 'public/player-controls.js'
       - 'scripts/*athlete*'
+      - 'scripts/game-gear-browser.mjs'
       - 'scripts/*competition*'
       - 'scripts/football-arena*'
       - 'public/football-arena-bridge.js'
