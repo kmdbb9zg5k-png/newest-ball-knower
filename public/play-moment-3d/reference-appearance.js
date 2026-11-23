@@ -19,6 +19,20 @@ export function referenceGarmentRegions(positions,joints,weights,names,bodyVerti
  }
  return out;
 }
+// Stronger surface smoothing on upper arms and forearms. Fade out at the
+// wrists and collar, and keep the existing pad silhouette largely intact.
+export function referenceBodySmoothing(positions,garments,armWeights,bodyVertices){
+ const out=new Float32Array(positions.length/3);
+ for(let i=0;i<bodyVertices;i++){
+  const y=positions[i*3+1],j=i*4;
+  const hand=Math.max(armWeights[j+2],armWeights[j+3]);
+  const arm=smooth(.16,.76,Math.max(armWeights[j],armWeights[j+1]))*(1-smooth(.22,.60,hand))*(1-smooth(1.35,1.46,y));
+  const cloth=garments[j+2]*smooth(.29,.45,y)*(1-smooth(1.40,1.48,y));
+  out[i]=Math.max(arm,cloth*.46);
+ }
+ return out;
+}
+
 // Shared run phase is integrated from distance by advanceMotion. It remains
 // continuous across speed/state changes and does not cycle while stationary.
 export function referenceRunPhase(player){

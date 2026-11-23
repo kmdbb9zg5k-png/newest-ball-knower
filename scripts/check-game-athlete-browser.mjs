@@ -57,6 +57,32 @@ try {
     assert.deepEqual(errors,[]);
     await page.close();
   }
+  // Match the Two-Minute roster before/after at the normal phone camera.
+  let rosterFrame;
+  for(const mode of ['original','smoothed']){
+    const page=await demo.newPage(),errors=[];
+    page.on('pageerror',error=>errors.push(error.message));
+    await page.goto(base+'/play-moment-3d-preview.html?qa=1&manualFrames=1&mode=two-minute&team=JCY&opponent=BRK'+(mode==='original'?'&originalRoster=1':''));
+    await page.waitForFunction(()=>window.bk3dDiagnostics?.().athletes.ready);
+    await page.evaluate(()=>window.bk3dTest.seed(742));
+    await page.locator('#filterRun').click();
+    await page.locator('#call-run-5').click();
+    await page.locator('#breakHuddle').click();
+    await page.keyboard.down('ArrowUp');
+    await page.locator('#snap').dispatchEvent('pointerdown');
+    await page.evaluate(()=>window.bk3dTest.step(2.25));
+    const state=await page.evaluate(()=>window.bk3dDiagnostics());
+    assert.equal(state.glError,0);
+    assert.equal(state.athletes.softenRoster,mode==='smoothed');
+    const match={camera:state.camera,phase:state.phase,positions:state.players.map(({x,z,action})=>[x,z,action])};
+    if(rosterFrame)assert.deepEqual(match,rosterFrame,'Compare the same roster pose at the same gameplay camera');
+    else rosterFrame=match;
+    await page.screenshot({path:output+'/two-minute-roster-'+mode+'.png'});
+    await page.keyboard.up('ArrowUp');
+    assert.deepEqual(errors,[]);
+    await page.close();
+  }
+  console.log('PASS Two-Minute roster with matched original and smoothed running poses');
   await demo.close();
   console.log('PASS authored running back, matched normal-camera frames, reference rig, and completed plays');
   // Release the comparison's SwiftShader contexts before the larger avatar suite.

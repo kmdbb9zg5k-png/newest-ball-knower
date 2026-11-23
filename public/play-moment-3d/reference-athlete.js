@@ -4,8 +4,8 @@ import {sanitizeGameGear,gearColor} from './game-gear.js';
 import {playerPresence} from './player-presence.js?v=visual-upgrade-1';
 // Full-game reference body with skinned team materials and distance-matched motion.
 import {contactFallProgress,contactFacing,contactBodyPose,contactFinishPose,contactFootTarget} from './contact-motion.js?v=tackle-drive-61';
-import {refineAthleteSurface,shapeReferenceFootballPlayer} from './athlete-surface.js?v=football-player-shape-2';
-import {referenceGarmentRegions,referenceRunPhase,referenceGearRegions} from './reference-appearance.js?v=game-gear-1';
+import {refineAthleteSurface,shapeReferenceFootballPlayer} from './athlete-surface.js?v=soft-reference-body-1';
+import {referenceGarmentRegions,referenceRunPhase,referenceGearRegions,referenceBodySmoothing} from './reference-appearance.js?v=soft-reference-body-1';
 import {jerseyIdentityKey} from './jersey-identity.js?v=teams-1';
 import{identity,mul,translate,scale,rx,ry,rz}from'./renderer.js?v=football-foundation-44';
 
@@ -237,6 +237,7 @@ in vec3 world;in vec3 normal;in vec3 tangent;in float handedness;in vec2 uv;in v
 uniform vec3 eye;uniform sampler2D baseMap;uniform sampler2D normalMap;uniform sampler2D ormMap;uniform sampler2D numberMap;uniform float hasNumber;uniform float rival;uniform float controlled;uniform float playerSeed;uniform float customKit;uniform vec3 kitColor;uniform vec3 kitTrim;uniform vec3 kitPrimary;
 uniform bool enhancedUniformMaterials;
 uniform bool authoredRunner;
+uniform bool softenRoster;
 uniform vec4 gearGloves;uniform vec4 gearLeftSleeve;uniform vec4 gearRightSleeve;uniform vec4 gearLeftWrist;uniform vec4 gearRightWrist;uniform vec4 gearCleats;uniform vec4 gearFacemask;
 out vec4 color;
 vec3 film(vec3 v){return clamp((v*(2.51*v+.03))/(v*(2.43*v+.59)+.14),0.,1.);}
@@ -329,6 +330,7 @@ void main(){vec4 sampleColor=authoredRunner?vec4(.22,.22,.22,1.):texture(baseMap
  albedo=mix(albedo,pow(mix(vec3(.32,.35,.38),gearFacemask.rgb,gearFacemask.a),vec3(2.2)),cage);
  int material=authoredRunner?int(round(garment.w)):-1;
  float runnerFold=0.;
+ float skinArm=!softenRoster||authoredRunner?0.:smoothstep(.22,.78,max(gearSkin.x,gearSkin.y))*(1.-cloth);
  if(authoredRunner){
   shell=material==3?1.:0.;
   cage=material==4?1.:0.;
@@ -374,11 +376,11 @@ void main(){vec4 sampleColor=authoredRunner?vec4(.22,.22,.22,1.):texture(baseMap
  else{
   vec3 T=normalize(tangent-N*dot(N,tangent)),B=normalize(cross(N,T))*handedness;
   vec3 mapped=texture(normalMap,uv).xyz*2.-1.;
-  mapped.xy*=mix(mix(.55,.22,cloth),enhancedUniformMaterials?.07:.18,equipment);
+  mapped.xy*=mix(mix(mix(.55,.16,skinArm),softenRoster?.18:.22,cloth),enhancedUniformMaterials?.07:.18,equipment);
   N=normalize(mat3(T,B,N)*mapped);
  }
  vec3 V=normalize(eye-world),L0=normalize(vec3(-.48,.82,-.31)),L1=normalize(vec3(.62,.69,.38)),L2=normalize(vec3(-.20,.72,.65));float d0=max(dot(N,L0),0.),d1=max(dot(N,L1),0.),d2=max(dot(N,L2),0.);vec3 ambient=mix(vec3(.075,.09,.105),vec3(.20,.25,.34),N.y*.5+.5);vec3 lit=ambient+vec3(1.52,1.43,1.24)*d0+vec3(.38,.50,.72)*d1+vec3(.20,.24,.33)*d2;
- vec3 orm=authoredRunner?vec3(1.,material==0?.66:.72,cage*.35):texture(ormMap,uv).rgb;float rough=clamp(orm.g,.18,.96),metal=mix(orm.b,0.,cloth);metal=mix(metal,.08,equipment);rough=mix(rough,.86,cloth);rough=mix(rough,.25,shell);rough=mix(rough,authoredRunner?.46:.38,cage);vec3 H=normalize(L0+V),F0=mix(vec3(.028),albedo,metal),fresnel=F0+(1.-F0)*pow(1.-max(dot(N,V),0.),5.);float spec=pow(max(dot(N,H),0.),mix(90.,10.,rough)),rim=pow(1.-max(dot(N,V),0.),2.6);vec3 rimColor=mix(vec3(.22,.31,.42),vec3(.42,.18,.14),rival);vec3 rgb=albedo*lit+fresnel*spec*(.35+1.35*(1.-rough))+rimColor*rim*(.105+controlled*.11);// Dielectric helmet clearcoat reflects the stadium banks. Fabric stays matte.
+ vec3 orm=authoredRunner?vec3(1.,material==0?.66:.72,cage*.35):texture(ormMap,uv).rgb;float rough=clamp(mix(orm.g,.70,skinArm*.82),.18,.96),metal=mix(orm.b,0.,cloth);metal=mix(metal,.08,equipment);rough=mix(rough,.86,cloth);rough=mix(rough,.25,shell);rough=mix(rough,authoredRunner?.46:.38,cage);vec3 H=normalize(L0+V),F0=mix(vec3(.028),albedo,metal),fresnel=F0+(1.-F0)*pow(1.-max(dot(N,V),0.),5.);float spec=pow(max(dot(N,H),0.),mix(90.,10.,rough)),rim=pow(1.-max(dot(N,V),0.),2.6);vec3 rimColor=mix(vec3(.22,.31,.42),vec3(.42,.18,.14),rival);vec3 rgb=albedo*lit+fresnel*spec*(.35+1.35*(1.-rough))+rimColor*rim*(.105+controlled*.11);// Dielectric helmet clearcoat reflects the stadium banks. Fabric stays matte.
  vec3 reflection=reflect(-V,N);
  float bankReflection=pow(max(dot(reflection,L0),0.),100.)+pow(max(dot(reflection,L1),0.),80.)*.65;
  float coatFresnel=.045+.22*pow(1.-max(dot(N,V),0.),5.);
@@ -417,26 +419,26 @@ const depthFragment=`#version 300 es
 precision highp float;void main(){}`;
 
 export class MeshyAthletes{
- constructor(renderer,{enhancedUniformMaterials=false,runnerPrototype=false}={}){this.renderer=renderer;this.enhancedUniformMaterials=enhancedUniformMaterials;this.runnerPrototype=runnerPrototype;this.gl=renderer.gl;this.ready=false;this.error='';this.triangles=0;this.clipNames=[];this.lastStates=[];this.poseStates=new Map();this.handTransforms=new Map();this.supports=new Map();this.frameBones=null;this.frameModels=new Map();this.loadPromise=this.load()}
+ constructor(renderer,{enhancedUniformMaterials=false,runnerPrototype=false,softenRoster=false}={}){this.renderer=renderer;this.enhancedUniformMaterials=enhancedUniformMaterials;this.runnerPrototype=runnerPrototype;this.softenRoster=softenRoster;this.gl=renderer.gl;this.ready=false;this.error='';this.triangles=0;this.clipNames=[];this.lastStates=[];this.poseStates=new Map();this.handTransforms=new Map();this.supports=new Map();this.frameBones=null;this.frameModels=new Map();this.loadPromise=this.load()}
  async load(){
   try{
    const url=globalThis.BK_MESHY_GLTF_URL||ASSET,response=await fetch(url,{cache:'force-cache'});if(!response.ok)throw new Error('Detailed player '+response.status);
    const jsonAsset=response.headers.get('content-type')?.includes('application/json')?await response.json():null,assetBuffer=jsonAsset?.encoding==='base64'?Uint8Array.from(atob(jsonAsset.content.replace(/\\s/g,'')),character=>character.charCodeAt(0)).buffer:await response.arrayBuffer(),parsed=parseGLB(assetBuffer),{json,accessor}=parsed,gl=this.gl,primitive=json.meshes[0].primitives[0];this.parsed=parsed;
-   this.program=makeProgram(gl,vertex,fragment);this.depthProgram=makeProgram(gl,depthVertex,depthFragment);this.uniforms=Object.fromEntries(['vp','model','bones','eye','baseMap','normalMap','ormMap','numberMap','hasNumber','rival','controlled','playerSeed','customKit','kitColor','kitTrim','kitPrimary','enhancedUniformMaterials','authoredRunner','gearGloves','gearLeftSleeve','gearRightSleeve','gearLeftWrist','gearRightWrist','gearCleats','gearFacemask'].map(name=>[name,gl.getUniformLocation(this.program,name==='bones'?'bones[0]':name)]));this.depthUniforms=Object.fromEntries(['lightVP','model','bones'].map(name=>[name,gl.getUniformLocation(this.depthProgram,name==='bones'?'bones[0]':name)]));
+   this.program=makeProgram(gl,vertex,fragment);this.depthProgram=makeProgram(gl,depthVertex,depthFragment);this.uniforms=Object.fromEntries(['vp','model','bones','eye','baseMap','normalMap','ormMap','numberMap','hasNumber','rival','controlled','playerSeed','customKit','kitColor','kitTrim','kitPrimary','enhancedUniformMaterials','authoredRunner','softenRoster','gearGloves','gearLeftSleeve','gearRightSleeve','gearLeftWrist','gearRightWrist','gearCleats','gearFacemask'].map(name=>[name,gl.getUniformLocation(this.program,name==='bones'?'bones[0]':name)]));this.depthUniforms=Object.fromEntries(['lightVP','model','bones'].map(name=>[name,gl.getUniformLocation(this.depthProgram,name==='bones'?'bones[0]':name)]));
    const decoded=name=>{const a=json.accessors[primitive.attributes[name]],data=accessor(primitive.attributes[name]);if(!a.normalized)return new Float32Array(data);const max={5120:127,5121:255,5122:32767,5123:65535}[a.componentType];return Float32Array.from(data,n=>Math.max(-1,n/max))};
    const sourcePositions=decoded('POSITION'),weights=decoded('WEIGHTS_0'),joints=accessor(primitive.attributes.JOINTS_0);
    const skinNames=json.skins[0].joints.map(i=>json.nodes[i].name),bodyVertices=json.extras.referenceEquipment.bodyVertices;
    const regions=referenceGarmentRegions(sourcePositions,joints,weights,skinNames,bodyVertices);
    const positions=this.enhancedUniformMaterials?shapeReferenceFootballPlayer(sourcePositions,regions,bodyVertices):sourcePositions;
-   const surface=refineAthleteSurface(positions,decoded('NORMAL'),decoded('TANGENT'),accessor(primitive.indices),{regularizeHelmet:false});
-   const refined={NORMAL:surface.normals,TANGENT:surface.tangents};
-   if(this.enhancedUniformMaterials)refined.POSITION=surface.positions;
+   const gearRegions=referenceGearRegions(sourcePositions,joints,weights,skinNames,bodyVertices);
+   const softBody=this.softenRoster?referenceBodySmoothing(sourcePositions,regions,gearRegions.arms,bodyVertices):null;
+   const surface=refineAthleteSurface(positions,decoded('NORMAL'),decoded('TANGENT'),accessor(primitive.indices),{regularizeHelmet:false,softBody});
+   const refined={POSITION:surface.positions,NORMAL:surface.normals,TANGENT:surface.tangents};
    this.vao=gl.createVertexArray();gl.bindVertexArray(this.vao);
    const attribute=(location,name,size,integer=false)=>{const index=primitive.attributes[name],a=json.accessors[index],data=refined[name]||accessor(index),buffer=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,buffer);gl.bufferData(gl.ARRAY_BUFFER,data,gl.STATIC_DRAW);gl.enableVertexAttribArray(location);if(integer)gl.vertexAttribIPointer(location,size,a.componentType,0,0);else gl.vertexAttribPointer(location,size,refined[name]?gl.FLOAT:a.componentType,refined[name]?false:Boolean(a.normalized),0,0)};
    attribute(0,'POSITION',3);attribute(1,'NORMAL',3);attribute(2,'TEXCOORD_0',2);attribute(3,'JOINTS_0',4,true);attribute(4,'WEIGHTS_0',4);attribute(5,'TANGENT',4);
    const regionBuffer=gl.createBuffer();
    this.garmentRegions=regions;gl.bindBuffer(gl.ARRAY_BUFFER,regionBuffer);gl.bufferData(gl.ARRAY_BUFFER,regions,gl.STATIC_DRAW);gl.enableVertexAttribArray(6);gl.vertexAttribPointer(6,4,gl.FLOAT,false,0,0);
-   const gearRegions=referenceGearRegions(sourcePositions,joints,weights,skinNames,bodyVertices);
    for(const [location,data,size] of [[7,gearRegions.arms,4],[8,gearRegions.feet,1]]){const buffer=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,buffer);gl.bufferData(gl.ARRAY_BUFFER,data,gl.STATIC_DRAW);gl.enableVertexAttribArray(location);gl.vertexAttribPointer(location,size,gl.FLOAT,false,0,0);}
    const indexAccessor=json.accessors[primitive.indices],indices=accessor(primitive.indices);this.indexType=indexAccessor.componentType;this.indexCount=indexAccessor.count;this.triangles=this.indexCount/3;this.indexBuffer=gl.createBuffer();gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,this.indexBuffer);gl.bufferData(gl.ELEMENT_ARRAY_BUFFER,indices,gl.STATIC_DRAW);gl.bindVertexArray(null);
    const material=json.materials[primitive.material].pbrMetallicRoughness,normalIndex=json.materials[primitive.material].normalTexture.index,[baseImage,normalImage,ormImage]=await Promise.all([bitmapFor(parsed,material.baseColorTexture.index),bitmapFor(parsed,normalIndex),bitmapFor(parsed,material.metallicRoughnessTexture.index)]);this.textures=[uploadTexture(gl,baseImage),uploadTexture(gl,normalImage),uploadTexture(gl,ormImage)];for(const image of[baseImage,normalImage,ormImage])image.close?.();
@@ -840,7 +842,7 @@ export class MeshyAthletes{
   if(!this.renderer.shadowAvailable)return false;
   this.renderer.queueShadowCaster(lightVP=>{const gl=this.gl;gl.useProgram(this.depthProgram);gl.bindVertexArray(this.vao);gl.uniformMatrix4fv(this.depthUniforms.lightVP,false,lightVP);for(const p of actors){gl.uniformMatrix4fv(this.depthUniforms.model,false,this.modelFor(p));gl.uniformMatrix4fv(this.depthUniforms.bones,false,this.frameBones.get(p.index));const mesh=this.geometryFor(p);gl.bindVertexArray(mesh.vao);gl.drawElements(gl.TRIANGLES,mesh.indexCount,mesh.indexType,0)}gl.bindVertexArray(null);return actors.length});return true;
  }
- draw(actors,phase,time){if(!this.ready)return false;this.phase=phase;const gl=this.gl;this.lastStates=actors.map(p=>meshyAnimationState(p,phase));gl.useProgram(this.program);gl.bindVertexArray(this.vao);gl.uniformMatrix4fv(this.uniforms.vp,false,this.renderer.vp);gl.uniform3fv(this.uniforms.eye,this.renderer.eye);for(let i=0;i<3;i++){gl.activeTexture(gl.TEXTURE0+i);gl.bindTexture(gl.TEXTURE_2D,this.textures[i])}gl.uniform1i(this.uniforms.baseMap,0);gl.uniform1i(this.uniforms.normalMap,1);gl.uniform1i(this.uniforms.ormMap,2);gl.uniform1i(this.uniforms.numberMap,3);gl.uniform1i(this.uniforms.enhancedUniformMaterials,this.enhancedUniformMaterials?1:0);gl.disable(gl.BLEND);gl.depthMask(true);
+ draw(actors,phase,time){if(!this.ready)return false;this.phase=phase;const gl=this.gl;this.lastStates=actors.map(p=>meshyAnimationState(p,phase));gl.useProgram(this.program);gl.bindVertexArray(this.vao);gl.uniformMatrix4fv(this.uniforms.vp,false,this.renderer.vp);gl.uniform3fv(this.uniforms.eye,this.renderer.eye);for(let i=0;i<3;i++){gl.activeTexture(gl.TEXTURE0+i);gl.bindTexture(gl.TEXTURE_2D,this.textures[i])}gl.uniform1i(this.uniforms.baseMap,0);gl.uniform1i(this.uniforms.normalMap,1);gl.uniform1i(this.uniforms.ormMap,2);gl.uniform1i(this.uniforms.numberMap,3);gl.uniform1i(this.uniforms.enhancedUniformMaterials,this.enhancedUniformMaterials?1:0);gl.uniform1i(this.uniforms.softenRoster,this.softenRoster?1:0);gl.disable(gl.BLEND);gl.depthMask(true);
   const custom=this.fieldCharacter&&this.customPose;
   let chosen=null;this.runnerDraws=0;
   for(const p of actors){
@@ -870,7 +872,7 @@ export class MeshyAthletes{
   if(!center.every(Number.isFinite)||!a.every(Number.isFinite)||!b.every(Number.isFinite))return null;
   return{center,a,b,hand:carryRight?'right':'left'};
  }
- diagnostics(){return{ready:this.ready,error:this.error,triangles:this.triangles,clips:this.clipNames.length,motionRecipes:Object.keys(FOOTBALL_MOTION_RECIPES).length,motionFamilies:Object.fromEntries(Object.entries(FOOTBALL_MOTION_FAMILIES).map(([family,states])=>[family,states.length])),authenticityPilot:[...AUTHENTICITY_PILOT_STATES],states:[...this.lastStates],bones:this.joints?.length||0,runnerPrototype:{loaded:Boolean(this.runnerMesh),draws:this.runnerDraws||0,error:this.runnerError||null},asset:ASSET}}
+ diagnostics(){return{ready:this.ready,error:this.error,triangles:this.triangles,clips:this.clipNames.length,motionRecipes:Object.keys(FOOTBALL_MOTION_RECIPES).length,motionFamilies:Object.fromEntries(Object.entries(FOOTBALL_MOTION_FAMILIES).map(([family,states])=>[family,states.length])),authenticityPilot:[...AUTHENTICITY_PILOT_STATES],states:[...this.lastStates],bones:this.joints?.length||0,softenRoster:this.softenRoster,runnerPrototype:{loaded:Boolean(this.runnerMesh),draws:this.runnerDraws||0,error:this.runnerError||null},asset:ASSET}}
 }
 
 export function createMeshyAthletes(renderer,options){return new MeshyAthletes(renderer,options)}
