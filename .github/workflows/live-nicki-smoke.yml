@@ -1,0 +1,35 @@
+name: Live Nicki mobile smoke test
+on:
+  pull_request:
+    paths: ['scripts/live-nicki-smoke.mjs', '.github/workflows/live-nicki-smoke.yml']
+permissions:
+  contents: read
+jobs:
+  combine:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - group: track
+            drills: 'dash broad-jump shuttle bench'
+          - group: field
+            drills: 'routes one-on-one rb db'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npx playwright install --with-deps chromium
+      - run: node scripts/live-nicki-smoke.mjs $DRILLS
+        env:
+          DRILLS: ${{ matrix.drills }}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: live-nicki-${{ matrix.group }}
+          path: artifacts/live-nicki
+          retention-days: 3
