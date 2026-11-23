@@ -47,4 +47,5 @@ export async function mockCharacterPurchases(context, purchases, codeGrant = [],
     }
     return respond([]);
   });
+  return selection => { user.user_metadata.bk_game_athlete = selection; };
 }

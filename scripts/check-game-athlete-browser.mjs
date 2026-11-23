@@ -3,6 +3,7 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { chromium } from 'playwright';
 import { preview } from 'vite';
 import { mockCharacterPurchases } from './character-purchase-fixture.mjs';
+import { practiceAsset, STORE_PRODUCTS } from '../storeCatalog.ts';
 
 const output = 'artifacts/game-athlete-modes';
 await mkdir(output,{recursive:true});
@@ -18,6 +19,13 @@ async function captureFrame(page,path){
     const {data}=await session.send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false,optimizeForSpeed:true});
     await writeFile(path,Buffer.from(data,'base64'));
   }finally{await session.detach();}
+}
+function assertEquippedPresentation(state,slot){
+  assert.equal(state.equippedPresentation.focus,slot);
+  const detail=state.equippedPresentation.detail;
+  assert.equal(detail.textureLimit,1536);
+  assert.ok(detail.textureCount>0 && detail.largestTexture>0 && detail.largestTexture<=detail.textureLimit);
+  assert.ok(detail.anisotropy>=1 && detail.anisotropy<=4);
 }
 try {
   browser=await launchBrowser();
@@ -138,7 +146,7 @@ try {
     { sku: 'bkf-kickflip', source: 'grant', expires_at: null },
     { sku: 'bkf-kickflip', source: 'purchase', expires_at: '2020-01-01T00:00:00Z' },
   ];
-  await mockCharacterPurchases(context, purchases, [], {character:'bkf-kickflip',position:'RB',heightInches:75,weightLbs:245});
+  const selectEquipped=await mockCharacterPurchases(context, purchases, [], {character:'bkf-kickflip',position:'RB',heightInches:75,weightLbs:245});
   const page=await context.newPage();
   const errors=[];
   page.on('pageerror',error=>errors.push(error.message));
@@ -156,6 +164,7 @@ try {
     await page.evaluate(()=>window.bk3dTest.step(1/60));
     let state=await page.evaluate(()=>window.bk3dDiagnostics());
     assert.deepEqual(state.avatar,{character:'bkf-kickflip',slot:6,heightInches:75,weightLbs:245,loaded:true,draws:1});
+    assertEquippedPresentation(state,6);
     assert.equal(state.glError,0);
     if(mode!=='arena'){
       await page.locator('#restart').dispatchEvent('click');
@@ -185,6 +194,24 @@ try {
     await page.waitForFunction(()=>document.querySelector('[data-character="store-character"] canvas'));
     await page.getByText(/BKF Kickflip/).first().waitFor();
     console.log('PASS',drill,'custom drill athlete');
+  }
+  // Exercise the real asset and role of every field-playable character through
+  // the purchased selection path on the same phone-sized browser.
+  for(const product of STORE_PRODUCTS.filter(practiceAsset)){
+    if(product.id==='bkf-kickflip')continue;
+    purchases.push({sku:product.id,source:'purchase',expires_at:null});
+    selectEquipped({character:product.id,position:'WR',heightInches:72,weightLbs:195});
+    await page.goto(base+'/play-moment-3d-preview.html?qa=1&manualFrames=1&mode=two-minute');
+    await page.waitForFunction(()=>window.bk3dDiagnostics?.().avatar.loaded);
+    await page.locator('#breakHuddle').click();
+    const state=await page.evaluate(()=>{window.bk3dTest.step(1/60);return window.bk3dDiagnostics()});
+    assert.equal(state.avatar.character,product.id);
+    assert.equal(state.avatar.draws,1);
+    assert.equal(state.glError,0);
+    assertEquippedPresentation(state,7);
+    assert.equal(state.players[7].hasBall,false,'The equipped receiver is highlighted away from the ball');
+    await captureFrame(page,output+'/equipped-'+product.id+'.png');
+    console.log('PASS purchased character detail and off-ball focus',product.id);
   }
   assert.deepEqual(errors,[]);
 }finally{
