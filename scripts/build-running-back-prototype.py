@@ -103,8 +103,8 @@ neck, head = rigid('Neck'), rigid('Head')
 torso([
     (.853, .006, .105, .098, hips),
     (.895, .013, .163, .107, hips),
-    (.967, .010, .171, .109, hips),
-    (1.012, .005, .152, .104, hips),
+    (.952, .005, .157, .107, hips),
+    (.977, .005, .138, .088, hips),
 ], PANTS)
 torso([
     (.956, .005, .154, .106, hips),
@@ -283,5 +283,5 @@ rig.select_set(True)
 
 bpy.ops.export_scene.gltf(filepath=target, export_format='GLB', use_selection=True,
                          export_materials='NONE', export_attributes=True,
-                         export_animations=False, export_tangents=True)
+                         export_animations=False)
 print('Running back authored vertices:', len(vertices), 'faces:', len(faces))

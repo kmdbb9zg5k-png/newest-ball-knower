@@ -386,7 +386,7 @@ export class MeshyAthletes{
     const controller=new AbortController();
     const timeout=setTimeout(()=>controller.abort(),4000);
     try{
-     const model=await fetch('/play-moment-3d/assets/running-back-prototype-v1.glb',{cache:'force-cache',signal:controller.signal});
+     const model=await fetch('/play-moment-3d/assets/running-back-prototype-v1.glb?v=2',{cache:'force-cache',signal:controller.signal});
      if(!model.ok)throw Error('Running back mesh '+model.status);
      this.runnerMesh=uploadRunnerPrototype(gl,parseGLB(await model.arrayBuffer()),this.joints.map(i=>json.nodes[i].name));
     }catch(error){this.runnerError=String(error?.message||error);console.warn('Running back prototype unavailable; using the reference mesh.',this.runnerError)}
