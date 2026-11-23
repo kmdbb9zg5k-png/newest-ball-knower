@@ -6,13 +6,17 @@ export function shapeReferenceFootballPlayer(source, regions, bodyVertices) {
  for(let i=0;i<positions.length/3;i++){
   const at=i*3,x=source[at],y=source[at+1],z=source[at+2];
   if(i<bodyVertices){
-   const jersey=regions[i*4],side=Math.abs(x);
-   const pad=jersey*smooth(.105,.205,side)*(1-smooth(.233,.30,side))*
-     smooth(1.225,1.32,y)*(1-smooth(1.405,1.47,y));
-   const chest=jersey*(1-smooth(.13,.24,side))*smooth(1.04,1.16,y)*(1-smooth(1.325,1.40,y));
-   positions[at]+=Math.sign(x)*pad*.034;
-   positions[at+1]+=pad*.026;
-   positions[at+2]+=z*(pad*.14+chest*.16);
+   const atRegion=i*4,jersey=regions[atRegion],pants=regions[atRegion+1],side=Math.abs(x);
+   // Give the covered pad its own broad top and tapered underside.
+   const shoulder=jersey*smooth(.095,.19,side)*(1-smooth(.250,.317,side))*
+     smooth(1.205,1.33,y)*(1-smooth(1.405,1.465,y));
+   const chest=jersey*(1-smooth(.14,.25,side))*smooth(1.04,1.17,y)*(1-smooth(1.32,1.43,y));
+   const waist=jersey*smooth(.86,.98,y)*(1-smooth(1.02,1.16,y))*(1-smooth(.15,.235,side));
+   const thigh=pants*smooth(.055,.095,side)*(1-smooth(.19,.245,side))*
+     smooth(.46,.57,y)*(1-smooth(.69,.83,y))*smooth(.008,.065,z);
+   positions[at]+=Math.sign(x)*(shoulder*.068-waist*.019);
+   positions[at+1]+=shoulder*.052;
+   positions[at+2]+=z*(shoulder*.25+chest*.24-waist*.11)+thigh*.024;
    continue;
   }
   if(z>.10&&y<1.65)continue;

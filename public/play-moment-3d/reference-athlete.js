@@ -3,7 +3,7 @@ import {sanitizeGameGear,gearColor} from './game-gear.js';
 import {playerPresence} from './player-presence.js?v=visual-upgrade-1';
 // Full-game reference body with skinned team materials and distance-matched motion.
 import {contactFallProgress,contactFacing,contactBodyPose,contactFinishPose,contactFootTarget} from './contact-motion.js?v=tackle-drive-61';
-import {refineAthleteSurface,shapeReferenceFootballPlayer} from './athlete-surface.js?v=football-player-shape-1';
+import {refineAthleteSurface,shapeReferenceFootballPlayer} from './athlete-surface.js?v=football-player-shape-2';
 import {referenceGarmentRegions,referenceRunPhase,referenceGearRegions} from './reference-appearance.js?v=game-gear-1';
 import {jerseyIdentityKey} from './jersey-identity.js?v=teams-1';
 import{identity,mul,translate,scale,rx,ry,rz}from'./renderer.js?v=football-foundation-44';
@@ -253,6 +253,16 @@ void main(){vec4 sampleColor=texture(baseMap,uv);if(sampleColor.a<.04)discard;ve
  float pantStripe=(1.-smoothstep(.012,.021,abs(bindPosition.z+.012)))*smoothstep(.5,.8,abs(bindNormal.x))*pants;
  float sleeveStripe=(1.-smoothstep(.008,.016,abs(bindPosition.y-1.30)))*smoothstep(.19,.27,abs(bindPosition.x))*jersey;
  albedo=mix(albedo,pow(trim,vec3(2.2)),max(pantStripe,sleeveStripe));
+ if(enhancedUniformMaterials){
+  float side=abs(bindPosition.x);
+  float sleeve=jersey*smoothstep(.194,.236,side)*smoothstep(1.245,1.301,bindPosition.y)*(1.-smoothstep(1.400,1.456,bindPosition.y));
+  float thighPanel=pants*smoothstep(.112,.162,side)*smoothstep(.35,.71,abs(bindNormal.x));
+  vec3 panel=mix(jerseyColor*.72,kitPrimary*.57,customKit);
+  albedo=mix(albedo,pow(panel,vec3(2.2)),max(sleeve*.85,thighPanel*.78));
+  float sleeveBand=sleeve*(1.-smoothstep(.009,.022,abs(bindPosition.y-1.315)));
+  albedo=mix(albedo,pow(trim,vec3(2.2)),sleeveBand*.84);
+ }
+
  // Fine knit and stitched neck/sleeve edges use bind space, so they follow
  // the rig without swimming. Derivative filtering removes distant shimmer.
  vec2 knitUV=bindPosition.xy*vec2(310.,360.);
