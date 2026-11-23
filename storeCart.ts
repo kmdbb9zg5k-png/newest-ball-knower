@@ -1,4 +1,4 @@
-import { practiceAsset, storeImage, STORE_PRODUCTS } from './storeCatalog.js';
+import { practiceAsset, storeCoverImage, STORE_PRODUCTS } from './storeCatalog.js';
 import { STORE_GEAR_CART_PRODUCTS } from './storeGearCatalog.js';
 import type { ReactNode } from 'react';
 
@@ -13,7 +13,7 @@ export const OUTFIT_PRICES = Object.fromEntries(STORE_PRODUCTS.filter(p => Objec
 export type StoreGearCartAction = (id: string, productName?: string) => ReactNode;
 
 const cartCatalog = new Map([
-  ...STORE_PRODUCTS.map(product => ({ id: product.id, name: product.name, image: storeImage(product.id) })),
+  ...STORE_PRODUCTS.map(product => ({ id: product.id, name: product.name, image: storeCoverImage(product.id) })),
   ...STORE_GEAR_CART_PRODUCTS,
 ].map(product => [product.id, product]));
 

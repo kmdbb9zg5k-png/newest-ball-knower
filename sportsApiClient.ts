@@ -22,9 +22,10 @@ export function parseNewsFeed(data:any,versioned:boolean,now=Date.now()):NewsFee
   // Retrieval time is not publication time or proof that the publisher is current.
   const fetchedAt=date(versioned?(data.fetchedAt??data.updatedAt):data.fetchedAt);
   const fetchedMs=fetchedAt?Date.parse(fetchedAt):NaN;
-  if(versioned&&(!Number.isFinite(fetchedMs)||fetchedMs>now+60_000||now-fetchedMs>15*60_000||data.stale===true))throw new Error('news_stale');
+  const stale=!Number.isFinite(fetchedMs)||fetchedMs>now+60_000||now-fetchedMs>15*60_000||data.stale===true;
+  if(versioned&&stale)throw new Error('news_stale');
   return{articles,provider:newsProviderLabel(data.provider),fetchedAt,
-    stale:data.stale===true||(Number.isFinite(fetchedMs)&&now-fetchedMs>15*60_000),fallback:false};
+    stale,fallback:false};
 }
 
 async function requestNews(path:string,versioned:boolean,request:typeof fetch,signal?:AbortSignal):Promise<NewsFeed>{

@@ -119,7 +119,8 @@ export function makeStoreCommerce(db: SupabaseClient, config: NonNullable<Return
     const previous = config.mode === 'test' && legacy?.config.buyers.includes(user) ? await legacy.commerce.state(user) : null;
     const wearables = [...owned.flatMap(id => STORE_WEARABLES[id] || []), ...(previous?.owned || [])];
     const saved = result(await db.from('bk_store_outfits').select('outfit').eq('user_id', user).eq('mode', config.mode).maybeSingle());
-    return { available: true, wearables, outfit: saved ? verifiedOutfit(saved.outfit, wearables) : previous?.outfit || null, prices: previous?.prices || {}, mode: config.mode, stripe: config.stripe, paypal: config.paypal, catalogPrices: config.prices, owned, pending: verified.some(o => o.status === 'pending') };
+    const pending = verified.find(order => order.status === 'pending');
+    return { available: true, wearables, outfit: saved ? verifiedOutfit(saved.outfit, wearables) : previous?.outfit || null, prices: previous?.prices || {}, mode: config.mode, stripe: config.stripe, paypal: config.paypal, catalogPrices: config.prices, owned, pending: Boolean(pending), pendingProvider: pending?.provider ?? null, canCancelPendingCard: pending?.provider === 'stripe' && Boolean(pending.provider_id) };
   }
   return { stripe, config, find, reconcile, paypal, settle,
     async authenticate(token: string) {

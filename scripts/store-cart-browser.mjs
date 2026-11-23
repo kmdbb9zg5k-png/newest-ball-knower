@@ -13,6 +13,7 @@ try {
   if (width === 390) await mockCharacterPurchases(context, [], [{sku:'frostbite'}]);
   else await page.route('**/*.supabase.co/**',r=>r.abort());
   let enableProviders = false;
+  let pendingProvider = null;
   const requests = [];
   const prices = { frostbite:100, 'tunnel-fit':299, 'gold-standard':299 };
   await page.route('**/api/**',r=>r.fulfill({json:{available:false,tracks:[]}}));
@@ -25,7 +26,8 @@ try {
      : 'https://www.sandbox.paypal.com/bk-test';
     return route.fulfill({json:{url}});
    }
-   return route.fulfill({json:{stripe:enableProviders,paypal:enableProviders,signedIn:enableProviders,
+   return route.fulfill({json:{stripe:enableProviders,paypal:enableProviders,signedIn:enableProviders&&width===390,
+    pending:Boolean(pendingProvider),pendingProvider,canCancelPendingCard:pendingProvider==='stripe',
     owned:[],available:enableProviders,wearables:[],catalogPrices:prices}});
   });
   await page.addInitScript(()=>{localStorage.setItem('ball-knower-team-setup-v2','complete');localStorage.setItem('ball-knower-intro-completed-v1','2');});
@@ -57,8 +59,17 @@ try {
   assert.equal(await dialog.locator('.bk-cart-item').count(),2);
   assert.equal(await dialog.getByRole('button',{name:/Checkout · Card/}).isDisabled(),true);
   assert.equal(await dialog.getByRole('button',{name:'Checkout with PayPal'}).isDisabled(),true);
+  if (width === 320) {
+   enableProviders = true;
+   await dialog.getByRole('button',{name:'Refresh purchases'}).click();
+   await dialog.getByRole('button',{name:'Sign in to check out',exact:true}).waitFor();
+   assert.equal(await dialog.getByRole('button',{name:/Checkout · Card/}).isDisabled(),true);
+   assert.deepEqual(requests,[]);
+   enableProviders = false;
+  }
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1),false);
-  await page.reload();await dialog.waitFor();await dialog.getByText('$5.98',{exact:true}).waitFor();
+  await page.goto('http://127.0.0.1:4189/?store_checkout=cancel');
+  await dialog.waitFor();await dialog.getByText('$5.98',{exact:true}).waitFor();
   await dialog.getByRole('button',{name:'Remove Gray Standard',exact:true}).click();
   await dialog.getByText('$2.99',{exact:true}).first().waitFor();
   assert.equal(await dialog.locator('.bk-cart-item').count(),1);
@@ -81,16 +92,29 @@ try {
    await page.locator('[data-store-product="frostbite"]').click();
    await page.getByRole('button',{name:'Add to cart',exact:true}).click();
    await page.getByRole('button',{name:'View cart',exact:true}).click();
-   await dialog.getByText('Frostbite',{exact:true}).waitFor();
-   await dialog.getByText('BKF Nicki',{exact:true}).waitFor();
-   await dialog.getByText('Gold Standard Helmet',{exact:true}).waitFor();
-   assert.equal(await dialog.getByText('Saved for later · Checkout coming soon',{exact:true}).count(),2);
-   await dialog.getByText('$1.00',{exact:true}).last().waitFor();
-   assert.equal(await dialog.getByText('$1.00',{exact:true}).count(),2);
+   const cartRow = name => dialog.locator('.bk-cart-item').filter({has:page.getByText(name,{exact:true})});
+   await cartRow('Frostbite').getByText('$1.00',{exact:true}).waitFor();
+   for (const name of ['BKF Nicki','Gold Standard Helmet']) {
+    assert.ok(await cartRow(name).getByText('Saved for later · Checkout coming soon',{exact:true}).isVisible());
+   }
+   assert.ok(await dialog.locator('.bk-cart-total').getByText('$1.00',{exact:true}).isVisible());
    enableProviders = true;
+   pendingProvider = 'paypal';
+   await dialog.getByRole('button',{name:'Refresh purchases'}).click();
+   const resumePayPal = dialog.getByRole('button',{name:'Resume PayPal checkout',exact:true});
+   await resumePayPal.waitFor();
+   assert.equal(await resumePayPal.isEnabled(),true);
+   assert.equal(await dialog.getByRole('button',{name:/Checkout · Card/}).isDisabled(),true);
+   assert.equal(await dialog.getByRole('button',{name:'Cancel pending card checkout'}).count(),0);
+   pendingProvider = 'stripe';
+   await dialog.getByRole('button',{name:'Refresh purchases'}).click();
+   await dialog.getByRole('button',{name:'Cancel pending card checkout'}).waitFor();
+   assert.equal(await dialog.getByRole('button',{name:'Checkout with PayPal'}).isDisabled(),true);
+   pendingProvider = null;
    await page.route('https://checkout.stripe.com/bk-test',route=>route.fulfill({body:'Stripe fixture'}));
    await page.route('https://www.sandbox.paypal.com/bk-test',route=>route.fulfill({body:'PayPal fixture'}));
    await dialog.getByRole('button',{name:'Refresh purchases'}).click();
+   await dialog.getByRole('button',{name:'Resume card checkout',exact:true}).waitFor({state:'hidden'});
    await dialog.getByText('Have a promo code? Enter it on the card checkout page.').waitFor();
    await dialog.getByRole('button',{name:/Checkout · Card/}).click();
    await page.waitForURL('https://checkout.stripe.com/bk-test');
@@ -114,6 +138,7 @@ try {
    await dialog.getByText('Characters unlocked. 1 ready to play.').waitFor();
    await dialog.getByText('Your cart is empty.',{exact:false}).waitFor();
    await dialog.getByRole('button',{name:'Choose character in Profile',exact:true}).click();
+   assert.equal(new URL(page.url()).searchParams.has('store_checkout'),false);
    const guide = page.getByRole('dialog',{name:'Make every game count.',exact:true});
    await guide.waitFor();
    await page.keyboard.press('Escape');

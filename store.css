@@ -629,9 +629,6 @@ body:has(.bk-tunnel-showroom[open]) { overflow: hidden; }
 
 .bk-store-locker-shop .bk-store-card-art:not(.bk-store-card-art--portrait) { aspect-ratio: 4/3; }
 
-/* Match Gray Standard's full-height portrait framing to Gold Standard. */
-.bk-store-locker-shop [data-store-product="tunnel-fit"] .bk-store-card-art img { object-fit:cover; object-position:50% 50%; }
-
 .bk-store-detail-art--poster { aspect-ratio: auto; height: auto; object-fit: contain; }
 
 /* Match Nicki's clean cover framing to the other character packs. */

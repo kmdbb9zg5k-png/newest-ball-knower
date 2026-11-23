@@ -56,7 +56,6 @@
 .bk-a-detail-price{display:flex;gap:7px;align-items:center;font-size:24px;font-weight:900;margin:10px 0}
 .bk-a-detail-photo{height:350px;overflow:hidden;display:flex;align-items:center;justify-content:center;background:radial-gradient(ellipse at 55% 50%,color-mix(in srgb,var(--bk-acc-accent) 22%,transparent),transparent 72%),#090a0f}
 .bk-a-detail-photo>img{display:block;width:100%;height:100%;object-fit:contain}
-.bk-a-detail-photo-player>img{object-fit:cover;object-position:center 25%}
 .bk-a-detail-description{margin:0;padding:12px 15px;color:#eae5df;font-size:12px;line-height:1.45}
 .bk-a-includes{padding:0 12px}
 .bk-a-includes h3{font-size:13px;margin:4px 0 12px;text-transform:uppercase;border-bottom:1px solid #62502e;padding-bottom:8px}

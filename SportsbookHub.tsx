@@ -249,6 +249,7 @@ export const SportsbookHub:React.FC=()=>{
           {saved&&<span className="bk-picks-pending">{saved.lockedAt&&!Object.prototype.hasOwnProperty.call(draftByGame,saved.gameId)?'Submitted':'Selected'}: {saved.label}</span>}
           {attached.ambiguous&&<span className="bk-picks-pending">Your saved picks need a matchup review. They have not been changed.</span>}
           {!locked&&pendingTime&&<span className="bk-picks-pending">Picks open when kickoff time is confirmed.</span>}
+          {!locked&&(awayLine==null||homeLine==null)&&<span className="bk-picks-pending">Spread pending</span>}
         </article>;
       })}</div></div>)}
     </section>
