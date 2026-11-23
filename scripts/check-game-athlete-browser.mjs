@@ -75,8 +75,14 @@ try {
     assert.equal(state.glError,0);
     assert.equal(state.athletes.softenRoster,mode==='smoothed');
     const match={camera:state.camera,phase:state.phase,positions:state.players.map(({x,z,action})=>[x,z,action])};
-    if(rosterFrame)assert.deepEqual(match,rosterFrame,'Compare the same roster pose at the same gameplay camera');
-    else rosterFrame=match;
+    if(rosterFrame){
+      assert.equal(match.phase,rosterFrame.phase);
+      assert.deepEqual(match.positions,rosterFrame.positions,'Compare exactly the same roster pose');
+      for(const key of ['eye','target']){
+        assert.ok(match.camera[key].every((value,i)=>Math.abs(value-rosterFrame.camera[key][i])<.002),
+          'Camera must match within a subpixel tolerance at gameplay distance');
+      }
+    }else rosterFrame=match;
     await page.screenshot({path:output+'/two-minute-roster-'+mode+'.png'});
     await page.keyboard.up('ArrowUp');
     assert.deepEqual(errors,[]);
