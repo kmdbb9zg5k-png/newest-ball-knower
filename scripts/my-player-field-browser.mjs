@@ -31,9 +31,11 @@ const page=await browser.newPage({viewport:{width:390,height:844}});await page.g
 const qb=await browser.newPage({viewport:{width:1108,height:650}});qb.setDefaultTimeout(60000);await qb.goto('http://127.0.0.1:3064/field-qa.html?position=QB');await qb.getByRole('button',{name:'PLAY 3D ASSIGNMENT',exact:true}).click();const frame=qb.frameLocator('iframe');await frame.locator('#loading').waitFor({state:'hidden'});await frame.locator('#breakHuddle').click();await frame.locator('#snap').waitFor();await qb.screenshot({path:'artifacts/my-player-field/qb-showcase.png'});
 await qb.evaluate(()=>{const f=document.querySelector('iframe'),p=new URL(f.src).searchParams;window.postMessage({type:'bk-mini-result',challengeId:p.get('bkChallenge'),token:p.get('bkToken'),stats:{points:30,plays:4,yards:75,turnovers:0}},location.origin);});assert.equal(await qb.evaluate(()=>JSON.parse(localStorage.getItem('field-QB')).turn.score),undefined);
 await qb.getByRole('button',{name:'Exit 3D assignment',exact:true}).click();assert.equal(await qb.evaluate(()=>JSON.parse(localStorage.getItem('field-QB')).turn.score),undefined);
-await qb.getByRole('button',{name:'PLAY 3D ASSIGNMENT',exact:true}).click();await frame.locator('#loading').waitFor({state:'hidden'});
+await qb.getByRole('button',{name:'PLAY 3D ASSIGNMENT',exact:true}).click();
+const huddle=frame.locator('#breakHuddle');
+await huddle.waitFor();
+await frame.locator('#loading').waitFor({state:'hidden'});
 // Isolated transport test, not a claimed played full-game result.
-const child=qb.frames().find(f=>f.url().includes('play-moment-3d-preview'));
-await child.evaluate(()=>{const p=new URLSearchParams(location.search);const message={type:'bk-mini-result',challengeId:p.get('bkChallenge'),token:p.get('bkToken'),stats:{points:30,plays:4,yards:75,turnovers:0}};parent.postMessage(message,location.origin);parent.postMessage({...message,stats:{points:23,plays:4,yards:0,turnovers:3}},location.origin);});
+await huddle.evaluate(()=>{const p=new URLSearchParams(location.search);const message={type:'bk-mini-result',challengeId:p.get('bkChallenge'),token:p.get('bkToken'),stats:{points:30,plays:4,yards:75,turnovers:0}};parent.postMessage(message,location.origin);parent.postMessage({...message,stats:{points:23,plays:4,yards:0,turnovers:3}},location.origin);});
 await qb.getByText('PERFORMANCE SUBMITTED',{exact:true}).waitFor();assert.equal(await qb.evaluate(()=>JSON.parse(localStorage.getItem('field-QB')).turn.score),89);await qb.getByRole('button',{name:'RETURN TO MY CAREER',exact:true}).click();await qb.close();console.log('PASS QB 3D frame launch, wrong-source rejection, unfinished exit, isolated valid/duplicate result transport; EDGE explicit tactical mode');
 }finally{await browser.close();await server.close();}
