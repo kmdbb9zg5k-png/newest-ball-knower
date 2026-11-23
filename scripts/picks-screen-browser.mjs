@@ -27,6 +27,8 @@ async function contextFor(engine,width,{hungSync=false,legacyPick=false,historyC
       if(boardMode==='hang')return;
       if(boardMode==='failure'){status=503;data={available:false,games:[]}}
       else if(boardMode==='empty')data={available:true,linesAvailable:false,games:[]};
+      else if(boardMode==='missing-retrieval')data=fixture;
+      else if(boardMode==='invalid-retrieval')data={...fixture,fetchedAt:'unparseable'};
       else if(boardMode==='partial-lines')data={...fixture,fetchedAt:new Date().toISOString(),games:[{...game,awaySpread:null},...fixture.games.slice(1)]};
       else data={...fixture,fetchedAt:new Date(Date.now()-(boardMode==='stale'?16*60_000:0)).toISOString()};
     }else if(path==='/api/prediction-picks'){
@@ -143,6 +145,17 @@ try{
       const stale=await contextFor(browser,390,{controlledClock:true});
       const stalePick=stale.page.locator(`[data-game-id="${game.id}"]`).getByRole('button',{name:'Philadelphia Eagles -3.5',exact:true});
       await stalePick.click();await stale.page.getByRole('button',{name:'Submit Picks (1)',exact:true}).waitFor();
+      const refresh=stale.page.getByRole('button',{name:'Refresh picks',exact:true});
+      const submitStaged=stale.page.getByRole('button',{name:'Submit Picks (1)',exact:true});
+      for(const mode of ['missing-retrieval','invalid-retrieval']){
+        stale.setMode(mode);await refresh.click();
+        await stale.page.getByText('Retrieval time unavailable',{exact:true}).waitFor();
+        await stale.page.getByText('This matchup snapshot needs a refresh before you can change or submit picks. Your choices are preserved.').waitFor();
+        assert.ok(await stalePick.isDisabled(),mode);
+        assert.ok(await submitStaged.isDisabled(),mode);
+        assert.match(await stale.page.locator('.bk-picks-summary-heading').innerText(),/1 selected · 1 unsent/);
+        assert.equal(stale.saves(),0);
+      }
       stale.setMode('stale');await stale.page.getByRole('button',{name:'Refresh picks',exact:true}).click();
       await stale.page.getByText('This matchup snapshot needs a refresh before you can change or submit picks. Your choices are preserved.').waitFor();
       assert.ok(await stalePick.isDisabled());assert.ok(await stale.page.getByRole('button',{name:'Submit Picks (1)',exact:true}).isDisabled());

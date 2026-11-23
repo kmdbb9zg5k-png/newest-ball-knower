@@ -7,6 +7,8 @@ export const PICKS_LIVE_WINDOW_MS=12*60*60*1000;
 export const PICKS_RETRIEVAL_MAX_AGE_MS=15*60*1000;
 export const picksFeedIsStale=(retrieved:Date|null,now=Date.now())=>Boolean(retrieved&&
   (retrieved.getTime()>now+60_000||now-retrieved.getTime()>PICKS_RETRIEVAL_MAX_AGE_MS));
+export const picksFeedIsFresh=(retrieved:Date|null,now=Date.now())=>
+  retrieved!==null&&Number.isFinite(retrieved.getTime())&&!picksFeedIsStale(retrieved,now);
 const nflDay=(now:number)=>{
   const parts=new Intl.DateTimeFormat('en-US',{timeZone:'America/New_York',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date(now));
   const calendar=Object.fromEntries(parts.map(part=>[part.type,part.value]));

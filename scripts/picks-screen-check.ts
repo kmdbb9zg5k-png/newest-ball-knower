@@ -3,7 +3,7 @@ import {readFileSync} from 'node:fs';
 import {isPicksGameLocked,gradePick} from '../picksEngine';
 import {withPicksDeadline} from '../picksRequest';
 import {createPicksMutationQueue} from '../picksMutationQueue';
-import {gamePhase,hasKickoff,initialSlate,parsePicksBoard,scheduleLabel,slateKey,slateLabel,visiblePicksGames} from '../picksBoard';
+import {gamePhase,hasKickoff,initialSlate,parsePicksBoard,picksFeedIsFresh,PICKS_RETRIEVAL_MAX_AGE_MS,scheduleLabel,slateKey,slateLabel,visiblePicksGames} from '../picksBoard';
 import {normalizeNflDataRows,matchPredictionKickoff} from '../server/nflPredictionFeed.js';
 import {createSportsbookHandler} from '../api/nfl-sportsbook';
 
@@ -31,6 +31,12 @@ finishWrite('done');await mutationQueue.whenIdle();assert.equal(expiredSent,fals
 assert.equal(await mutationQueue.run(async()=>7),7,'confirmed completion unblocks the queue');
 
 const now=Date.parse('2026-09-07T20:00:00Z');
+assert.equal(picksFeedIsFresh(null,now),false,'a missing retrieval timestamp cannot authorize a pick change');
+assert.equal(picksFeedIsFresh(new Date(NaN),now),false,'an invalid retrieval timestamp cannot authorize a pick change');
+assert.equal(picksFeedIsFresh(new Date(now-PICKS_RETRIEVAL_MAX_AGE_MS),now),true);
+assert.equal(picksFeedIsFresh(new Date(now-PICKS_RETRIEVAL_MAX_AGE_MS-1),now),false);
+assert.equal(picksFeedIsFresh(new Date(now+60_001),now),false);
+
 const row={game_id:'2026_01_DAL_PHI',season:2026,week:1,game_type:'REG',gameday:'2026-09-10',gametime:null,away_team:'DAL',home_team:'PHI',spread_line:3.5,total_line:44.5};
 const normalized=normalizeNflDataRows([row])[0];
 assert.equal(normalized.kickoffAt,null,'a date-only source cannot invent a kickoff');
