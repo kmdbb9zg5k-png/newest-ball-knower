@@ -1230,7 +1230,7 @@ function coverage(dt){
  if(gameAthlete?.character){
   await meshy.loadPromise;
   if(!meshy.ready)throw new Error('The football athlete rig did not load.');
-  const {loadFieldCharacter}=await import('/assets/bk-field-character.js?v=equipped-athlete-detail-1');
+  const {loadFieldCharacter}=await import('/assets/bk-field-character.js?v=equipped-athlete-detail-2');
   meshy.fieldCharacter=await loadFieldCharacter(r,gameAthlete,name=>{
    const index=meshy.namedNodes['mixamorig:'+name];
    return Number.isInteger(index)?meshy.worldPose(meshy.base,index):undefined;

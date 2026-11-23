@@ -33,7 +33,9 @@ export async function loadFieldCharacter(field: Field, profile: Profile, bindPos
   }
   readPose(bindPose);
   const touch = matchMedia('(pointer: coarse)').matches;
-  const textureLimit = touch ? 1536 : 2048;
+  // Keep the original texture resolution on desktop. Touch devices only
+  // raise the existing mobile cap for the single equipped character.
+  const textureLimit = touch ? 1536 : undefined;
   const rig = await loadPracticeCharacter(character.url, source, character.fitId, textureLimit);
   const body = gameAthleteScale(profile);
   rig.setDimensions(body.width, body.height);
@@ -63,7 +65,7 @@ export async function loadFieldCharacter(field: Field, profile: Profile, bindPos
   });
   for (const texture of textures) texture.anisotropy = anisotropy;
   const presentation = {
-    textureLimit,
+    textureLimit: textureLimit ?? null,
     textureCount: textures.size,
     largestTexture: Math.max(0, ...Array.from(textures, texture =>
       Math.max(texture.image?.width ?? 0, texture.image?.height ?? 0))),
