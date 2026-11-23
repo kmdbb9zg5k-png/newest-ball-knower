@@ -9,8 +9,9 @@ await mkdir(output,{recursive:true});
 const server=await preview({preview:{host:'127.0.0.1',port:4194,strictPort:true}});
 const base='http://127.0.0.1:4194';
 let browser;
+const launchBrowser=()=>chromium.launch({args:['--no-sandbox','--enable-unsafe-swiftshader','--use-angle=swiftshader']});
 try {
-  browser=await chromium.launch({args:['--no-sandbox','--enable-unsafe-swiftshader','--use-angle=swiftshader']});
+  browser=await launchBrowser();
   const demo=await browser.newContext({viewport:{width:844,height:390},hasTouch:true,isMobile:true,serviceWorkers:'block'});
   await demo.route('**/api/**',route=>route.fulfill({json:{available:false,tracks:[]}}));
   let matchedPlay;
@@ -55,6 +56,9 @@ try {
   }
   await demo.close();
   console.log('PASS authored running back, matched normal-camera frames, reference rig, and completed plays');
+  // Release the comparison's SwiftShader contexts before the larger avatar suite.
+  await browser.close();
+  browser=await launchBrowser();
   const context=await browser.newContext({viewport:{width:844,height:390},hasTouch:true,isMobile:true,serviceWorkers:'block'});
   await context.route('**/api/**',route=>route.fulfill({json:{available:false,tracks:[]}}));
   const purchases = [
