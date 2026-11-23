@@ -104,8 +104,8 @@ export default function AccessoriesShop({onNavigate,cartAction}:{cartAction:Stor
         <div className="bk-a-detail-top"><span className="bk-a-detail-rarity" data-rarity={selected.rarity}>{selected.rarity==='legendary' && <Crown size={17} aria-hidden="true"/>}{selected.rarity} </span>
           <h2>{selected.name}</h2><p>Accessory Set</p><div className="bk-a-detail-price"><span className="bk-a-coin">BK</span>{coins(selected.price)}</div>
         </div>
-        <div className={'bk-a-detail-photo'+(selected.id==='gold-standard'?' bk-a-detail-photo-player':'')}>
-          <img key={selected.id} src={selected.id==='gold-standard'?'/store/bk-accessory-gold-player.webp':imageFor(selected.id)} alt={selected.id==='gold-standard'?'Football athlete modeling the Gold Standard accessory set':`${selected.name} full accessory set product artwork`}/>
+        <div className="bk-a-detail-photo">
+          <img key={selected.id} src={imageFor(selected.id)} alt={`${selected.name} full accessory set product artwork`}/>
         </div>
         <p className="bk-a-detail-description">{selected.description}</p>
         <div className="bk-a-includes"><h3>Includes (6 Pieces)</h3><div className="bk-a-includes-grid">
