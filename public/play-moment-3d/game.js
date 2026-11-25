@@ -8,6 +8,9 @@ import {contactFallProgress,updateContactTarget,handoffRunnerPoint,handoffDurati
 import {referenceCameraTravel,referencePocketFrame,referenceCarryFrame} from './reference-camera.js?v=contact-possession-57';
 import {routePoint,pursuitRead,passSetPoint,contactImpact,pocketSpeedFactor,renderDue} from './football-flow.js?v=complete-flow-46';
 import {safeFieldCamera} from './field-awareness.js?v=contact-camera-11';
+import {flightTelemetry,runnerTelemetry} from './tracker.js?v=ball-lookahead-1';
+import {fieldAlignedFrame,newBallCameraRecovery,recoverBallCamera,isBallOccluded} from './camera.js?v=ball-lookahead-1';
+import {createBallTrackingHud} from './ui.js?v=ball-lookahead-1';
 import {createLiveUnits} from './live-units.js?v=game-athlete-1';
 import {fullInitialDrive,fullSession,fullLog,fullRecord,fullOffenseEnd,fullContinue,fullCpuPlay,fullKick,fullCpuResult,fullConversion,fullKickoffResult,fullCpuKickChoice,fullPuntResult} from './five-minute.js?v=football-arena-4';
 import {rosterRatings,rosterIdentity} from './mini-teams.js?v=contact-camera-11';
@@ -490,6 +493,7 @@ export async function start(){
  let mini=fullGame?newFullSession():null;
  function fieldCamera(eye,target){const shot=safeFieldCamera(eye,target);r.camera(shot.eye,shot.target);}
  const r=new Renderer($('game'));
+  const ballHud=createBallTrackingHud($('hud')),ballRecovery=newBallCameraRecovery();
  const controlSettings=installControlSettings($('controlSettings'));
  // Keep the detailed mesh/materials while bounding phone pixel and shadow work.
  if(fullGame&&matchMedia('(pointer: coarse)').matches)r.setQuality('balanced');
@@ -931,6 +935,12 @@ function coverage(dt){
    // Only a tackle, sideline, slide or score ends it; endPlay settles the drive.
   }
  }
+ function stabilizeBallCamera(dt){
+  const ball=phase==='flight'&&!flight?.throwAway?flightTelemetry(flight):null;
+  if(!ball){ballRecovery.lost=0;ballRecovery.fade=0;return;}
+  const projected=r.project(ball.position),blocked=isBallOccluded(camEye,ball.position,actors),view=recoverBallCamera(ballRecovery,{eye:camEye,target:camTarget},ball,projected,{width:r.width,height:r.height},dt,blocked);
+  const safe=fieldAlignedFrame(view);camEye=safe.eye;camTarget=safe.target;
+ }
  function referenceCamera(dt){
   const qb=actors[5],focus=phase==='handoff'?actors[6]:carrier||qb;
   let view;
@@ -944,7 +954,7 @@ function coverage(dt){
   }
   r.fov=Number.isFinite(r.fov)?r.fov+(view.fov-r.fov)*(1-Math.exp(-dt*8)):view.fov;
   const shot=cameraReset?{eye:view.eye,target:view.target}:referenceCameraTravel(camEye,camTarget,view.eye,view.target,dt);cameraReset=false;camEye=shot.eye;camTarget=shot.target;
-  const strength=impactShake*.06;impactShake=Math.max(0,impactShake-dt*3.8);fieldCamera([camEye[0]+Math.sin(simTime*91)*strength,camEye[1],camEye[2]],camTarget);
+  const strength=impactShake*.06;impactShake=Math.max(0,impactShake-dt*3.8);stabilizeBallCamera(dt);fieldCamera([camEye[0]+Math.sin(simTime*91)*strength,camEye[1],camEye[2]],camTarget);
  }
  function camera(dt){if(fullGame)syncGameViewport(r);if(liveUnit?.state){const view=liveUnit.view(),lens=view.fov||55;r.fov=Number.isFinite(r.fov)?r.fov+(lens-r.fov)*(1-Math.exp(-Math.max(0,dt)*8)):lens;const reverse=(camTarget[2]-camEye[2])*(view.target[2]-view.eye[2])<0;const shot=reverse?{eye:[...view.eye],target:[...view.target]}:referenceCameraTravel(camEye,camTarget,view.eye,view.target,dt);camEye=shot.eye;camTarget=shot.target;fieldCamera(camEye,camTarget);return;}if(fullGame){referenceCamera(dt);return;}const lens=r.width/r.height>1.5?(['snap','pass'].includes(phase)?58:50):46;r.fov=Number.isFinite(r.fov)?r.fov+(lens-r.fov)*cameraFollowBlend(dt,5):lens;const isPocket=phase==='pre'||phase==='snap'||phase==='pass'||phase==='handoff'||phase==='flight',isDead=phase==='dead';let x=0,z=snapZ+2,mult=1;
   if(!isPocket&&!isDead){x=carrier.x*.55;z=carrier.z+5;if(flight){const t=clamp(flight.t,0,1);x=(flight.from[0]+(flight.to[0]-flight.from[0])*t)*.55;z=flight.from[2]+(flight.to[2]-flight.from[2])*t+4}}
@@ -1000,7 +1010,7 @@ function coverage(dt){
    const player=phase==='pass'?actors[5]:focus,rects=['stick','moves'].map(id=>$(id).getBoundingClientRect()).filter(b=>b.width>0&&b.width<r.width*.6);
    for(let trial=0;trial<12;trial++){fieldCamera(camEye,camTarget);const head=r.project([player.x,2.1,player.z]),foot=r.project([player.x,0,player.z]);const blocked=rects.some(b=>foot.x+22>b.left&&foot.x-22<b.right&&foot.y>b.top-16&&head.y<b.bottom);if(!blocked)break;camTarget[1]-=.10;}
   }
-  const strength=impactShake*.12;impactShake=Math.max(0,impactShake-dt*3.8);fieldCamera([camEye[0]+Math.sin(simTime*91)*strength,camEye[1]+Math.cos(simTime*73)*strength*.45,camEye[2]],camTarget);
+  const strength=impactShake*.12;impactShake=Math.max(0,impactShake-dt*3.8);stabilizeBallCamera(dt);fieldCamera([camEye[0]+Math.sin(simTime*91)*strength,camEye[1]+Math.cos(simTime*73)*strength*.45,camEye[2]],camTarget);
  }
  function athletePhase(){const u=liveUnit?.state;if(!u)return phase;return u.stage==='end'||u.stage==='contact'?'dead':u.stage==='pre'||u.stage==='kick'?'pre':u.stage==='flight'?'flight':u.stage==='pass'?'pass':u.stage==='handoff'?'handoff':u.stage==='snap'||u.stage==='kick-snap'||u.stage==='punt-snap'?'snap':'run'}
  function scene(dt,now){for(const p of actors){
@@ -1060,6 +1070,8 @@ function coverage(dt){
   if(looseBall){const age=simTime-looseBall.born,t=clamp(age/looseBall.life,0,1);if(t>=1)looseBall=null;else{const fall=Math.sqrt(Math.max(0,(looseBall.y-.16)/7)),bounce=Math.abs(Math.sin(Math.max(0,age-fall)*16))*.24*(1-t),x=looseBall.x+age*.85*looseBall.side,z=looseBall.z+age*.42,y=age<fall?Math.max(.16,looseBall.y-7*age*age):.16+bounce;const tilt=Math.sin(age*14)*.075;r.add('football',mul(segment([x-.17,y-tilt,z-.08],[x+.17,y+tilt,z+.08],.112),ry(age*9)),[1,1,1,1],'',false,.08,5);r.add('plane',pose(x,.06,z,.48,1,.36),[0,0,0,.58],'shadow',true)}}
   r.draw();meshy.draw(actors,renderPhase,now/1000);
   positionPlayerNames();
+  const tracking=renderPhase==='flight'&&!flight?.throwAway?flightTelemetry(flight):renderPhase==='run'?runnerTelemetry(carrier):null;
+  ballHud.draw({telemetry:tracking,project:point=>r.project(point),width:r.width,height:r.height,fade:ballRecovery.fade});
   if(phase==='pass'){
    const header=document.querySelector('header').getBoundingClientRect();
    const projected=receiverIndices.map(i=>{const p=actors[i],head=meshy.handTransforms?.get(i)?.head;const point=head?[...mul(meshy.modelFor(p),head)].slice(12,15):[p.x,2.1,p.z];return{id:i,...r.project(point)}});
