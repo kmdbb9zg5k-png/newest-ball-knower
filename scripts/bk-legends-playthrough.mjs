@@ -2,18 +2,41 @@ import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { chromium } from 'playwright';
-import { CAMPAIGN } from '../bkLegends.ts';
+import {
+  CAMPAIGN, TRAINING, buyPack, claimPack, equip, initialLegends, openStarter,
+  playerOverall, recordClear, revealPack, trainCard,
+} from '../bkLegends.ts';
 
 const base = 'http://127.0.0.1:4335';
-const out = 'artifacts/bk-legends-playthrough';
+const lateStarts = process.env.BK_LEGENDS_LATE_STARTS === '1';
+const out = lateStarts ? 'artifacts/bk-legends-late-starts' : 'artifacts/bk-legends-playthrough';
 await mkdir(out, { recursive: true });
 const preview = spawn(process.execPath, ['node_modules/vite/bin/vite.js', 'preview', '--host', '127.0.0.1', '--port', '4335', '--strictPort'], { stdio: 'inherit' });
 let browser;
 let page;
 let context;
-const report = { rounds: [], errors: [], controls: [], captureWarnings: [] };
-const requestedRounds = Number(process.env.BK_LEGENDS_ROUNDS ?? 3);
-assert.ok(Number.isInteger(requestedRounds) && requestedRounds >= 1 && requestedRounds <= CAMPAIGN.length, 'Invalid campaign round limit');
+const report = { rounds: [], starts: [], errors: [], controls: [], captureWarnings: [] };
+const requestedRounds = lateStarts ? 0 : Number(process.env.BK_LEGENDS_ROUNDS ?? 3);
+assert.ok(lateStarts || (Number.isInteger(requestedRounds) && requestedRounds >= 1 && requestedRounds <= CAMPAIGN.length), 'Invalid campaign round limit');
+
+// A simulated record of earlier wins only. The target challenge is still unplayed.
+function lateCampaignSave(challenge) {
+  let save = openStarter(initialLegends());
+  for (const scenario of [...TRAINING.slice(0, 2), ...CAMPAIGN.slice(0, challenge - 1)]) {
+    const result = { homeScore: 35, awayScore: scenario.awayScore, passYards: 50, rushYards: 50, plays: 12 };
+    save = recordClear(save, scenario, result, save.lineup);
+  }
+  const starter = save.lineup[7];
+  save = revealPack(buyPack(save, 'WR', 'elite'), () => 0.25);
+  const receiver = save.pack?.choices?.find(id => !save.lineup.includes(id));
+  assert.ok(receiver, 'Fixture needs a new receiver');
+  save = equip(claimPack(save, receiver), 7, receiver);
+  save = trainCard(save, save.lineup[5]);
+  assert.equal(save.complete, challenge - 1);
+  assert.notEqual(save.lineup[7], starter);
+  assert.equal(save.owned[save.lineup[5]].level, 1);
+  return save;
+}
 async function capture(name) {
   if (!page) return;
   try {
@@ -33,7 +56,7 @@ try {
     args: ['--enable-unsafe-swiftshader', '--use-angle=swiftshader'] });
   context = await browser.newContext({
     viewport: { width: 844, height: 470 }, hasTouch: true,
-    recordVideo: { dir: out, size: { width: 640, height: 356 } },
+    ...(!lateStarts && { recordVideo: { dir: out, size: { width: 640, height: 356 } } }),
   });
   page = await context.newPage();
   page.on('pageerror', error => report.errors.push(error.message));
@@ -286,6 +309,47 @@ try {
     if (await chapter.getAttribute('aria-expanded') !== 'true') await chapter.click();
     await legends.getByText('Chapter Pack claimed.', { exact: true }).waitFor();
     report.chapterPackClaimed = true;
+  }
+  if (lateStarts) {
+    // Fixed expectations keep a broken scenario definition from rewriting the test's answer.
+    const cases = [
+      { challenge: 61, title: 'Wild Card', score: 11, awayScore: 21, clock: 90, ball: 20, timeouts: 1 },
+      { challenge: 71, title: 'The Final Stretch', score: 8, awayScore: 21, clock: 80, ball: 20, timeouts: 1 },
+      { challenge: 80, title: 'The Legacy Game', score: 7, awayScore: 21, clock: 300, ball: 40, timeouts: 1 },
+    ];
+    const saveKey = await page.evaluate(() => Object.keys(localStorage).find(key => key.startsWith('bk-legends-v1:')));
+    assert.ok(saveKey, 'Starter Pack must create a Legends save');
+    for (const { challenge, title, score, awayScore, clock, ball, timeouts } of cases) {
+      const save = lateCampaignSave(challenge);
+      await page.evaluate(({ key, state }) => localStorage.setItem(key, JSON.stringify(state)), { key: saveKey, state: save });
+      await page.reload();
+      await enterLegends();
+      await legends.getByRole('heading', { name: title, exact: true }).waitFor();
+      const situation = legends.getByLabel('Starting situation', { exact: true });
+      await situation.getByText(`BK Legends ${score}–${awayScore}`, { exact: true }).waitFor();
+      await situation.getByText(String(timeouts), { exact: true }).waitFor();
+      await legends.getByRole('button', { name: 'Play challenge', exact: true }).click();
+      const field = page.frameLocator('iframe[title="BK Legends 3D football field"]');
+      await field.locator('#breakHuddle').waitFor({ timeout: 60_000 });
+      assert.equal(await field.locator('#score').textContent(), String(score), title + ' home scoreboard');
+      assert.equal(await field.locator('.away strong').textContent(), String(awayScore), title + ' away scoreboard');
+      assert.equal(await field.locator('#clock').textContent(), Math.floor(clock / 60) + ':' + String(clock % 60).padStart(2, '0'), title + ' clock display');
+      const actual = await field.locator('body').evaluate(() => {
+        const { drive, mini, players } = window.bk3dDiagnostics();
+        return {
+          score: drive.score, awayScore: mini.awayScore, clock: drive.clock, ball: drive.ball, timeouts: mini.timeouts,
+          starters: players.filter(player => player.team === 0).map(({ playerId, overall }) => ({ playerId, overall })),
+        };
+      });
+      const starters = save.lineup.slice(0, 11).map(playerId => ({ playerId, overall: playerOverall(save, playerId) }));
+      assert.deepEqual(actual, { score, awayScore, clock, ball, timeouts, starters }, title);
+      await legends.getByRole('button', { name: 'Leave challenge', exact: true }).click();
+      const saved = await page.evaluate(key => JSON.parse(localStorage.getItem(key)), saveKey);
+      assert.equal(saved.complete, challenge - 1);
+      assert.equal(saved.coins, save.coins);
+      report.starts.push({ challenge, title, score, awayScore, clock, ball, timeouts, starters });
+      console.log('Verified kickoff:', title);
+    }
   }
   assert.deepEqual(report.errors, []);
   console.log(JSON.stringify(report));
