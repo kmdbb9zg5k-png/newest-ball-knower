@@ -13,7 +13,7 @@ let page;
 let context;
 const report = { rounds: [], errors: [], controls: [], captureWarnings: [] };
 const requestedRounds = Number(process.env.BK_LEGENDS_ROUNDS ?? 3);
-assert.ok(Number.isInteger(requestedRounds) && requestedRounds >= 1 && requestedRounds < CAMPAIGN.length, 'Invalid campaign round limit');
+assert.ok(Number.isInteger(requestedRounds) && requestedRounds >= 1 && requestedRounds <= CAMPAIGN.length, 'Invalid campaign round limit');
 async function capture(name) {
   if (!page) return;
   try {
@@ -241,7 +241,7 @@ try {
     attackEndZone: scenario.goal === 'win' && scenario.id !== 0,
     passTarget: scenario.goal === 'pass' ? scenario.target : 0,
     rushTarget: scenario.goal === 'rush' ? scenario.target : 0,
-    next: CAMPAIGN[index + 1].title,
+    next: CAMPAIGN[index + 1]?.title ?? 'Road to Legend complete',
   }));
   for (const [index, round] of rounds.entries()) {
     await playChallenge(round);
@@ -262,6 +262,10 @@ try {
     await capture('round-' + (index + 1) + '-result');
     await result.getByRole('heading', { name: 'Challenge cleared', exact: true }).waitFor({ timeout: 1500 });
     await result.getByText('+1,000 BK Coins', { exact: true }).waitFor();
+    if ((index + 1) % 10 === 0) {
+      const reward = index + 1 === CAMPAIGN.length ? 'Chapter Pack and Legacy Pack unlocked.' : 'Chapter Pack unlocked.';
+      await result.getByText(reward, { exact: true }).waitFor();
+    }
     await result.getByLabel('Challenge stats', { exact: true }).waitFor();
     await result.getByRole('button', { name: 'Back to BK Legends' }).click();
     await legends.getByText((index + 1) + ' / 80 complete', { exact: true }).waitFor();
@@ -273,10 +277,13 @@ try {
     await legends.getByRole('heading', { name: round.next, exact: true }).waitFor();
   }
   if (requestedRounds >= 10) {
-    await legends.getByRole('button', { name: /Training Camp/ }).click();
-    const chapter = legends.getByRole('heading', { name: 'Chapter Pack', exact: true });
-    await chapter.waitFor();
-    await legends.getByRole('button', { name: 'Claim', exact: true }).first().click();
+    const rewards = legends.getByRole('region', { name: 'Unclaimed chapter packs' });
+    const trainingCamp = rewards.locator('details').filter({ hasText: 'Training Camp Pack' });
+    await trainingCamp.getByText('Training Camp Pack', { exact: true }).click();
+    await trainingCamp.getByRole('button', { name: 'Claim', exact: true }).first().click();
+    await trainingCamp.waitFor({ state: 'hidden' });
+    const chapter = legends.getByRole('button', { name: /Training Camp/ });
+    if (await chapter.getAttribute('aria-expanded') !== 'true') await chapter.click();
     await legends.getByText('Chapter Pack claimed.', { exact: true }).waitFor();
     report.chapterPackClaimed = true;
   }

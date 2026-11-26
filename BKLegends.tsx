@@ -125,6 +125,8 @@ export default function BKLegends({ onBack, owner }: { onBack: () => void; owner
     setSection(next);
   }
   const next = CAMPAIGN[save.complete];
+  const unclaimedChapters = CHAPTERS.map((_, n) => n)
+    .filter(n => save.complete >= (n + 1) * 10 && !save.chapterClaims.includes(n));
   const depthChart = save.starterOpened ? save : starterPreview;
   const selectedStarter = CARD_BY_ID.get(depthChart.lineup[slot])!;
   const currentCard = save.lineup[slot];
@@ -172,6 +174,13 @@ export default function BKLegends({ onBack, owner }: { onBack: () => void; owner
           <strong className="bkl-prize"><Coins aria-hidden="true"/> {format.format(FIRST_CLEAR_COINS)} BK Coins <small>First clear</small></strong>
           <button className="bkl-gold" onClick={() => launch(next)}>Play challenge <ArrowRight aria-hidden="true"/></button>
         </section> : <section className="bkl-panel"><h2><Trophy aria-hidden="true"/> Road to Legend complete</h2>{save.legacyClaimed ? <p>Legacy Pack claimed.</p> : chapterReward(CHAPTERS.length)}</section>}
+        {unclaimedChapters.length > 0 && <section className="bkl-panel bkl-chapter-rewards" aria-labelledby="bkl-chapter-rewards">
+          <h2 id="bkl-chapter-rewards">Unclaimed chapter packs</h2>
+          {unclaimedChapters.map(n => <details key={n}>
+            <summary>{CHAPTERS[n]} Pack</summary>
+            {chapterReward(n)}
+          </details>)}
+        </section>}
         <div className="bkl-heading"><h2>Campaign Map</h2><span>{CHAPTERS.length} chapters</span></div>
         <div className="bkl-map">{CHAPTERS.map((name, n) => {
           const complete = Math.max(0, Math.min(10, save.complete - n * 10)), locked = save.complete < n * 10, expanded = chapter === n && !locked;
@@ -182,7 +191,7 @@ export default function BKLegends({ onBack, owner }: { onBack: () => void; owner
             </button>
             <div id={'bkl-chapter-' + n} hidden={!expanded} className="bkl-chapter-body">
               {expanded && <><ol>{CAMPAIGN.slice(n * 10, n * 10 + 10).map(scenario => <li key={scenario.id}><span>{scenario.title}</span>{scenario.id < save.complete ? <Check aria-label="Complete"/> : scenario.id === save.complete ? <button onClick={() => launch(scenario)}>Play</button> : <Lock aria-label="Locked"/>}</li>)}</ol>
-              {complete === 10 && (save.chapterClaims.includes(n) ? <p>Chapter Pack claimed.</p> : chapterReward(n))}</>}
+              {complete === 10 && <p>{save.chapterClaims.includes(n) ? 'Chapter Pack claimed.' : 'Chapter Pack ready to claim.'}</p>}</>}
             </div>
           </section>;
         })}</div>
@@ -319,6 +328,9 @@ export default function BKLegends({ onBack, owner }: { onBack: () => void; owner
           <div><dt>{attempt.scenario.goal === 'shutout' ? 'Points allowed' : 'Plays'}</dt><dd>{attempt.scenario.goal === 'shutout' ? outcome.result.awayScore - attempt.scenario.awayScore : outcome.result.plays}</dd></div>
         </dl>
         {outcome.persisted ? <strong>{attempt.scenario.id < 0 ? '+100 Training Points' : '+1,000 BK Coins'}</strong> : outcome.passed ? <p>This attempt did not add a reward. Check your campaign progress and device storage.</p> : <p>{goalText(attempt.scenario)}</p>}
+        {outcome.persisted && attempt.scenario.id % 10 === 9 && <p>
+          {attempt.scenario.id === CAMPAIGN.length - 1 ? 'Chapter Pack and Legacy Pack unlocked.' : 'Chapter Pack unlocked.'}
+        </p>}
         {!outcome.passed && <button onClick={() => launch(attempt.scenario)}>Try again</button>}
         <button className="bkl-gold" onClick={() => setAttempt(null)}>Back to BK Legends</button>
       </div> : fieldFailed ? <div className="bkl-field-result"><h2>The field couldn’t load</h2><button className="bkl-gold" onClick={() => launch(attempt.scenario)}>Try again</button></div>
