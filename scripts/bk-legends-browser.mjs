@@ -21,10 +21,8 @@ try {
     });
     await page.goto(base);
     const openLegends = async () => {
-      for (const button of await page.getByRole('button', { name: 'Play', exact: true }).all()) {
-        if (await button.isVisible()) { await button.click(); break; }
-      }
-      await page.getByRole('button', { name: /Build your squad BK Legends/ }).click();
+      await page.getByRole('button', { name: 'Play BK Legends', exact: true }).click();
+      await page.getByTestId('bk-legends').waitFor();
     };
     await openLegends();
     await page.getByRole('button', { name: /Open free Starter Pack/ }).click();
