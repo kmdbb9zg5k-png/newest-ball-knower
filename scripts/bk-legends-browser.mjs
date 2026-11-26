@@ -21,10 +21,8 @@ try {
     });
     await page.goto(base);
     const openLegends = async () => {
-      for (const button of await page.getByRole('button', { name: 'Play', exact: true }).all()) {
-        if (await button.isVisible()) { await button.click(); break; }
-      }
-      await page.getByRole('button', { name: /Build your squad BK Legends/ }).click();
+      await page.getByRole('button', { name: 'Play BK Legends', exact: true }).click();
+      await page.getByTestId('bk-legends').waitFor();
     };
     await openLegends();
     await page.getByRole('button', { name: /Open free Starter Pack/ }).click();
@@ -32,11 +30,11 @@ try {
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
     await page.screenshot({ path: 'artifacts/bk-legends/campaign-' + width + '.png' });
     await page.getByRole('button', { name: 'My Squad', exact: true }).click();
-    await page.getByRole('heading', { name: 'Manage QB' }).waitFor();
+    await page.getByRole('heading', { name: /^QB · / }).waitFor();
     await page.getByRole('button', { name: 'Defense', exact: true }).click();
-    await page.getByRole('heading', { name: 'Manage LB' }).waitFor();
+    await page.getByRole('heading', { name: /^LB3 · / }).waitFor();
     await page.getByRole('button', { name: 'Packs', exact: true }).click();
-    assert.ok(await page.getByRole('button', { name: /Get WR Pack/ }).isDisabled());
+    assert.ok(await page.getByRole('button', { name: 'Buy Good WR Pack', exact: true }).isDisabled());
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
 
     if (width === 390) {
@@ -74,10 +72,30 @@ try {
       await page.getByText('1 / 80 complete', { exact: true }).waitFor();
       await page.getByRole('heading', { name: 'Find Your Receiver', exact: true }).waitFor();
     }
+    await page.setViewportSize({ width, height: 844 });
+    await page.evaluate(() => {
+      const key = Object.keys(localStorage).find(item => item.startsWith('bk-legends-v1:'));
+      const save = JSON.parse(localStorage.getItem(key));
+      localStorage.setItem(key, JSON.stringify({ ...save, complete: 10, coins: 10000 }));
+    });
+    await page.reload();
+    await openLegends();
+    await page.getByRole('heading', { name: 'First and Ten', exact: true }).waitFor();
+    const rewards = page.getByRole('region', { name: 'Unclaimed chapter packs' });
+    await rewards.getByText('Training Camp Pack', { exact: true }).click();
+    assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
+    await rewards.getByRole('button', { name: 'Claim', exact: true }).first().click();
+    await rewards.waitFor({ state: 'hidden' });
+    await page.reload();
+    await openLegends();
+    await page.getByRole('heading', { name: 'First and Ten', exact: true }).waitFor();
+    assert.equal(await rewards.count(), 0);
+    await page.getByRole('button', { name: /Training Camp/ }).click();
+    await page.getByText('Chapter Pack claimed.', { exact: true }).waitFor();
     assert.deepEqual(errors, []);
     await page.close();
   }
-  console.log('BK Legends browser: 320px, 390px and 1280px; starter, roster, pack eligibility, real field snap, result delivery, duplicate rejection, and reload.');
+  console.log('BK Legends browser: 320px, 390px and 1280px; starter, roster, packs, real field snap, result delivery, and saved chapter rewards.');
 } finally {
   await browser.close();
 }
