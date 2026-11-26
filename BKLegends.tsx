@@ -171,6 +171,10 @@ export default function BKLegends({ onBack, owner }: { onBack: () => void; owner
         {next ? <section className="bkl-panel bkl-next">
           <p className="bkl-kicker">Next challenge</p><h2>{next.title}</h2>
           <p>{goalText(next)}</p><p className="bkl-muted">{next.defending ? 'Defense' : 'Offense'} · {opponentName(next)} · {next.clock}s · {next.defending ? 'Opponent at your ' + (100 - next.ball) : (next.ball >= 50 ? 'Opponent ' + (100 - next.ball) : 'Own ' + next.ball)} yard line</p>
+          <dl className="bkl-starting-situation" aria-label="Starting situation">
+            <div><dt>Starting score</dt><dd>BK Legends {next.score}–{next.awayScore}</dd></div>
+            <div><dt>Your timeouts</dt><dd>{next.timeouts}</dd></div>
+          </dl>
           <strong className="bkl-prize"><Coins aria-hidden="true"/> {format.format(FIRST_CLEAR_COINS)} BK Coins <small>First clear</small></strong>
           <button className="bkl-gold" onClick={() => launch(next)}>Play challenge <ArrowRight aria-hidden="true"/></button>
         </section> : <section className="bkl-panel"><h2><Trophy aria-hidden="true"/> Road to Legend complete</h2>{save.legacyClaimed ? <p>Legacy Pack claimed.</p> : chapterReward(CHAPTERS.length)}</section>}
