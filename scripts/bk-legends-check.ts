@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict';
 import {
-  CAMPAIGN, CARD_BY_ID, CHAPTERS, FIRST_CLEAR_COINS, PACK_POSITIONS, POSITIONS, TRAINING, boostPack, buyPack, chapterChoices, claimChapter,
+  CAMPAIGN, CARD_BY_ID, CHAPTERS, FIRST_CLEAR_COINS, GHOST_SCENARIO, PACK_POSITIONS, POSITIONS, TRAINING, boostPack, buyPack, chapterChoices, claimChapter,
   claimPack, cleared, duplicates, equip, exchangeCard, exchangeCardId, gameSquad, initialLegends, isLegendsResult, openStarter,
-  packOptionCount, packTier, playerOverall, recordClear, revealPack, trainCard, trainingCost,
+  ghostTraitWins, loadLegends, packOptionCount, packTier, playerOverall, recordClear, revealPack, trainCard, trainingCost, type LegendsResult,
 } from '../bkLegends';
-import { readLegendsField, setLegendsStart } from '../public/play-moment-3d/legends-field.js';
+import { finishLegendsGhost, readLegendsField, setLegendsStart } from '../public/play-moment-3d/legends-field.js';
 import { fullSession } from '../public/play-moment-3d/five-minute.js';
 
 let state = openStarter(initialLegends());
@@ -21,6 +21,37 @@ assert.equal(starterSquad.lineup[5].attributes.passing, qbCard.attributes.passin
 assert.equal(playerOverall(trainCard({ ...state, training: 200 }, starterQB), starterQB), 84);
 const earnedQB = claimPack({ ...state, pack: { position: 'QB', premium: true, choices: [starterQB] } }, starterQB);
 assert.equal(playerOverall(earnedQB, starterQB), qbCard.overall);
+
+const receiver = state.lineup[7];
+const ghostResult: LegendsResult = {
+  homeScore: 23, awayScore: 21, passYards: 25, rushYards: 0, plays: 1,
+  ghost: { drive: { elapsedMs: 5294, plays: 1, steps: [{ reason: 'TOUCHDOWN', gain: 25, elapsedMs: 5294 }] },
+    receivers: [{ id: receiver, yards: 25 }, { id: state.lineup[8], yards: 0 }] },
+};
+const firstGhost = recordClear(state, GHOST_SCENARIO, ghostResult, state.lineup);
+assert.equal(firstGhost.ghostBest?.elapsedMs, 5294);
+assert.equal(ghostTraitWins(firstGhost, receiver), 1);
+assert.equal(ghostTraitWins(firstGhost, state.lineup[8]), 0);
+assert.equal(recordClear(firstGhost, GHOST_SCENARIO, { ...ghostResult, homeScore: 17 }, state.lineup), firstGhost);
+assert.equal(recordClear(firstGhost, GHOST_SCENARIO, { ...ghostResult, ghost: undefined }, state.lineup), firstGhost);
+const restoredGhost = loadLegends({ getItem: () => JSON.stringify(firstGhost) }, 'legends');
+const winAgain = recordClear(restoredGhost, GHOST_SCENARIO, ghostResult, state.lineup);
+assert.deepEqual(winAgain.ghostBest, firstGhost.ghostBest);
+assert.equal(ghostTraitWins(winAgain, receiver), 2);
+assert.equal(gameSquad(winAgain).lineup[7].attributes.receiving, Math.min(97, starterSquad.lineup[7].attributes.receiving + 3));
+assert.deepEqual([winAgain.coins, winAgain.training, winAgain.complete], [0, 0, 0]);
+assert.equal(recordClear(winAgain, GHOST_SCENARIO, ghostResult, state.lineup), winAgain);
+const faster = { ...ghostResult, ghost: {
+  ...ghostResult.ghost!, drive: { elapsedMs: 4000, plays: 1, steps: [{ reason: 'TOUCHDOWN', gain: 25, elapsedMs: 4000 }] },
+} };
+assert.equal(recordClear(winAgain, GHOST_SCENARIO, faster, state.lineup).ghostBest?.elapsedMs, 4000);
+assert.equal(isLegendsResult({ ...faster, ghost: { ...faster.ghost, drive: { ...faster.ghost.drive, elapsedMs: 3900 } } }), false);
+const sessionGhost = fullSession('five-minute', true);
+setLegendsStart(sessionGhost, GHOST_SCENARIO);
+finishLegendsGhost(sessionGhost, { score: 23, clock: 49.706 });
+assert.equal(sessionGhost.result?.won, true);
+assert.equal(sessionGhost.conversion, null);
+assert.equal(sessionGhost.kickoff, null);
 
 assert.equal(CAMPAIGN.length, 80);
 const openingChallenges = CHAPTERS.map((_, index) => CAMPAIGN[index * 10]);

@@ -70,8 +70,15 @@ export const TRAINING: Scenario[] = [
   { ...CAMPAIGN[2], id: -2, title: 'Rushing Session', target: 20 },
   { ...CAMPAIGN[30], id: -3, title: 'Goal Line Practice' },
 ];
+export const GHOST_SCENARIO: Scenario = {
+  ...CAMPAIGN[10], id: -4, title: 'The Winning Drive', score: 17, ball: 75, clock: 55, timeouts: 1,
+};
+export const GHOST_TRAIT_WINS = 2;
+export const GHOST_TRAIT_YARDS = 10;
+export const GHOST_TRAIT_BONUS = 3;
 
 export function goalText(scenario: Scenario) {
+  if (scenario.id === GHOST_SCENARIO.id) return 'Score the winning touchdown on this drive.';
   if (scenario.goal === 'shutout') return 'Protect your lead without giving up any points.';
   if (scenario.goal === 'pass' || scenario.goal === 'rush') return `Win with at least ${scenario.target} ${scenario.goal === 'pass' ? 'passing' : 'rushing'} yards.`;
   return 'Finish ahead when the clock runs out.';
@@ -80,30 +87,47 @@ export function opponentName(scenario: Scenario) {
   return MINI_TEAMS.find(team => team.abbr === scenario.opponent)?.name ?? 'BK Rivals';
 }
 
-type OwnedCard = { copies: number; level: number; clears: number; starter?: boolean };
+type OwnedCard = { copies: number; level: number; clears: number; starter?: boolean; ghostWins?: number };
 type Pack = { position: Position; premium: boolean; tier?: PackTier; choices?: string[] };
 export type LegendsState = {
   version: 1; coins: number; training: number; complete: number;
   owned: Record<string, OwnedCard>; lineup: string[]; chapterClaims: number[];
-  starterOpened: boolean; legacyClaimed: boolean; pack?: Pack;
+  starterOpened: boolean; legacyClaimed: boolean; pack?: Pack; ghostBest?: GhostDrive;
 };
-export type LegendsResult = { homeScore: number; awayScore: number; passYards: number; rushYards: number; plays: number };
+type GhostDrive = { elapsedMs: number; plays: number; steps: { reason: string; gain: number | null; elapsedMs: number }[] };
+type GhostResult = { drive: GhostDrive; receivers: { id: string; yards: number }[] };
+export type LegendsResult = { homeScore: number; awayScore: number; passYards: number; rushYards: number; plays: number; ghost?: GhostResult };
+
+function validGhostDrive(drive: GhostDrive | undefined): drive is GhostDrive {
+  const validTime = (ms: number) => Number.isSafeInteger(ms) && ms >= 0 && ms <= GHOST_SCENARIO.clock * 1000;
+  return Boolean(drive && validTime(drive.elapsedMs) && Number.isSafeInteger(drive.plays) && drive.plays > 0 &&
+    Array.isArray(drive.steps) && drive.steps.length > 0 && drive.steps.length <= 24 &&
+    drive.steps.every(step => step && typeof step.reason === 'string' && step.reason.length <= 140 &&
+      (step.gain === null || Number.isSafeInteger(step.gain)) && validTime(step.elapsedMs) && step.elapsedMs <= drive.elapsedMs));
+}
+
 export function isLegendsResult(value: unknown): value is LegendsResult {
   if (!value || typeof value !== 'object') return false;
   const result = value as Partial<LegendsResult>;
   return [result.homeScore, result.awayScore, result.passYards, result.rushYards, result.plays].every(Number.isSafeInteger)
-    && result.homeScore! >= 0 && result.awayScore! >= 0 && result.plays! >= 0;
+    && result.homeScore! >= 0 && result.awayScore! >= 0 && result.plays! >= 0 &&
+    (result.ghost === undefined || Boolean(result.ghost && validGhostDrive(result.ghost.drive) &&
+      result.ghost.drive.plays === result.plays && Array.isArray(result.ghost.receivers) && result.ghost.receivers.length <= 3 &&
+      result.ghost.receivers.every(receiver => receiver && typeof receiver.id === 'string' && Number.isSafeInteger(receiver.yards))));
 }
 export const initialLegends = (): LegendsState => ({
   version: 1, coins: 0, training: 0, complete: 0, owned: {}, lineup: [], chapterClaims: [], starterOpened: false, legacyClaimed: false,
 });
-export function loadLegends(storage: Storage, key: string): LegendsState {
+export function loadLegends(storage: Pick<Storage, 'getItem'>, key: string): LegendsState {
   try {
     const state: LegendsState = JSON.parse(storage.getItem(key) ?? 'null');
     if (state?.version === 1 && Number.isInteger(state.complete) && state.complete >= 0 && state.complete <= CAMPAIGN.length &&
       Number.isSafeInteger(state.coins) && state.coins >= 0 && Number.isSafeInteger(state.training) && state.training >= 0 &&
       state.owned && Array.isArray(state.chapterClaims) && Array.isArray(state.lineup) &&
-      (state.starterOpened ? state.lineup.length === POSITIONS.length && state.lineup.every((id, index) => state.owned[id] && CARD_BY_ID.get(id)?.position === POSITIONS[index]) : state.lineup.length === 0)) return state;
+      (state.starterOpened ? state.lineup.length === POSITIONS.length && state.lineup.every((id, index) => state.owned[id] && CARD_BY_ID.get(id)?.position === POSITIONS[index]) : state.lineup.length === 0)) {
+      if (state.ghostBest && !validGhostDrive(state.ghostBest)) delete state.ghostBest;
+      return state;
+    }
   } catch { /* A missing or unreadable save starts a new squad. */ }
   return initialLegends();
 }
@@ -139,6 +163,9 @@ export function gameSquad(state: LegendsState) {
     const boost = playerOverall(state, id) - card.overall;
     const attributes = Object.fromEntries(Object.entries(card.attributes).filter((entry): entry is [string, number] => typeof entry[1] === 'number')
       .map(([key, rating]) => [key, Math.min(97, rating + boost)]));
+    if (ghostTraitWins(state, id) === GHOST_TRAIT_WINS && typeof attributes.receiving === 'number') {
+      attributes.receiving = Math.min(97, attributes.receiving + GHOST_TRAIT_BONUS);
+    }
     return { id: card.id, name: card.name, lastName: card.lastName, number: card.number,
       overall: playerOverall(state, id), attributes, ...('speed' in card && typeof card.speed === 'number' ? { speed: Math.min(97, card.speed + boost) } : {}) };
   });
@@ -155,6 +182,7 @@ export function cleared(scenario: Scenario, result: LegendsResult) {
   return true;
 }
 export function recordClear(state: LegendsState, scenario: Scenario, result: LegendsResult, playedLineup: readonly string[]) {
+  if (scenario.id === GHOST_SCENARIO.id) return recordGhostClear(state, result, playedLineup);
   if (!state.starterOpened || !cleared(scenario, result) || (scenario.id >= 0 && scenario.id !== state.complete)) return state;
   const owned = { ...state.owned };
   for (const id of new Set(playedLineup)) {
@@ -163,6 +191,31 @@ export function recordClear(state: LegendsState, scenario: Scenario, result: Leg
   return scenario.id >= 0
     ? { ...state, complete: state.complete + 1, coins: state.coins + FIRST_CLEAR_COINS, owned }
     : { ...state, training: state.training + 100, owned };
+}
+export function ghostTraitWins(state: LegendsState, id: string) {
+  const wins = state.owned[id]?.ghostWins;
+  return CARD_BY_ID.get(id)?.position === 'WR' && Number.isSafeInteger(wins) ? Math.max(0, Math.min(GHOST_TRAIT_WINS, wins!)) : 0;
+}
+
+export function beatsGhost(drive: GhostDrive, best?: GhostDrive) {
+  return !best || drive.elapsedMs < best.elapsedMs || (drive.elapsedMs === best.elapsedMs && drive.plays < best.plays);
+}
+
+function recordGhostClear(state: LegendsState, result: LegendsResult, playedLineup: readonly string[]) {
+  if (!state.starterOpened || !cleared(GHOST_SCENARIO, result) || !result.ghost ||
+      result.homeScore !== GHOST_SCENARIO.score + 6 || result.awayScore !== GHOST_SCENARIO.awayScore) return state;
+  const { drive, receivers } = result.ghost;
+  const ghostBest = beatsGhost(drive, state.ghostBest) ? drive : state.ghostBest;
+  const owned = { ...state.owned };
+  let hasProgress = false;
+  for (const id of new Set(playedLineup.slice(7, 10))) {
+    const wins = ghostTraitWins(state, id);
+    if (!owned[id] || CARD_BY_ID.get(id)?.position !== 'WR' || wins >= GHOST_TRAIT_WINS ||
+        !receivers.some(receiver => receiver.id === id && receiver.yards >= GHOST_TRAIT_YARDS)) continue;
+    owned[id] = { ...owned[id], ghostWins: wins + 1 };
+    hasProgress = true;
+  }
+  return hasProgress || ghostBest !== state.ghostBest ? { ...state, ghostBest, owned } : state;
 }
 export function trainingCost(state: LegendsState, id: string) {
   const owned = state.owned[id];
