@@ -29,6 +29,11 @@
 .bkl-starting-situation{display:flex;flex-wrap:wrap;gap:8px 24px;margin:0}
 .bkl-starting-situation dt{color:var(--bkl-muted);font-size:.78rem}
 .bkl-starting-situation dd{margin:2px 0 0;font-weight:700}
+.bkl .bkl-ghost{border-color:#95743b}
+.bkl-ghost-summary summary{min-height:44px;padding:10px 0;color:var(--bkl-gold);cursor:pointer}
+.bkl-ghost-summary ol{display:grid;gap:6px;margin:0;padding-inline-start:24px}
+.bkl-ghost-summary li time{margin-inline-start:10px;color:var(--bkl-muted);font-variant-numeric:tabular-nums}
+.bkl-ghost-trait{padding:10px 12px;border:1px solid var(--bkl-border);border-radius:8px;color:var(--bkl-gold)}
 .bkl-next h2{font-style:italic}
 .bkl-next .bkl-gold{width:100%}
 .bkl-prize small{color:var(--bkl-muted);font-weight:500}

@@ -1,8 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, ArrowRight, Check, ChevronDown, Coins, Dumbbell, Gift, Lock, Shield, Trophy, X } from 'lucide-react';
 import {
-  CAMPAIGN, CARD_BY_ID, CHAPTERS, FIRST_CLEAR_COINS, PACK_POSITIONS, PACK_TIERS, PACK_TIER_IDS, POSITIONS, PREMIUM_PRICE, TRAINING,
-  boostPack, buyPack, chapterChoices, claimChapter, claimPack, cleared, duplicates, equip, exchangeCard, exchangeCardId,
+  CAMPAIGN, CARD_BY_ID, CHAPTERS, FIRST_CLEAR_COINS, GHOST_SCENARIO, GHOST_TRAIT_BONUS, GHOST_TRAIT_WINS, GHOST_TRAIT_YARDS,
+  PACK_POSITIONS, PACK_TIERS, PACK_TIER_IDS, POSITIONS, PREMIUM_PRICE, TRAINING,
+  boostPack, buyPack, chapterChoices, claimChapter, claimPack, cleared, duplicates, equip, exchangeCard, exchangeCardId, ghostTraitWins,
   gameSquad, goalText, initialLegends, isLegendsResult, loadLegends, openStarter, opponentName, packOptionCount, packTier, playerOverall, recordClear,
   revealPack, squadOverall, trainCard, trainingCost, type LegendsResult, type LegendsState, type PackTier, type Position, type Scenario,
 } from './bkLegends';
@@ -10,6 +11,7 @@ import './bkLegends.css';
 
 const format = new Intl.NumberFormat('en-US');
 const usd = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
+const driveTime = (ms: number) => (ms / 1000).toFixed(3) + 's';
 const sections = ['Campaign', 'My Squad', 'Packs', 'Training', 'Exchange'] as const;
 const groups = ['Offense', 'Defense', 'Special teams'] as const;
 const starterPreview = openStarter(initialLegends());
@@ -31,7 +33,7 @@ function DepthPortrait({ id }: { id: string }) {
     backgroundPosition: (frame % 4 * 100 / 3) + '% ' + (Math.floor(frame / 4) * 50) + '%',
   }}/>;
 }
-type Attempt = { token: string; scenario: Scenario; lineup: string[] };
+type Attempt = { token: string; scenario: Scenario; lineup: string[]; ghostTargetMs?: number };
 const attemptKey = (token: string) => 'bk-legends-attempt:' + token;
 const fieldUrl = (attempt: Attempt) => '/play-moment-3d-preview.html?' + new URLSearchParams({ bkLegends: attempt.token });
 
@@ -50,7 +52,9 @@ export default function BKLegends({ onBack, owner }: { onBack: () => void; owner
   const [payment, setPayment] = useState<'coins' | 'usd'>('coins');
   const [notice, setNotice] = useState('');
   const [attempt, setAttempt] = useState<Attempt | null>(null);
-  const [outcome, setOutcome] = useState<{ result: LegendsResult; passed: boolean; persisted: boolean } | null>(null);
+  const [outcome, setOutcome] = useState<{
+    result: LegendsResult; passed: boolean; persisted: boolean; newBest?: boolean; receiverProgress?: { id: string; wins: number }[];
+  } | null>(null);
   const [fieldFailed, setFieldFailed] = useState(false);
   const field = useRef<HTMLIFrameElement>(null);
   const dialog = useRef<HTMLDialogElement>(null);
@@ -92,8 +96,19 @@ export default function BKLegends({ onBack, owner }: { onBack: () => void; owner
       gotResult.current = true;
       const result: LegendsResult = event.data.result;
       const passed = cleared(attempt!.scenario, result);
-      const persisted = passed && change(state => recordClear(state, attempt!.scenario, result, attempt!.lineup));
-      setOutcome({ result, passed, persisted });
+      const ghost = attempt!.scenario.id === GHOST_SCENARIO.id;
+      let newBest = false;
+      let receiverProgress: { id: string; wins: number }[] = [];
+      const persisted = passed && change(state => {
+        const next = recordClear(state, attempt!.scenario, result, attempt!.lineup);
+        if (ghost) {
+          newBest = next.ghostBest !== state.ghostBest;
+          receiverProgress = attempt!.lineup.slice(7, 10).map(id => ({ id, wins: ghostTraitWins(next, id) }))
+            .filter(({ id, wins }) => wins > ghostTraitWins(state, id));
+        }
+        return next;
+      });
+      setOutcome({ result, passed, persisted, newBest: persisted && newBest, receiverProgress: persisted ? receiverProgress : [] });
       if (persisted && attempt!.scenario.id >= 0) setChapter(Math.min(7, Math.floor(saveRef.current.complete / 10)));
     }
     window.addEventListener('message', finish);
@@ -111,11 +126,11 @@ export default function BKLegends({ onBack, owner }: { onBack: () => void; owner
     if (!state.starterOpened || (scenario.id >= 0 && scenario.id !== state.complete)) return;
     try {
       const token = crypto.randomUUID();
-      sessionStorage.setItem(attemptKey(token), JSON.stringify({ scenario, squad: gameSquad(state) }));
+      sessionStorage.setItem(attemptKey(token), JSON.stringify({ scenario, squad: gameSquad(state), ghost: scenario.id === GHOST_SCENARIO.id }));
       gotResult.current = false;
       setFieldFailed(false);
       setOutcome(null);
-      setAttempt({ token, scenario, lineup: [...state.lineup] });
+      setAttempt({ token, scenario, lineup: [...state.lineup], ghostTargetMs: state.ghostBest?.elapsedMs });
     } catch {
       setNotice('The field could not start. Check that browser storage is available.');
     }
@@ -131,6 +146,8 @@ export default function BKLegends({ onBack, owner }: { onBack: () => void; owner
   const selectedStarter = CARD_BY_ID.get(depthChart.lineup[slot])!;
   const currentCard = save.lineup[slot];
   const owned = save.owned[currentCard];
+  const receiverWins = ghostTraitWins(save, currentCard);
+  const ghostAttempt = attempt?.scenario.id === GHOST_SCENARIO.id;
   const cost = currentCard ? trainingCost(save, currentCard) : null;
   const candidateIds = Object.keys(save.owned).filter(id => CARD_BY_ID.get(id)?.position === POSITIONS[slot])
     .sort((a, b) => playerOverall(save, b) - playerOverall(save, a) || a.localeCompare(b));
@@ -178,6 +195,15 @@ export default function BKLegends({ onBack, owner }: { onBack: () => void; owner
           <strong className="bkl-prize"><Coins aria-hidden="true"/> {format.format(FIRST_CLEAR_COINS)} BK Coins <small>First clear</small></strong>
           <button className="bkl-gold" onClick={() => launch(next)}>Play challenge <ArrowRight aria-hidden="true"/></button>
         </section> : <section className="bkl-panel"><h2><Trophy aria-hidden="true"/> Road to Legend complete</h2>{save.legacyClaimed ? <p>Legacy Pack claimed.</p> : chapterReward(CHAPTERS.length)}</section>}
+        <section className="bkl-panel bkl-ghost" aria-labelledby="bkl-ghost-heading">
+          <h2 id="bkl-ghost-heading">Ghost Drive</h2>
+          <p>Down 21–17 with 55 seconds left. Start at the opponent’s 25 and score on one drive.</p>
+          {save.ghostBest && <GhostDriveSummary drive={save.ghostBest}/>}
+          <button className="bkl-gold" type="button" onClick={() => launch(GHOST_SCENARIO)}>
+            {save.ghostBest ? 'Beat your best' : 'Play The Winning Drive'} <ArrowRight aria-hidden="true"/>
+          </button>
+          <p>Earn Clutch Receiver with {GHOST_TRAIT_YARDS}+ receiving yards in {GHOST_TRAIT_WINS} Ghost Drive wins with the same receiver.</p>
+        </section>
         {unclaimedChapters.length > 0 && <section className="bkl-panel bkl-chapter-rewards" aria-labelledby="bkl-chapter-rewards">
           <h2 id="bkl-chapter-rewards">Unclaimed chapter packs</h2>
           {unclaimedChapters.map(n => <details key={n}>
@@ -226,6 +252,11 @@ export default function BKLegends({ onBack, owner }: { onBack: () => void; owner
           <div><h2>{depthLabels[slot]} · {selectedStarter.name}</h2><p>{save.starterOpened ? 'Starter' : 'Projected starter'} · #{selectedStarter.number}</p></div>
           <strong>{playerOverall(depthChart, selectedStarter.id)} <small>OVR</small></strong>
         </div>
+        {owned && selectedStarter.position === 'WR' && <p className="bkl-ghost-trait">
+          <strong>Clutch Receiver</strong> · {receiverWins === GHOST_TRAIT_WINS
+            ? `+${GHOST_TRAIT_BONUS} catching in BK Legends, up to 97`
+            : `${receiverWins}/${GHOST_TRAIT_WINS} qualifying Ghost Drive wins`}
+        </p>}
         {!save.starterOpened && <button className="bkl-gold" onClick={() => change(openStarter, 'Your starting lineup is ready.')}>Open free Starter Pack <ArrowRight aria-hidden="true"/></button>}
         {owned && <div className="bkl-upgrade">
           <strong>{CARD_BY_ID.get(currentCard)?.name} · Level {owned.level + 1}</strong>
@@ -322,7 +353,9 @@ export default function BKLegends({ onBack, owner }: { onBack: () => void; owner
     </>}
     <p className="bkl-save-note">BK Legends progress and campaign coins are saved on this device.</p>
     {attempt && <dialog ref={dialog} className="bkl-field" aria-label={attempt.scenario.title} onCancel={event => { event.preventDefault(); setAttempt(null); }}>
-      <header><span><strong>{attempt.scenario.title}</strong><small>{goalText(attempt.scenario)}</small></span>
+      <header><span><strong>{attempt.scenario.title}</strong><small>{ghostAttempt && save.ghostBest && !outcome
+        ? `Best to beat · ${driveTime(save.ghostBest.elapsedMs)} · ${save.ghostBest.plays} plays`
+        : goalText(attempt.scenario)}</small></span>
         <button aria-label="Leave challenge" onClick={() => setAttempt(null)}><X aria-hidden="true"/></button></header>
       {outcome ? <div className="bkl-field-result"><h2>{outcome.passed ? 'Challenge cleared' : 'Objective incomplete'}</h2>
         <p>Final score · BK Legends {outcome.result.homeScore}–{outcome.result.awayScore} {opponentName(attempt.scenario)}</p>
@@ -331,16 +364,31 @@ export default function BKLegends({ onBack, owner }: { onBack: () => void; owner
           <div><dt>Rushing yards</dt><dd>{outcome.result.rushYards}{attempt.scenario.goal === 'rush' ? ` / ${attempt.scenario.target}` : ''}</dd></div>
           <div><dt>{attempt.scenario.goal === 'shutout' ? 'Points allowed' : 'Plays'}</dt><dd>{attempt.scenario.goal === 'shutout' ? outcome.result.awayScore - attempt.scenario.awayScore : outcome.result.plays}</dd></div>
         </dl>
-        {outcome.persisted ? <strong>{attempt.scenario.id < 0 ? '+100 Training Points' : '+1,000 BK Coins'}</strong> : outcome.passed ? <p>This attempt did not add a reward. Check your campaign progress and device storage.</p> : <p>{goalText(attempt.scenario)}</p>}
+        {ghostAttempt ? <>
+          {outcome.result.ghost && <p>{outcome.newBest ? 'New personal best' : 'Drive time'} · {driveTime(outcome.result.ghost.drive.elapsedMs)}
+            {attempt.ghostTargetMs !== undefined && ` · Target ${driveTime(attempt.ghostTargetMs)}`}</p>}
+          {outcome.receiverProgress?.map(({ id, wins }) => <strong key={id}>{CARD_BY_ID.get(id)?.name}
+            {wins === GHOST_TRAIT_WINS ? ' earned Clutch Receiver.' : ` · Clutch Receiver ${wins}/${GHOST_TRAIT_WINS}`}</strong>)}
+          {!outcome.passed && <p>{goalText(attempt.scenario)}</p>}
+        </> : outcome.persisted ? <strong>{attempt.scenario.id < 0 ? '+100 Training Points' : '+1,000 BK Coins'}</strong> : outcome.passed ? <p>This attempt did not add a reward. Check your campaign progress and device storage.</p> : <p>{goalText(attempt.scenario)}</p>}
         {outcome.persisted && attempt.scenario.id % 10 === 9 && <p>
           {attempt.scenario.id === CAMPAIGN.length - 1 ? 'Chapter Pack and Legacy Pack unlocked.' : 'Chapter Pack unlocked.'}
         </p>}
-        {!outcome.passed && <button onClick={() => launch(attempt.scenario)}>Try again</button>}
+        {(ghostAttempt || !outcome.passed) && <button onClick={() => launch(attempt.scenario)}>{ghostAttempt && outcome.passed ? 'Play again' : 'Try again'}</button>}
         <button className="bkl-gold" onClick={() => setAttempt(null)}>Back to BK Legends</button>
       </div> : fieldFailed ? <div className="bkl-field-result"><h2>The field couldn’t load</h2><button className="bkl-gold" onClick={() => launch(attempt.scenario)}>Try again</button></div>
         : <iframe key={attempt.token} ref={field} title="BK Legends 3D football field" src={fieldUrl(attempt)} allow="fullscreen; autoplay"/>}
     </dialog>}
   </div>;
+}
+
+function GhostDriveSummary({ drive }: { drive: NonNullable<LegendsState['ghostBest']> }) {
+  return <details className="bkl-ghost-summary">
+    <summary>Personal best · {driveTime(drive.elapsedMs)} · {drive.plays} {drive.plays === 1 ? 'play' : 'plays'}</summary>
+    <ol>{drive.steps.map((step, index) => <li key={index}>
+      <span>{step.reason}{step.gain !== null && ` · ${step.gain} yd`}</span><time dateTime={`PT${step.elapsedMs / 1000}S`}>{driveTime(step.elapsedMs)}</time>
+    </li>)}</ol>
+  </details>;
 }
 
 function PositionPicker({ position, onChange }: { position: Position; onChange: (value: Position) => void }) {

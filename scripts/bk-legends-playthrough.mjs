@@ -3,21 +3,22 @@ import { spawn } from 'node:child_process';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { chromium } from 'playwright';
 import {
-  CAMPAIGN, TRAINING, buyPack, claimPack, equip, initialLegends, openStarter,
+  CAMPAIGN, GHOST_SCENARIO, TRAINING, buyPack, claimPack, equip, initialLegends, openStarter,
   playerOverall, recordClear, revealPack, trainCard,
 } from '../bkLegends.ts';
 
 const base = 'http://127.0.0.1:4335';
 const lateStarts = process.env.BK_LEGENDS_LATE_STARTS === '1';
-const out = lateStarts ? 'artifacts/bk-legends-late-starts' : 'artifacts/bk-legends-playthrough';
+const ghostDrive = process.env.BK_LEGENDS_GHOST === '1';
+const out = lateStarts ? 'artifacts/bk-legends-late-starts' : ghostDrive ? 'artifacts/bk-legends-ghost' : 'artifacts/bk-legends-playthrough';
 await mkdir(out, { recursive: true });
 const preview = spawn(process.execPath, ['node_modules/vite/bin/vite.js', 'preview', '--host', '127.0.0.1', '--port', '4335', '--strictPort'], { stdio: 'inherit' });
 let browser;
 let page;
 let context;
 const report = { rounds: [], starts: [], errors: [], controls: [], captureWarnings: [] };
-const requestedRounds = lateStarts ? 0 : Number(process.env.BK_LEGENDS_ROUNDS ?? 3);
-assert.ok(lateStarts || (Number.isInteger(requestedRounds) && requestedRounds >= 1 && requestedRounds <= CAMPAIGN.length), 'Invalid campaign round limit');
+const requestedRounds = lateStarts || ghostDrive ? 0 : Number(process.env.BK_LEGENDS_ROUNDS ?? 3);
+assert.ok(lateStarts || ghostDrive || (Number.isInteger(requestedRounds) && requestedRounds >= 1 && requestedRounds <= CAMPAIGN.length), 'Invalid campaign round limit');
 
 // A simulated record of earlier wins only. The target challenge is still unplayed.
 function lateCampaignSave(challenge) {
@@ -139,7 +140,8 @@ try {
   async function playChallenge({ title, ball, clock, attackEndZone, passTarget = 0, rushTarget = 0 }, retry = false) {
     console.log('Starting', title);
     const slug = title.toLowerCase().replaceAll(/[^a-z]+/g, '-');
-    await legends.getByRole('button', { name: 'Play challenge', exact: true }).click();
+    const play = ghostDrive ? /Play The Winning Drive|Beat your best/ : 'Play challenge';
+    await legends.getByRole('button', { name: play, exact: true }).click();
     const iframe = page.locator('iframe[title="BK Legends 3D football field"]');
     await iframe.waitFor();
     const handle = await iframe.elementHandle();
@@ -309,6 +311,32 @@ try {
     if (await chapter.getAttribute('aria-expanded') !== 'true') await chapter.click();
     await legends.getByText('Chapter Pack claimed.', { exact: true }).waitFor();
     report.chapterPackClaimed = true;
+  }
+  if (ghostDrive) {
+    const { title, ball, clock } = GHOST_SCENARIO;
+    await playChallenge({ title, ball, clock, attackEndZone: true });
+    const result = page.getByRole('dialog', { name: title });
+    await result.getByRole('heading', { name: 'Challenge cleared', exact: true }).waitFor();
+    await result.getByText(/New personal best/).waitFor();
+    await result.getByText(/Clutch Receiver 1\/2/).waitFor();
+    report.ghostResult = await result.innerText();
+    console.log(report.ghostResult);
+    await capture('ghost-result');
+    await result.getByRole('button', { name: 'Back to BK Legends' }).click();
+    await page.reload();
+    await enterLegends();
+    const ghost = legends.getByRole('region', { name: 'Ghost Drive' });
+    await ghost.getByText(/Personal best/).click();
+    await ghost.getByText(/TOUCHDOWN/).waitFor();
+    await ghost.getByRole('button', { name: 'Beat your best' }).waitFor();
+    await legends.getByText('0 / 80 complete', { exact: true }).waitFor();
+    await playChallenge({ title, ball, clock, attackEndZone: true });
+    await result.getByText(/earned Clutch Receiver/).waitFor();
+    report.ghostTrait = await result.getByText(/earned Clutch Receiver/).textContent();
+    await result.getByRole('button', { name: 'Back to BK Legends' }).click();
+    await legends.getByRole('button', { name: 'My Squad', exact: true }).click();
+    await legends.getByRole('button', { name: /^WR2 / }).click();
+    await legends.getByText(/\+3 catching in BK Legends/).waitFor();
   }
   if (lateStarts) {
     // Fixed expectations keep a broken scenario definition from rewriting the test's answer.

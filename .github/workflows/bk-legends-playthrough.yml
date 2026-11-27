@@ -34,6 +34,11 @@ jobs:
         env:
           BK_LEGENDS_LATE_STARTS: '1'
         run: node --import tsx scripts/bk-legends-playthrough.mjs
+      - name: Play Ghost Drive and earn Clutch Receiver
+        timeout-minutes: 10
+        env:
+          BK_LEGENDS_GHOST: '1'
+        run: node --import tsx scripts/bk-legends-playthrough.mjs
       - name: Play campaign challenges in order
         timeout-minutes: 60
         env:
@@ -46,4 +51,5 @@ jobs:
           path: |
             artifacts/bk-legends-playthrough/
             artifacts/bk-legends-late-starts/
+            artifacts/bk-legends-ghost/
           if-no-files-found: ignore
